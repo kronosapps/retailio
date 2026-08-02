@@ -4,6 +4,7 @@ export type MenuWeight = {
   weight: string
   price: number
   color: string
+  image?: string
 }
 
 export type MenuItem = {
@@ -11,6 +12,7 @@ export type MenuItem = {
   name: string
   category: string
   color: string
+  image?: string
   weights: MenuWeight[]
 }
 
@@ -23,6 +25,7 @@ export type MenuVariant = {
   price: number
   category: string
   color: string
+  image?: string
 }
 
 export type MenuData = {
@@ -30,30 +33,45 @@ export type MenuData = {
   items: MenuItem[]
 }
 
-function normalizeWeights(raw: unknown, fallbackColor: string): MenuWeight[] {
+function normalizeWeights(
+  raw: unknown,
+  fallbackColor: string,
+  fallbackImage?: string
+): MenuWeight[] {
   if (!Array.isArray(raw)) return []
-  return raw
-    .map((entry) => {
-      if (
-        !entry ||
-        typeof entry !== "object" ||
-        typeof (entry as MenuWeight).weight !== "string" ||
-        typeof (entry as MenuWeight).price !== "number"
-      ) {
-        return null
-      }
-      const color =
-        typeof (entry as MenuWeight).color === "string" &&
-        (entry as MenuWeight).color
-          ? (entry as MenuWeight).color
-          : fallbackColor
-      return {
-        weight: (entry as MenuWeight).weight,
-        price: (entry as MenuWeight).price,
-        color,
-      } satisfies MenuWeight
-    })
-    .filter((entry): entry is MenuWeight => entry !== null)
+
+  const weights: MenuWeight[] = []
+  for (const entry of raw) {
+    if (
+      !entry ||
+      typeof entry !== "object" ||
+      typeof (entry as MenuWeight).weight !== "string" ||
+      typeof (entry as MenuWeight).price !== "number"
+    ) {
+      continue
+    }
+
+    const color =
+      typeof (entry as MenuWeight).color === "string" &&
+      (entry as MenuWeight).color
+        ? (entry as MenuWeight).color
+        : fallbackColor
+
+    const image =
+      typeof (entry as { image?: unknown }).image === "string" &&
+      (entry as { image: string }).image
+        ? (entry as { image: string }).image
+        : fallbackImage
+
+    const weight: MenuWeight = {
+      weight: (entry as MenuWeight).weight,
+      price: (entry as MenuWeight).price,
+      color,
+    }
+    if (image) weight.image = image
+    weights.push(weight)
+  }
+  return weights
 }
 
 function normalizeMenuData(raw: unknown): MenuData {
@@ -61,31 +79,35 @@ function normalizeMenuData(raw: unknown): MenuData {
   const categories = Array.isArray(data?.categories)
     ? data.categories.filter((value): value is string => typeof value === "string")
     : []
-  const items = Array.isArray(data?.items)
-    ? data.items
-        .map((item) => {
-          if (
-            !item ||
-            typeof item.id !== "string" ||
-            typeof item.name !== "string" ||
-            typeof item.category !== "string"
-          ) {
-            return null
-          }
-          const itemColor =
-            typeof item.color === "string" ? item.color : "#e5e5e5"
-          const weights = normalizeWeights(item.weights, itemColor)
-          if (weights.length === 0) return null
-          return {
-            id: item.id,
-            name: item.name,
-            category: item.category,
-            color: itemColor,
-            weights,
-          } satisfies MenuItem
-        })
-        .filter((item): item is MenuItem => item !== null)
-    : []
+
+  const items: MenuItem[] = []
+  if (Array.isArray(data?.items)) {
+    for (const item of data.items) {
+      if (
+        !item ||
+        typeof item.id !== "string" ||
+        typeof item.name !== "string" ||
+        typeof item.category !== "string"
+      ) {
+        continue
+      }
+
+      const itemColor = typeof item.color === "string" ? item.color : "#e5e5e5"
+      const itemImage = typeof item.image === "string" ? item.image : undefined
+      const weights = normalizeWeights(item.weights, itemColor, itemImage)
+      if (weights.length === 0) continue
+
+      const normalized: MenuItem = {
+        id: item.id,
+        name: item.name,
+        category: item.category,
+        color: itemColor,
+        weights,
+      }
+      if (itemImage) normalized.image = itemImage
+      items.push(normalized)
+    }
+  }
 
   return { categories, items }
 }
@@ -107,7 +129,8 @@ export function toMenuVariant(
   item: MenuItem,
   weightOption: MenuWeight
 ): MenuVariant {
-  return {
+  const image = weightOption.image || item.image
+  const variant: MenuVariant = {
     id: `${item.id}__${weightOption.weight}`,
     itemId: item.id,
     name: item.name,
@@ -116,6 +139,8 @@ export function toMenuVariant(
     category: item.category,
     color: weightOption.color || item.color,
   }
+  if (image) variant.image = image
+  return variant
 }
 
 export function formatMoney(amount: number) {

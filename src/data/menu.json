@@ -6,11 +6,12 @@
       "name": "Bellam Halwa",
       "category": "Halwa",
       "color": "#FDE68A",
+      "image": "/menu/bellam-halwa.jpg",
       "weights": [
-        { "weight": "100 gm", "price": 80, "color": "#FED7AA" },
-        { "weight": "250 gm", "price": 180, "color": "#FED7EB" },
-        { "weight": "500 gm", "price": 340, "color": "#FED7EF" },
-        { "weight": "1 kg", "price": 650, "color": "#FED7EE" }
+        { "weight": "100 gm", "price": 80, "color": "#FED7AA", "image": "/menu/bellam-halwa.jpg" },
+        { "weight": "250 gm", "price": 180, "color": "#FED7EB", "image": "/menu/bellam-halwa.jpg" },
+        { "weight": "500 gm", "price": 340, "color": "#FED7EF", "image": "/menu/bellam-halwa.jpg" },
+        { "weight": "1 kg", "price": 650, "color": "#FED7EE", "image": "/menu/bellam-halwa.jpg" }
       ]
     },
     {
@@ -18,11 +19,12 @@
       "name": "Badam Halwa",
       "category": "Halwa",
       "color": "#FED7AA",
+      "image": "/menu/badam-halwa.jpg",
       "weights": [
-        { "weight": "100 gm", "price": 120, "color": "#FDE68A" },
-        { "weight": "250 gm", "price": 280, "color": "#FCD34D" },
-        { "weight": "500 gm", "price": 520, "color": "#FBBF24" },
-        { "weight": "1 kg", "price": 980, "color": "#F59E0B" }
+        { "weight": "100 gm", "price": 120, "color": "#FDE68A", "image": "/menu/badam-halwa.jpg" },
+        { "weight": "250 gm", "price": 280, "color": "#FCD34D", "image": "/menu/badam-halwa.jpg" },
+        { "weight": "500 gm", "price": 520, "color": "#FBBF24", "image": "/menu/badam-halwa.jpg" },
+        { "weight": "1 kg", "price": 980, "color": "#F59E0B", "image": "/menu/badam-halwa.jpg" }
       ]
     },
     {
@@ -30,11 +32,12 @@
       "name": "Carrot Halwa",
       "category": "Halwa",
       "color": "#FDBA74",
+      "image": "/menu/carrot-halwa.jpg",
       "weights": [
-        { "weight": "100 gm", "price": 90, "color": "#FED7AA" },
-        { "weight": "250 gm", "price": 210, "color": "#FDBA74" },
-        { "weight": "500 gm", "price": 390, "color": "#FB923C" },
-        { "weight": "1 kg", "price": 740, "color": "#F97316" }
+        { "weight": "100 gm", "price": 90, "color": "#FED7AA", "image": "/menu/carrot-halwa.jpg" },
+        { "weight": "250 gm", "price": 210, "color": "#FDBA74", "image": "/menu/carrot-halwa.jpg" },
+        { "weight": "500 gm", "price": 390, "color": "#FB923C", "image": "/menu/carrot-halwa.jpg" },
+        { "weight": "1 kg", "price": 740, "color": "#F97316", "image": "/menu/carrot-halwa.jpg" }
       ]
     },
     {
@@ -42,11 +45,12 @@
       "name": "Mixture",
       "category": "Snacks",
       "color": "#FEF08A",
+      "image": "/menu/mixture.jpg",
       "weights": [
-        { "weight": "100 gm", "price": 40, "color": "#FEF08A" },
-        { "weight": "250 gm", "price": 90, "color": "#FDE047" },
-        { "weight": "500 gm", "price": 170, "color": "#FACC15" },
-        { "weight": "1 kg", "price": 320, "color": "#EAB308" }
+        { "weight": "100 gm", "price": 40, "color": "#FEF08A", "image": "/menu/mixture.jpg" },
+        { "weight": "250 gm", "price": 90, "color": "#FDE047", "image": "/menu/mixture.jpg" },
+        { "weight": "500 gm", "price": 170, "color": "#FACC15", "image": "/menu/mixture.jpg" },
+        { "weight": "1 kg", "price": 320, "color": "#EAB308", "image": "/menu/mixture.jpg" }
       ]
     },
     {
@@ -54,11 +58,12 @@
       "name": "Murukku",
       "category": "Snacks",
       "color": "#FCD34D",
+      "image": "/menu/murukku.jpg",
       "weights": [
-        { "weight": "100 gm", "price": 50, "color": "#FDE68A" },
-        { "weight": "250 gm", "price": 110, "color": "#FCD34D" },
-        { "weight": "500 gm", "price": 200, "color": "#FBBF24" },
-        { "weight": "1 kg", "price": 380, "color": "#D97706" }
+        { "weight": "100 gm", "price": 50, "color": "#FDE68A", "image": "/menu/murukku.jpg" },
+        { "weight": "250 gm", "price": 110, "color": "#FCD34D", "image": "/menu/murukku.jpg" },
+        { "weight": "500 gm", "price": 200, "color": "#FBBF24", "image": "/menu/murukku.jpg" },
+        { "weight": "1 kg", "price": 380, "color": "#D97706", "image": "/menu/murukku.jpg" }
       ]
     },
     {
@@ -66,11 +71,12 @@
       "name": "Filter Coffee",
       "category": "Drinks",
       "color": "#D6D3D1",
+      "image": "/menu/filter-coffee.jpg",
       "weights": [
-        { "weight": "100 gm", "price": 60, "color": "#E7E5E4" },
-        { "weight": "250 gm", "price": 140, "color": "#D6D3D1" },
-        { "weight": "500 gm", "price": 260, "color": "#A8A29E" },
-        { "weight": "1 kg", "price": 480, "color": "#78716C" }
+        { "weight": "100 gm", "price": 60, "color": "#E7E5E4", "image": "/menu/filter-coffee.jpg" },
+        { "weight": "250 gm", "price": 140, "color": "#D6D3D1", "image": "/menu/filter-coffee.jpg" },
+        { "weight": "500 gm", "price": 260, "color": "#A8A29E", "image": "/menu/filter-coffee.jpg" },
+        { "weight": "1 kg", "price": 480, "color": "#78716C", "image": "/menu/filter-coffee.jpg" }
       ]
     }
   ]

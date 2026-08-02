@@ -197,26 +197,34 @@ export function PosPage() {
                     {item.name}
                   </h3>
                   <div className="grid grid-cols-4 gap-2">
-                    {item.weights.map((weightOption) => (
-                      <button
-                        key={`${item.id}-${weightOption.weight}`}
-                        type="button"
-                        onClick={() => addWeight(item, weightOption)}
-                        className="flex min-h-[4.5rem] flex-col items-start justify-between rounded-lg border border-black/10 p-2.5 text-left shadow-sm transition-transform active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        style={{
-                          backgroundColor:
-                            weightOption.color || item.color || "#e5e5e5",
-                          color: "#171717",
-                        }}
-                      >
-                        <span className="text-xs font-semibold sm:text-sm">
-                          {weightOption.weight}
-                        </span>
-                        <span className="text-xs font-medium opacity-80 sm:text-sm">
-                          {formatMoney(weightOption.price)}
-                        </span>
-                      </button>
-                    ))}
+                    {item.weights.map((weightOption) => {
+                      const image =
+                        weightOption.image || item.image || undefined
+                      return (
+                        <button
+                          key={`${item.id}-${weightOption.weight}`}
+                          type="button"
+                          onClick={() => addWeight(item, weightOption)}
+                          className="relative flex min-h-[5.5rem] flex-col items-start justify-between overflow-hidden rounded-lg border border-black/10 p-2.5 text-left text-white shadow-sm transition-transform active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          style={{
+                            backgroundColor:
+                              weightOption.color || item.color || "#e5e5e5",
+                            backgroundImage: image
+                              ? `linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0.2)), url(${image})`
+                              : undefined,
+                            backgroundSize: "cover",
+                            backgroundPosition: "center",
+                          }}
+                        >
+                          <span className="relative z-10 text-xs font-semibold drop-shadow sm:text-sm">
+                            {weightOption.weight}
+                          </span>
+                          <span className="relative z-10 text-xs font-medium drop-shadow sm:text-sm">
+                            {formatMoney(weightOption.price)}
+                          </span>
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               ))}
