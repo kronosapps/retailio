@@ -16,9 +16,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import { MissingStoreProfileError } from "@/lib/user-profile"
+import { cn } from "@/lib/utils"
 import { useAuth } from "@/providers/AuthProvider"
 import type { UserRole } from "@/types/user"
-import { cn } from "@/lib/utils"
 
 const loginSchema = z.object({
   email: z.email("Enter a valid email"),
@@ -28,16 +29,22 @@ const loginSchema = z.object({
 type LoginValues = z.infer<typeof loginSchema>
 
 function authErrorMessage(error: unknown) {
+  if (error instanceof MissingStoreProfileError) {
+    return error.message
+  }
   if (error instanceof FirebaseError) {
     switch (error.code) {
       case "auth/invalid-credential":
       case "auth/user-not-found":
       case "auth/wrong-password":
+      case "auth/invalid-email":
         return "Invalid email or password."
       case "auth/too-many-requests":
         return "Too many attempts. Try again later."
       case "auth/invalid-api-key":
         return "Firebase API key is invalid. Check your .env values."
+      case "auth/network-request-failed":
+        return "Network error. Check your connection and try again."
       default:
         return "Unable to sign in. Please try again."
     }
@@ -82,7 +89,7 @@ export function LoginPage() {
     setFormError(null)
     try {
       const profile = await signIn(values.email, values.password)
-      goAfterLogin(profile?.role)
+      goAfterLogin(profile.role)
     } catch (error) {
       setFormError(authErrorMessage(error))
     }

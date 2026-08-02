@@ -3,7 +3,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom"
 import { useAuth } from "@/providers/AuthProvider"
 
 export function RequireAuth() {
-  const { isAuthenticated, loading } = useAuth()
+  const { isAuthenticated, profile, loading } = useAuth()
   const location = useLocation()
 
   if (loading) {
@@ -14,7 +14,7 @@ export function RequireAuth() {
     )
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !profile) {
     return <Navigate to="/login" replace state={{ from: location }} />
   }
 

@@ -1,0 +1,23 @@
+{
+  "_comment": "Create Authentication users first, then add a Firestore document at users/{uid} using that Auth UID as the document ID.",
+  "examples": [
+    {
+      "path": "users/{ADMIN_AUTH_UID}",
+      "document": {
+        "email": "admin@store.com",
+        "displayName": "Store Admin",
+        "role": "admin",
+        "storeId": "store-1"
+      }
+    },
+    {
+      "path": "users/{CASHIER_AUTH_UID}",
+      "document": {
+        "email": "cashier@store.com",
+        "displayName": "Front Cashier",
+        "role": "cashier",
+        "storeId": "store-1"
+      }
+    }
+  ]
+}

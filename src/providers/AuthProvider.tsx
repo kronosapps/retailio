@@ -14,6 +14,10 @@ import {
 import { doc, getDoc } from "firebase/firestore"
 
 import { auth, db, isFirebaseConfigured } from "@/lib/firebase"
+import {
+  MissingStoreProfileError,
+  parseUserProfile,
+} from "@/lib/user-profile"
 import type { UserProfile, UserRole } from "@/types/user"
 
 const OVERRIDE_STORAGE_KEY = "retailos.auth.override"
@@ -26,7 +30,7 @@ type AuthContextValue = {
   configured: boolean
   isOverride: boolean
   isAuthenticated: boolean
-  signIn: (email: string, password: string) => Promise<UserProfile | null>
+  signIn: (email: string, password: string) => Promise<UserProfile>
   signInOverride: (role: UserRole) => UserProfile
   signOut: () => Promise<void>
 }
@@ -46,9 +50,7 @@ function readOverrideProfile(): UserProfile | null {
   try {
     const raw = sessionStorage.getItem(OVERRIDE_STORAGE_KEY)
     if (!raw) return null
-    const parsed = JSON.parse(raw) as UserProfile
-    if (parsed.role !== "admin" && parsed.role !== "cashier") return null
-    return parsed
+    return parseUserProfile(JSON.parse(raw) as unknown)
   } catch {
     return null
   }
@@ -66,58 +68,83 @@ async function fetchUserProfile(uid: string): Promise<UserProfile | null> {
   if (!db) return null
   const snap = await getDoc(doc(db, "users", uid))
   if (!snap.exists()) return null
-  return snap.data() as UserProfile
+  return parseUserProfile(snap.data())
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const [bootstrappedOverride] = useState(readOverrideProfile)
   const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [isOverride, setIsOverride] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [profile, setProfile] = useState<UserProfile | null>(bootstrappedOverride)
+  const [isOverride, setIsOverride] = useState(Boolean(bootstrappedOverride))
+  const [loading, setLoading] = useState(
+    () => !bootstrappedOverride && isFirebaseConfigured
+  )
 
   useEffect(() => {
-    const overrideProfile = readOverrideProfile()
-    if (overrideProfile) {
-      setProfile(overrideProfile)
-      setIsOverride(true)
-      setLoading(false)
-      return
-    }
+    if (bootstrappedOverride) return
 
-    if (!auth) {
-      setLoading(false)
-      return
-    }
+    const firebaseAuth = auth
+    if (!firebaseAuth) return
 
-    const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
-      setUser(nextUser)
-      setIsOverride(false)
-      if (nextUser) {
-        try {
-          const nextProfile = await fetchUserProfile(nextUser.uid)
-          setProfile(nextProfile)
-        } catch {
-          setProfile(null)
-        }
-      } else {
+    const unsubscribe = onAuthStateChanged(firebaseAuth, async (nextUser) => {
+      if (!nextUser) {
+        setUser(null)
         setProfile(null)
+        setIsOverride(false)
+        setLoading(false)
+        return
       }
-      setLoading(false)
+
+      try {
+        const nextProfile = await fetchUserProfile(nextUser.uid)
+        if (!nextProfile) {
+          await firebaseSignOut(firebaseAuth)
+          setUser(null)
+          setProfile(null)
+          setIsOverride(false)
+        } else {
+          setUser(nextUser)
+          setProfile(nextProfile)
+          setIsOverride(false)
+        }
+      } catch {
+        setUser(null)
+        setProfile(null)
+        setIsOverride(false)
+      } finally {
+        setLoading(false)
+      }
     })
 
     return unsubscribe
-  }, [])
+  }, [bootstrappedOverride])
 
   async function signIn(email: string, password: string) {
-    if (!auth) {
+    const firebaseAuth = auth
+    if (!firebaseAuth) {
       throw new Error(
         "Firebase is not configured. Copy .env.example to .env and add your Firebase keys."
       )
     }
+
     clearOverrideProfile()
     setIsOverride(false)
-    const credential = await signInWithEmailAndPassword(auth, email, password)
+
+    const credential = await signInWithEmailAndPassword(
+      firebaseAuth,
+      email,
+      password
+    )
     const nextProfile = await fetchUserProfile(credential.user.uid)
+
+    if (!nextProfile) {
+      await firebaseSignOut(firebaseAuth)
+      setUser(null)
+      setProfile(null)
+      throw new MissingStoreProfileError()
+    }
+
+    setUser(credential.user)
     setProfile(nextProfile)
     return nextProfile
   }
@@ -141,7 +168,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const isAuthenticated = isOverride || Boolean(user)
+  const isAuthenticated =
+    (isOverride && Boolean(profile)) || (Boolean(user) && Boolean(profile))
 
   return (
     <AuthContext.Provider

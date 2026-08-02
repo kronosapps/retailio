@@ -1,5 +1,6 @@
 export type UserRole = "admin" | "cashier"
 
+/** Firestore: users/{uid} */
 export type UserProfile = {
   email: string
   displayName: string
