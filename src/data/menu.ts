@@ -1,8 +1,24 @@
 import menuData from "./menu.json"
 
+export type MenuWeight = {
+  weight: string
+  price: number
+}
+
 export type MenuItem = {
   id: string
   name: string
+  category: string
+  color: string
+  weights: MenuWeight[]
+}
+
+/** A specific weight selection sold on POS / cart */
+export type MenuVariant = {
+  id: string
+  itemId: string
+  name: string
+  weight: string
   price: number
   category: string
   color: string
@@ -13,20 +29,44 @@ export type MenuData = {
   items: MenuItem[]
 }
 
+function normalizeWeights(raw: unknown): MenuWeight[] {
+  if (!Array.isArray(raw)) return []
+  return raw.filter(
+    (entry): entry is MenuWeight =>
+      !!entry &&
+      typeof entry === "object" &&
+      typeof (entry as MenuWeight).weight === "string" &&
+      typeof (entry as MenuWeight).price === "number"
+  )
+}
+
 function normalizeMenuData(raw: unknown): MenuData {
   const data = raw as Partial<MenuData> | null
   const categories = Array.isArray(data?.categories)
     ? data.categories.filter((value): value is string => typeof value === "string")
     : []
   const items = Array.isArray(data?.items)
-    ? data.items.filter(
-        (item): item is MenuItem =>
-          !!item &&
-          typeof item.id === "string" &&
-          typeof item.name === "string" &&
-          typeof item.category === "string" &&
-          typeof item.price === "number"
-      )
+    ? data.items
+        .map((item) => {
+          if (
+            !item ||
+            typeof item.id !== "string" ||
+            typeof item.name !== "string" ||
+            typeof item.category !== "string"
+          ) {
+            return null
+          }
+          const weights = normalizeWeights(item.weights)
+          if (weights.length === 0) return null
+          return {
+            id: item.id,
+            name: item.name,
+            category: item.category,
+            color: typeof item.color === "string" ? item.color : "#e5e5e5",
+            weights,
+          } satisfies MenuItem
+        })
+        .filter((item): item is MenuItem => item !== null)
     : []
 
   return { categories, items }
@@ -45,9 +85,25 @@ export function getMenuItemsByCategory(category: MenuCategory): MenuItem[] {
   return MENU_ITEMS.filter((item) => item.category === category)
 }
 
+export function toMenuVariant(
+  item: MenuItem,
+  weightOption: MenuWeight
+): MenuVariant {
+  return {
+    id: `${item.id}__${weightOption.weight}`,
+    itemId: item.id,
+    name: item.name,
+    weight: weightOption.weight,
+    price: weightOption.price,
+    category: item.category,
+    color: item.color,
+  }
+}
+
 export function formatMoney(amount: number) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-IN", {
     style: "currency",
-    currency: "USD",
+    currency: "INR",
+    maximumFractionDigits: 0,
   }).format(amount)
 }

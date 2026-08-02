@@ -7,13 +7,16 @@ import {
   MENU_CATEGORIES,
   formatMoney,
   getMenuItemsByCategory,
+  toMenuVariant,
   type MenuCategory,
   type MenuItem,
+  type MenuVariant,
+  type MenuWeight,
 } from "@/data/menu"
 import { cn } from "@/lib/utils"
 
 type CartLine = {
-  item: MenuItem
+  item: MenuVariant
   qty: number
 }
 
@@ -29,23 +32,24 @@ export function PosPage() {
   )
   const itemCount = cart.reduce((sum, line) => sum + line.qty, 0)
 
-  function addItem(item: MenuItem) {
+  function addWeight(item: MenuItem, weightOption: MenuWeight) {
+    const variant = toMenuVariant(item, weightOption)
     setCart((prev) => {
-      const existing = prev.find((line) => line.item.id === item.id)
+      const existing = prev.find((line) => line.item.id === variant.id)
       if (existing) {
         return prev.map((line) =>
-          line.item.id === item.id ? { ...line, qty: line.qty + 1 } : line
+          line.item.id === variant.id ? { ...line, qty: line.qty + 1 } : line
         )
       }
-      return [...prev, { item, qty: 1 }]
+      return [...prev, { item: variant, qty: 1 }]
     })
   }
 
-  function setQty(itemId: string, qty: number) {
+  function setQty(variantId: string, qty: number) {
     setCart((prev) => {
-      if (qty <= 0) return prev.filter((line) => line.item.id !== itemId)
+      if (qty <= 0) return prev.filter((line) => line.item.id !== variantId)
       return prev.map((line) =>
-        line.item.id === itemId ? { ...line, qty } : line
+        line.item.id === variantId ? { ...line, qty } : line
       )
     })
   }
@@ -56,7 +60,6 @@ export function PosPage() {
 
   return (
     <div className="grid h-full w-full grid-cols-1 grid-rows-[minmax(0,38%)_minmax(0,1fr)] md:grid-cols-[minmax(280px,32%)_minmax(0,1fr)] md:grid-rows-1">
-      {/* Current order */}
       <aside className="flex min-h-0 flex-col border-b border-border bg-sidebar text-sidebar-foreground md:border-r md:border-b-0">
         <div className="flex items-center justify-between px-4 py-3">
           <div>
@@ -84,7 +87,7 @@ export function PosPage() {
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
           {cart.length === 0 ? (
             <div className="flex h-full min-h-28 items-center justify-center rounded-lg border border-dashed border-border px-4 text-center text-sm text-muted-foreground">
-              Tap menu items to build the ticket
+              Tap a weight to build the ticket
             </div>
           ) : (
             <ul className="space-y-2">
@@ -98,7 +101,7 @@ export function PosPage() {
                       {line.item.name}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {formatMoney(line.item.price)} each
+                      {line.item.weight} · {formatMoney(line.item.price)} each
                     </p>
                   </div>
 
@@ -109,7 +112,7 @@ export function PosPage() {
                       size="icon-sm"
                       className="size-9"
                       onClick={() => setQty(line.item.id, line.qty - 1)}
-                      aria-label={`Decrease ${line.item.name}`}
+                      aria-label={`Decrease ${line.item.name} ${line.item.weight}`}
                     >
                       <Minus />
                     </Button>
@@ -122,13 +125,13 @@ export function PosPage() {
                       size="icon-sm"
                       className="size-9"
                       onClick={() => setQty(line.item.id, line.qty + 1)}
-                      aria-label={`Increase ${line.item.name}`}
+                      aria-label={`Increase ${line.item.name} ${line.item.weight}`}
                     >
                       <Plus />
                     </Button>
                   </div>
 
-                  <p className="w-14 shrink-0 text-right text-sm font-semibold tabular-nums">
+                  <p className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">
                     {formatMoney(line.item.price * line.qty)}
                   </p>
                 </li>
@@ -156,7 +159,6 @@ export function PosPage() {
         </div>
       </aside>
 
-      {/* Menu */}
       <section className="flex min-h-0 min-w-0 flex-col">
         <div className="shrink-0 space-y-2 border-b border-border px-4 py-3">
           <h2 className="text-base font-semibold">Menu</h2>
@@ -185,25 +187,37 @@ export function PosPage() {
               No items in this category
             </div>
           ) : (
-            <div className="grid grid-cols-4 gap-2">
+            <div className="space-y-4">
               {items.map((item) => (
-                <button
+                <div
                   key={item.id}
-                  type="button"
-                  onClick={() => addItem(item)}
-                  className="flex aspect-[4/3] min-h-0 flex-col items-start justify-between rounded-lg border border-black/10 p-2.5 text-left shadow-sm transition-transform active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-3"
-                  style={{
-                    backgroundColor: item.color || "#e5e5e5",
-                    color: "#171717",
-                  }}
+                  className="rounded-xl border border-border bg-background p-3"
                 >
-                  <span className="line-clamp-2 text-xs font-semibold leading-snug sm:text-sm">
+                  <h3 className="mb-2 text-sm font-semibold tracking-tight sm:text-base">
                     {item.name}
-                  </span>
-                  <span className="text-xs font-medium opacity-80 sm:text-sm">
-                    {formatMoney(item.price)}
-                  </span>
-                </button>
+                  </h3>
+                  <div className="grid grid-cols-4 gap-2">
+                    {item.weights.map((weightOption) => (
+                      <button
+                        key={`${item.id}-${weightOption.weight}`}
+                        type="button"
+                        onClick={() => addWeight(item, weightOption)}
+                        className="flex min-h-[4.5rem] flex-col items-start justify-between rounded-lg border border-black/10 p-2.5 text-left shadow-sm transition-transform active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        style={{
+                          backgroundColor: item.color || "#e5e5e5",
+                          color: "#171717",
+                        }}
+                      >
+                        <span className="text-xs font-semibold sm:text-sm">
+                          {weightOption.weight}
+                        </span>
+                        <span className="text-xs font-medium opacity-80 sm:text-sm">
+                          {formatMoney(weightOption.price)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           )}
