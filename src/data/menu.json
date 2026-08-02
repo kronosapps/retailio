@@ -1,0 +1,145 @@
+{
+  "categories": ["Drinks", "Snacks", "Grocery", "Fresh"],
+  "items": [
+    {
+      "id": "espresso",
+      "name": "Espresso",
+      "price": 2.5,
+      "category": "Drinks",
+      "color": "#FDE68A"
+    },
+    {
+      "id": "latte",
+      "name": "Cafe Latte",
+      "price": 3.75,
+      "category": "Drinks",
+      "color": "#FED7AA"
+    },
+    {
+      "id": "cold-brew",
+      "name": "Cold Brew",
+      "price": 4.25,
+      "category": "Drinks",
+      "color": "#D6D3D1"
+    },
+    {
+      "id": "soda",
+      "name": "Soft Drink",
+      "price": 1.99,
+      "category": "Drinks",
+      "color": "#BAE6FD"
+    },
+    {
+      "id": "water",
+      "name": "Bottled Water",
+      "price": 1.25,
+      "category": "Drinks",
+      "color": "#A5F3FC"
+    },
+    {
+      "id": "chips",
+      "name": "Potato Chips",
+      "price": 2.49,
+      "category": "Snacks",
+      "color": "#FEF08A"
+    },
+    {
+      "id": "cookie",
+      "name": "Chocolate Cookie",
+      "price": 1.75,
+      "category": "Snacks",
+      "color": "#FCD34D"
+    },
+    {
+      "id": "candy",
+      "name": "Candy Bar",
+      "price": 1.5,
+      "category": "Snacks",
+      "color": "#FECDD3"
+    },
+    {
+      "id": "nuts",
+      "name": "Mixed Nuts",
+      "price": 3.25,
+      "category": "Snacks",
+      "color": "#D9F99D"
+    },
+    {
+      "id": "pretzel",
+      "name": "Soft Pretzel",
+      "price": 2.25,
+      "category": "Snacks",
+      "color": "#FDBA74"
+    },
+    {
+      "id": "bread",
+      "name": "Sourdough Loaf",
+      "price": 4.5,
+      "category": "Grocery",
+      "color": "#FEF9C3"
+    },
+    {
+      "id": "milk",
+      "name": "Whole Milk 1L",
+      "price": 2.8,
+      "category": "Grocery",
+      "color": "#DBEAFE"
+    },
+    {
+      "id": "eggs",
+      "name": "Eggs (12)",
+      "price": 3.99,
+      "category": "Grocery",
+      "color": "#FFEDD5"
+    },
+    {
+      "id": "rice",
+      "name": "Rice 1kg",
+      "price": 5.5,
+      "category": "Grocery",
+      "color": "#E5E5E5"
+    },
+    {
+      "id": "pasta",
+      "name": "Pasta 500g",
+      "price": 2.1,
+      "category": "Grocery",
+      "color": "#FDE68A"
+    },
+    {
+      "id": "apple",
+      "name": "Apples (4)",
+      "price": 3.2,
+      "category": "Fresh",
+      "color": "#FECACA"
+    },
+    {
+      "id": "banana",
+      "name": "Bananas",
+      "price": 1.8,
+      "category": "Fresh",
+      "color": "#FEF08A"
+    },
+    {
+      "id": "salad",
+      "name": "Garden Salad",
+      "price": 6.5,
+      "category": "Fresh",
+      "color": "#BBF7D0"
+    },
+    {
+      "id": "tomato",
+      "name": "Tomatoes 500g",
+      "price": 2.4,
+      "category": "Fresh",
+      "color": "#FCA5A5"
+    },
+    {
+      "id": "orange",
+      "name": "Oranges (3)",
+      "price": 2.9,
+      "category": "Fresh",
+      "color": "#FDBA74"
+    }
+  ]
+}

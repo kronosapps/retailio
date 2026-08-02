@@ -25,7 +25,7 @@ export function AppLayout() {
   )
 
   return (
-    <div className="flex min-h-svh bg-background">
+    <div className="flex h-svh min-h-0 overflow-hidden bg-background">
       <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-sidebar text-sidebar-foreground">
         <div className="px-4 py-5">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -77,7 +77,7 @@ export function AppLayout() {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto p-6">
+      <main className="min-h-0 min-w-0 flex-1 overflow-auto p-6">
         <Outlet />
       </main>
     </div>

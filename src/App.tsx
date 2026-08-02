@@ -4,6 +4,7 @@ import { RequireAdmin } from "@/components/RequireAdmin"
 import { RequireAuth } from "@/components/RequireAuth"
 import { RequireGuest } from "@/components/RequireGuest"
 import { AppLayout } from "@/layouts/AppLayout"
+import { PosLayout } from "@/layouts/PosLayout"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { InventoryPage } from "@/pages/InventoryPage"
 import { LoginPage } from "@/pages/LoginPage"
@@ -17,9 +18,11 @@ export default function App() {
       </Route>
 
       <Route element={<RequireAuth />}>
-        <Route element={<AppLayout />}>
+        <Route element={<PosLayout />}>
           <Route path="/pos" element={<PosPage />} />
+        </Route>
 
+        <Route element={<AppLayout />}>
           <Route element={<RequireAdmin />}>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/inventory" element={<InventoryPage />} />
