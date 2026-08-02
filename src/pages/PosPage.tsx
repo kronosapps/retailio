@@ -204,7 +204,8 @@ export function PosPage() {
                         onClick={() => addWeight(item, weightOption)}
                         className="flex min-h-[4.5rem] flex-col items-start justify-between rounded-lg border border-black/10 p-2.5 text-left shadow-sm transition-transform active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         style={{
-                          backgroundColor: item.color || "#e5e5e5",
+                          backgroundColor:
+                            weightOption.color || item.color || "#e5e5e5",
                           color: "#171717",
                         }}
                       >

@@ -7,10 +7,10 @@
       "category": "Halwa",
       "color": "#FDE68A",
       "weights": [
-        { "weight": "100gm", "price": 80 },
-        { "weight": "250gm", "price": 180 },
-        { "weight": "500gm", "price": 340 },
-        { "weight": "1000gm", "price": 650 }
+        { "weight": "100 gm", "price": 80, "color": "#FED7AA" },
+        { "weight": "250 gm", "price": 180, "color": "#FED7EB" },
+        { "weight": "500 gm", "price": 340, "color": "#FED7EF" },
+        { "weight": "1 kg", "price": 650, "color": "#FED7EE" }
       ]
     },
     {
@@ -19,10 +19,10 @@
       "category": "Halwa",
       "color": "#FED7AA",
       "weights": [
-        { "weight": "100gm", "price": 120 },
-        { "weight": "250gm", "price": 280 },
-        { "weight": "500gm", "price": 520 },
-        { "weight": "1000gm", "price": 980 }
+        { "weight": "100 gm", "price": 120, "color": "#FDE68A" },
+        { "weight": "250 gm", "price": 280, "color": "#FCD34D" },
+        { "weight": "500 gm", "price": 520, "color": "#FBBF24" },
+        { "weight": "1 kg", "price": 980, "color": "#F59E0B" }
       ]
     },
     {
@@ -31,10 +31,10 @@
       "category": "Halwa",
       "color": "#FDBA74",
       "weights": [
-        { "weight": "100gm", "price": 90 },
-        { "weight": "250gm", "price": 210 },
-        { "weight": "500gm", "price": 390 },
-        { "weight": "1000gm", "price": 740 }
+        { "weight": "100 gm", "price": 90, "color": "#FED7AA" },
+        { "weight": "250 gm", "price": 210, "color": "#FDBA74" },
+        { "weight": "500 gm", "price": 390, "color": "#FB923C" },
+        { "weight": "1 kg", "price": 740, "color": "#F97316" }
       ]
     },
     {
@@ -43,10 +43,10 @@
       "category": "Snacks",
       "color": "#FEF08A",
       "weights": [
-        { "weight": "100gm", "price": 40 },
-        { "weight": "250gm", "price": 90 },
-        { "weight": "500gm", "price": 170 },
-        { "weight": "1000gm", "price": 320 }
+        { "weight": "100 gm", "price": 40, "color": "#FEF08A" },
+        { "weight": "250 gm", "price": 90, "color": "#FDE047" },
+        { "weight": "500 gm", "price": 170, "color": "#FACC15" },
+        { "weight": "1 kg", "price": 320, "color": "#EAB308" }
       ]
     },
     {
@@ -55,10 +55,10 @@
       "category": "Snacks",
       "color": "#FCD34D",
       "weights": [
-        { "weight": "100gm", "price": 50 },
-        { "weight": "250gm", "price": 110 },
-        { "weight": "500gm", "price": 200 },
-        { "weight": "1000gm", "price": 380 }
+        { "weight": "100 gm", "price": 50, "color": "#FDE68A" },
+        { "weight": "250 gm", "price": 110, "color": "#FCD34D" },
+        { "weight": "500 gm", "price": 200, "color": "#FBBF24" },
+        { "weight": "1 kg", "price": 380, "color": "#D97706" }
       ]
     },
     {
@@ -67,10 +67,10 @@
       "category": "Drinks",
       "color": "#D6D3D1",
       "weights": [
-        { "weight": "100gm", "price": 60 },
-        { "weight": "250gm", "price": 140 },
-        { "weight": "500gm", "price": 260 },
-        { "weight": "1000gm", "price": 480 }
+        { "weight": "100 gm", "price": 60, "color": "#E7E5E4" },
+        { "weight": "250 gm", "price": 140, "color": "#D6D3D1" },
+        { "weight": "500 gm", "price": 260, "color": "#A8A29E" },
+        { "weight": "1 kg", "price": 480, "color": "#78716C" }
       ]
     }
   ]
