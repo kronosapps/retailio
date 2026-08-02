@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { useAuth } from "@/providers/AuthProvider"
 
 export function PosLayout() {
-  const { profile, role, isOverride, signOut } = useAuth()
+  const { profile, role, signOut } = useAuth()
 
   return (
     <div className="flex h-svh min-h-0 flex-col overflow-hidden bg-background">
@@ -74,7 +74,6 @@ export function PosLayout() {
             </p>
             <p className="truncate text-xs text-muted-foreground capitalize">
               {role ?? "staff"}
-              {isOverride ? " · override" : ""}
               {profile?.storeId ? ` · ${profile.storeId}` : ""}
             </p>
           </div>

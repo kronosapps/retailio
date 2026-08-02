@@ -18,7 +18,7 @@ const navItems = [
 ] as const
 
 export function AppLayout() {
-  const { profile, role, isOverride, signOut } = useAuth()
+  const { profile, role, signOut } = useAuth()
 
   const visibleNav = navItems.filter(
     (item) => !item.adminOnly || role === "admin"
@@ -37,7 +37,6 @@ export function AppLayout() {
           {role ? (
             <p className="mt-0.5 text-xs text-muted-foreground capitalize">
               {role}
-              {isOverride ? " · override" : ""}
             </p>
           ) : null}
         </div>

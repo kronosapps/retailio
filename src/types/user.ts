@@ -1,6 +1,6 @@
 export type UserRole = "admin" | "cashier"
 
-/** Firestore: users/{uid} */
+/** Local staff profile (from src/data/local-users.ts + .env) */
 export type UserProfile = {
   email: string
   displayName: string
