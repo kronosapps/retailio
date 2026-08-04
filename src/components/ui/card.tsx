@@ -1,7 +1,11 @@
 import * as React from "react"
+import { isFirebaseConfigured, db, auth } from "@/services/firebase"
+
+
 
 import { cn } from "@/lib/utils"
 
+console.log({ isFirebaseConfigured, hasDb: !!db, hasAuth: !!auth })
 function Card({
   className,
   size = "default",

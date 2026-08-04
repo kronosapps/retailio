@@ -1,10 +1,68 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Store staff profiles. Created via Firebase Console / Admin SDK for MVP.
+    /**
+     * DEVELOPMENT RULES
+     * -----------------
+     * Authenticated users may read/write application data.
+     * NEVER use `allow read, write: if true` (public open access).
+     *
+     * PRODUCTION (later):
+     * - Restrict by custom claims: request.auth.token.role in ['admin','cashier']
+     * - Scope documents by storeId == request.auth.token.storeId
+     * - Separate admin-only collections (settings, users write, etc.)
+     * - Field-level validation on invoices / payments
+     */
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Application collections — authenticated only (dev)
+    match /products/{id} {
+      allow read, write: if isSignedIn();
+      // prod: allow write: if isSignedIn() && request.auth.token.role == 'admin';
+    }
+
+    match /customers/{id} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /suppliers/{id} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /inventory/{id} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /invoices/{id} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /payments/{id} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /expenses/{id} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /settings/{id} {
+      allow read, write: if isSignedIn();
+      // prod: admin-only writes
+    }
+
+    match /sync_events/{id} {
+      allow read, write: if isSignedIn();
+      // prod: service account / admin only
+    }
+
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
+      // Dev: signed-in users can read their own profile; writes via Admin SDK / console
+      allow read: if isSignedIn() && request.auth.uid == userId;
       allow write: if false;
+      // prod: add admin role checks for listing all users
     }
   }
 }

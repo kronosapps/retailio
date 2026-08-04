@@ -1,3 +1,4 @@
+export { BaseRepository } from "./BaseRepository"
 export { invoiceRepository, InvoiceRepository } from "./InvoiceRepository"
 export { paymentRepository, PaymentRepository } from "./PaymentRepository"
 export {

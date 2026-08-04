@@ -1,11 +1,20 @@
 /**
- * Firebase entrypoint.
- * React and business modules must not import firebase/* SDK directly —
- * use repositories instead. This module only exposes the shared app/db/auth.
+ * Legacy path `@/firebase`.
+ * Prefer `@/services/firebase` for new modules.
  */
 export {
   auth,
   db,
   firebaseApp,
   isFirebaseConfigured,
-} from "@/lib/firebase"
+  getFirebaseApp,
+  getFirestoreDb,
+  getFirebaseAuth,
+  initializeFirebase,
+  COLLECTIONS,
+  login,
+  logout,
+  currentUser,
+  AppFirebaseError,
+  getFirebaseErrorMessage,
+} from "@/services/firebase"

@@ -328,7 +328,10 @@ export function PosPage() {
           clearCart()
         },
       })
-    } catch {
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.error("[RetailOS] Charge failed", error)
+      }
       setChargeError("Could not start payment for this order. Try again.")
     }
   }

@@ -1,6 +1,7 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useState,
   type ReactNode,
 } from "react"
@@ -10,10 +11,19 @@ import {
   findLocalUser,
   toUserProfile,
 } from "@/data/local-users"
-import { parseUserProfile } from "@/lib/user-profile"
+import { MissingStoreProfileError } from "@/lib/user-profile"
+import {
+  AppFirebaseError,
+  fetchUserProfile,
+  getFirebaseErrorMessage,
+  isFirebaseConfigured,
+  login as firebaseLogin,
+  logout as firebaseLogout,
+  subscribeToAuthChanges,
+} from "@/services/firebase"
 import type { UserProfile, UserRole } from "@/types/user"
 
-const SESSION_STORAGE_KEY = "retailos.auth.local"
+const LOCAL_SESSION_KEY = "retailos.auth.local"
 
 type AuthContextValue = {
   userId: string | null
@@ -21,64 +31,135 @@ type AuthContextValue = {
   role: UserRole | null
   loading: boolean
   isAuthenticated: boolean
+  /** True when Firebase Auth is the active provider. */
+  usingFirebaseAuth: boolean
   signIn: (email: string, password: string) => Promise<UserProfile>
   signOut: () => Promise<void>
 }
 
-type StoredSession = {
+type StoredLocalSession = {
   userId: string
   profile: UserProfile
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-function readSession(): StoredSession | null {
+function readLocalSession(): StoredLocalSession | null {
   try {
-    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY)
+    const raw = sessionStorage.getItem(LOCAL_SESSION_KEY)
     if (!raw) return null
-    const parsed = JSON.parse(raw) as Partial<StoredSession>
+    const parsed = JSON.parse(raw) as Partial<StoredLocalSession>
     if (typeof parsed.userId !== "string" || !parsed.userId) return null
-    const profile = parseUserProfile(parsed.profile)
-    if (!profile) return null
-    return { userId: parsed.userId, profile }
+    if (!parsed.profile) return null
+    return parsed as StoredLocalSession
   } catch {
     return null
   }
 }
 
-function writeSession(session: StoredSession) {
-  sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session))
+function writeLocalSession(session: StoredLocalSession) {
+  sessionStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(session))
 }
 
-function clearSession() {
-  sessionStorage.removeItem(SESSION_STORAGE_KEY)
+function clearLocalSession() {
+  sessionStorage.removeItem(LOCAL_SESSION_KEY)
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [bootstrapped] = useState(readSession)
+  const usingFirebaseAuth = isFirebaseConfigured
+  const localBootstrap = !usingFirebaseAuth ? readLocalSession() : null
+
   const [userId, setUserId] = useState<string | null>(
-    () => bootstrapped?.userId ?? null
+    () => localBootstrap?.userId ?? null
   )
   const [profile, setProfile] = useState<UserProfile | null>(
-    () => bootstrapped?.profile ?? null
+    () => localBootstrap?.profile ?? null
   )
-  const [loading] = useState(false)
+  const [loading, setLoading] = useState(usingFirebaseAuth)
 
-  async function signIn(email: string, password: string) {
-    const user = findLocalUser(email, password)
-    if (!user) {
+  useEffect(() => {
+    if (!usingFirebaseAuth) {
+      setLoading(false)
+      return
+    }
+
+    let active = true
+    setLoading(true)
+
+    const unsubscribe = subscribeToAuthChanges((user) => {
+      void (async () => {
+        if (!active) return
+
+        if (!user) {
+          setUserId(null)
+          setProfile(null)
+          setLoading(false)
+          return
+        }
+
+        try {
+          const nextProfile = await fetchUserProfile(user.uid)
+          if (!active) return
+          setUserId(user.uid)
+          setProfile(nextProfile)
+        } catch (error) {
+          if (import.meta.env.DEV) {
+            console.error("[RetailOS] Failed to load user profile", error)
+          }
+          await firebaseLogout()
+          if (!active) return
+          setUserId(null)
+          setProfile(null)
+        } finally {
+          if (active) setLoading(false)
+        }
+      })()
+    })
+
+    return () => {
+      active = false
+      unsubscribe()
+    }
+  }, [usingFirebaseAuth])
+
+  async function signIn(email: string, password: string): Promise<UserProfile> {
+    if (usingFirebaseAuth) {
+      const user = await firebaseLogin({ email, password })
+      try {
+        const nextProfile = await fetchUserProfile(user.uid)
+        setUserId(user.uid)
+        setProfile(nextProfile)
+        return nextProfile
+      } catch (error) {
+        await firebaseLogout()
+        setUserId(null)
+        setProfile(null)
+        if (error instanceof MissingStoreProfileError) throw error
+        throw new AppFirebaseError(
+          "auth/profile",
+          getFirebaseErrorMessage(error),
+          error
+        )
+      }
+    }
+
+    const localUser = findLocalUser(email, password)
+    if (!localUser) {
       throw new InvalidLocalCredentialsError()
     }
 
-    const nextProfile = toUserProfile(user)
-    writeSession({ userId: user.id, profile: nextProfile })
-    setUserId(user.id)
+    const nextProfile = toUserProfile(localUser)
+    writeLocalSession({ userId: localUser.id, profile: nextProfile })
+    setUserId(localUser.id)
     setProfile(nextProfile)
     return nextProfile
   }
 
   async function signOut() {
-    clearSession()
+    if (usingFirebaseAuth) {
+      await firebaseLogout()
+    }
+    clearLocalSession()
     setUserId(null)
     setProfile(null)
   }
@@ -93,6 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: profile?.role ?? null,
         loading,
         isAuthenticated,
+        usingFirebaseAuth,
         signIn,
         signOut,
       }}

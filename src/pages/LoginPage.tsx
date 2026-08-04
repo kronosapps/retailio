@@ -15,6 +15,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { InvalidLocalCredentialsError } from "@/data/local-users"
+import { MissingStoreProfileError } from "@/lib/user-profile"
+import { AppFirebaseError, getFirebaseErrorMessage } from "@/services/firebase"
 import { useAuth } from "@/providers/AuthProvider"
 import type { UserRole } from "@/types/user"
 
@@ -29,14 +31,17 @@ function authErrorMessage(error: unknown) {
   if (error instanceof InvalidLocalCredentialsError) {
     return error.message
   }
-  if (error instanceof Error) {
+  if (error instanceof MissingStoreProfileError) {
     return error.message
   }
-  return "Unable to sign in. Please try again."
+  if (error instanceof AppFirebaseError) {
+    return error.message
+  }
+  return getFirebaseErrorMessage(error)
 }
 
 export function LoginPage() {
-  const { signIn } = useAuth()
+  const { signIn, usingFirebaseAuth } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [formError, setFormError] = useState<string | null>(null)
@@ -72,7 +77,11 @@ export function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="text-xl">RetailOS</CardTitle>
-          <CardDescription>Sign in to your store account</CardDescription>
+          <CardDescription>
+            {usingFirebaseAuth
+              ? "Sign in with your Firebase staff account"
+              : "Sign in to your store account"}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
@@ -113,6 +122,16 @@ export function LoginPage() {
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? "Signing in…" : "Sign in"}
             </Button>
+
+            {usingFirebaseAuth ? (
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                Create the user in Firebase Authentication, then add a matching
+                Firestore document at{" "}
+                <code className="text-[10px]">users/&#123;uid&#125;</code> with{" "}
+                <code className="text-[10px]">role</code> and{" "}
+                <code className="text-[10px]">storeId</code>.
+              </p>
+            ) : null}
           </form>
         </CardContent>
       </Card>
