@@ -13,7 +13,9 @@ import {
   discountConfig,
   getActiveOccasionDiscount,
 } from "@/data/discounts"
-import { peekNextInvoiceId, recordSuccessfulSale } from "@/data/invoices"
+import { peekNextInvoiceId } from "@/data/invoices"
+import { InvoiceService } from "@/modules/invoice"
+import { openPayment, PaymentDialog } from "@/modules/payment"
 import { getLoyaltyRewardSummary, loyaltyConfig } from "@/data/loyalty"
 import {
   LOYALTY_REWARD_ITEMS,
@@ -274,15 +276,17 @@ export function PosPage() {
     setFriendsFamilyPercent(clampDiscountPercent(value, fnfMax))
   }
 
-  function chargeOrder() {
+  async function chargeOrder() {
     if (cart.length === 0) return
     setChargeError(null)
 
     try {
-      const sale = recordSuccessfulSale({
+      // UI → Invoice module → InvoiceRepository → Firestore/local → EventBus → Sync
+      const sale = await InvoiceService.create({
         cashierId: userId,
         cashierName: profile?.displayName || profile?.email || null,
         storeId: profile?.storeId ?? null,
+        customerName: "Walk-in",
         lines: cart.map((line) => ({
           itemId: line.item.itemId,
           name: line.item.name,
@@ -316,14 +320,22 @@ export function PosPage() {
       })
 
       setLastInvoiceId(sale.invoiceId)
-      clearCart()
       setInvoiceTick((tick) => tick + 1)
+
+      openPayment(InvoiceService.toPayable(sale), {
+        onPaid: () => {
+          setLastInvoiceId(sale.invoiceId)
+          clearCart()
+        },
+      })
     } catch {
-      setChargeError("Could not record this sale. Try again.")
+      setChargeError("Could not start payment for this order. Try again.")
     }
   }
 
   return (
+    <>
+    <PaymentDialog />
     <div className="grid h-full w-full grid-cols-1 grid-rows-[minmax(0,38%)_minmax(0,1fr)] lg:grid-cols-[minmax(280px,32%)_minmax(0,1fr)] lg:grid-rows-1">
       {/* Current order */}
       <aside className="flex min-h-0 flex-col border-b border-border bg-sidebar text-sidebar-foreground lg:border-r lg:border-b-0">
@@ -501,7 +513,7 @@ export function PosPage() {
             size="lg"
             className="h-12 w-full text-base"
             disabled={cart.length === 0}
-            onClick={chargeOrder}
+            onClick={() => void chargeOrder()}
           >
             Charge {formatMoney(totals.total)}
           </Button>
@@ -884,5 +896,6 @@ export function PosPage() {
         </div>
       </section>
     </div>
+    </>
   )
 }

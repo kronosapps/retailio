@@ -1,8 +1,9 @@
 import type { Paisa } from "@/lib/money"
+import type { PaymentMethod, PaymentStatus } from "@/modules/payment/types"
 
 const STORAGE_KEY = "retailos.invoices.v1"
 const INVOICE_PREFIX = "INV-"
-const INVOICE_PAD = 6
+const DAILY_PAD = 5
 
 export type RecordedSaleLine = {
   itemId: string
@@ -16,11 +17,18 @@ export type RecordedSaleLine = {
 
 export type RecordedSale = {
   invoiceId: string
+  /** Daily sequence number for the invoice date (YYYYMMDD). */
   sequence: number
+  /** Calendar date key YYYYMMDD used for the ID. */
+  dateKey: string
   createdAt: string
   cashierId: string | null
   cashierName: string | null
   storeId: string | null
+  customerName?: string
+  paymentId?: string | null
+  paymentStatus?: PaymentStatus | null
+  paymentMethod?: PaymentMethod | null
   lines: RecordedSaleLine[]
   totals: {
     grossSubtotal: Paisa
@@ -43,74 +51,191 @@ export type RecordedSale = {
   }
 }
 
-type InvoiceStore = {
-  nextSequence: number
+type InvoiceStoreV2 = {
+  version: 2
+  sequencesByDate: Record<string, number>
   sales: RecordedSale[]
 }
 
-function emptyStore(): InvoiceStore {
-  return { nextSequence: 1, sales: [] }
+type LegacyInvoiceStore = {
+  nextSequence?: number
+  sales?: RecordedSale[]
 }
 
-function readStore(): InvoiceStore {
+function todayDateKey(date = new Date()): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, "0")
+  const d = String(date.getDate()).padStart(2, "0")
+  return `${y}${m}${d}`
+}
+
+function emptyStore(): InvoiceStoreV2 {
+  return { version: 2, sequencesByDate: {}, sales: [] }
+}
+
+function migrateStore(raw: unknown): InvoiceStoreV2 {
+  if (!raw || typeof raw !== "object") return emptyStore()
+  const data = raw as InvoiceStoreV2 & LegacyInvoiceStore
+
+  if (data.version === 2 && data.sequencesByDate && Array.isArray(data.sales)) {
+    return {
+      version: 2,
+      sequencesByDate: data.sequencesByDate,
+      sales: data.sales,
+    }
+  }
+
+  // Legacy INV-000001 store — keep sales; new IDs use date format.
+  const sales = Array.isArray(data.sales) ? data.sales : []
+  return {
+    version: 2,
+    sequencesByDate: {},
+    sales: sales.map((sale) => ({
+      ...sale,
+      dateKey: sale.dateKey || "legacy",
+      paymentId: sale.paymentId ?? null,
+      paymentStatus: sale.paymentStatus ?? "Paid",
+      paymentMethod: sale.paymentMethod ?? null,
+      customerName: sale.customerName ?? "Walk-in",
+    })),
+  }
+}
+
+function readStore(): InvoiceStoreV2 {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return emptyStore()
-    const parsed = JSON.parse(raw) as Partial<InvoiceStore>
-    const nextSequence =
-      typeof parsed.nextSequence === "number" &&
-      Number.isFinite(parsed.nextSequence) &&
-      parsed.nextSequence >= 1
-        ? Math.floor(parsed.nextSequence)
-        : 1
-    const sales = Array.isArray(parsed.sales) ? parsed.sales : []
-    return { nextSequence, sales }
+    return migrateStore(JSON.parse(raw))
   } catch {
     return emptyStore()
   }
 }
 
-function writeStore(store: InvoiceStore) {
+function writeStore(store: InvoiceStoreV2) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
 }
 
-export function formatInvoiceId(sequence: number) {
-  return `${INVOICE_PREFIX}${String(sequence).padStart(INVOICE_PAD, "0")}`
+export function formatInvoiceId(dateKey: string, sequence: number) {
+  return `${INVOICE_PREFIX}${dateKey}-${String(sequence).padStart(DAILY_PAD, "0")}`
+}
+
+function peekAllocation(date = new Date()) {
+  const store = readStore()
+  const dateKey = todayDateKey(date)
+  const nextSequence = (store.sequencesByDate[dateKey] ?? 0) + 1
+  return {
+    dateKey,
+    sequence: nextSequence,
+    invoiceId: formatInvoiceId(dateKey, nextSequence),
+  }
 }
 
 /** Peek the next invoice ID without consuming it. */
-export function peekNextInvoiceId() {
-  return formatInvoiceId(readStore().nextSequence)
+export function peekNextInvoiceId(date = new Date()) {
+  return peekAllocation(date).invoiceId
 }
 
 export function listRecordedSales() {
-  return [...readStore().sales].sort((a, b) => b.sequence - a.sequence)
+  return [...readStore().sales].sort((a, b) =>
+    b.createdAt.localeCompare(a.createdAt)
+  )
 }
 
 export function getRecordedSale(invoiceId: string) {
   return readStore().sales.find((sale) => sale.invoiceId === invoiceId) ?? null
 }
 
-export type ChargeSaleInput = Omit<RecordedSale, "invoiceId" | "sequence" | "createdAt">
+export type CreateInvoiceInput = Omit<
+  RecordedSale,
+  | "invoiceId"
+  | "sequence"
+  | "dateKey"
+  | "createdAt"
+  | "paymentId"
+  | "paymentStatus"
+  | "paymentMethod"
+> & {
+  customerName?: string
+}
 
 /**
- * Allocate the next invoice ID, persist the sale, and return the recorded sale.
- * Sequence only advances after a successful write.
+ * Create an unpaid invoice and advance the daily sequence.
+ * Payment Module then opens via openPayment(invoice).
  */
-export function recordSuccessfulSale(input: ChargeSaleInput): RecordedSale {
+export function createInvoice(input: CreateInvoiceInput): RecordedSale {
   const store = readStore()
-  const sequence = store.nextSequence
+  const { dateKey, sequence, invoiceId } = peekAllocation()
+
   const sale: RecordedSale = {
     ...input,
-    invoiceId: formatInvoiceId(sequence),
+    invoiceId,
     sequence,
+    dateKey,
     createdAt: new Date().toISOString(),
+    customerName: input.customerName?.trim() || "Walk-in",
+    paymentId: null,
+    paymentStatus: "Pending",
+    paymentMethod: null,
   }
 
-  const nextStore: InvoiceStore = {
-    nextSequence: sequence + 1,
+  writeStore({
+    version: 2,
+    sequencesByDate: {
+      ...store.sequencesByDate,
+      [dateKey]: sequence,
+    },
     sales: [...store.sales, sale],
-  }
-  writeStore(nextStore)
+  })
+
   return sale
+}
+
+/** @deprecated Use createInvoice + Payment Module. Kept for compatibility. */
+export type ChargeSaleInput = CreateInvoiceInput
+
+/** @deprecated Use createInvoice. */
+export function recordSuccessfulSale(input: ChargeSaleInput): RecordedSale {
+  const sale = createInvoice(input)
+  return updateInvoicePayment(sale.invoiceId, {
+    paymentStatus: "Paid",
+    paymentMethod: "Cash",
+  }) ?? sale
+}
+
+export function updateInvoicePayment(
+  invoiceId: string,
+  patch: {
+    paymentId?: string | null
+    paymentStatus?: PaymentStatus | null
+    paymentMethod?: PaymentMethod | null
+    customerName?: string
+  }
+): RecordedSale | null {
+  const store = readStore()
+  const index = store.sales.findIndex((sale) => sale.invoiceId === invoiceId)
+  if (index < 0) return null
+
+  const current = store.sales[index]
+  const next: RecordedSale = {
+    ...current,
+    ...patch,
+    customerName: patch.customerName ?? current.customerName,
+  }
+  const sales = [...store.sales]
+  sales[index] = next
+  writeStore({ ...store, sales })
+  return next
+}
+
+export function toPayableInvoice(sale: RecordedSale) {
+  return {
+    invoiceId: sale.invoiceId,
+    invoiceNumber: sale.invoiceId,
+    dailySequence: sale.sequence,
+    amountPaisa: sale.totals.total,
+    customerName: sale.customerName ?? "Walk-in",
+    paymentId: sale.paymentId ?? null,
+    paymentStatus: sale.paymentStatus ?? null,
+    paymentMethod: sale.paymentMethod ?? null,
+  }
 }
