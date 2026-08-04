@@ -13,6 +13,7 @@ import {
   discountConfig,
   getActiveOccasionDiscount,
 } from "@/data/discounts"
+import { peekNextInvoiceId, recordSuccessfulSale } from "@/data/invoices"
 import { getLoyaltyRewardSummary, loyaltyConfig } from "@/data/loyalty"
 import {
   LOYALTY_REWARD_ITEMS,
@@ -30,6 +31,7 @@ import {
   type MenuWeight,
 } from "@/data/menu"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/providers/AuthProvider"
 
 type CartLine = {
   item: MenuVariant
@@ -134,6 +136,7 @@ function SingleProductCard({
 }
 
 export function PosPage() {
+  const { userId, profile } = useAuth()
   const [category, setCategory] = useState<MenuCategory>("All")
   const [cart, setCart] = useState<CartLine[]>([])
   const [applyOccasion, setApplyOccasion] = useState(false)
@@ -144,6 +147,9 @@ export function PosPage() {
   const [selectedLoyaltyRewardId, setSelectedLoyaltyRewardId] = useState<
     string | null
   >(null)
+  const [invoiceTick, setInvoiceTick] = useState(0)
+  const [lastInvoiceId, setLastInvoiceId] = useState<string | null>(null)
+  const [chargeError, setChargeError] = useState<string | null>(null)
 
   const activeOccasion = useMemo(() => getActiveOccasionDiscount(), [])
   const fnfMax = discountConfig.friendsAndFamily.maxPercent
@@ -190,6 +196,7 @@ export function PosPage() {
   )
 
   const itemCount = cart.reduce((sum, line) => sum + line.qty, 0)
+  const nextInvoiceId = useMemo(() => peekNextInvoiceId(), [invoiceTick])
 
   function addWeight(item: MenuItem, weightOption: MenuWeight) {
     const variant = toMenuVariant(item, weightOption)
@@ -260,10 +267,60 @@ export function PosPage() {
     setFriendsFamilyPercent(0)
     setLoyaltyMode("off")
     setSelectedLoyaltyRewardId(null)
+    setChargeError(null)
   }
 
   function updateFriendsFamilyPercent(value: number) {
     setFriendsFamilyPercent(clampDiscountPercent(value, fnfMax))
+  }
+
+  function chargeOrder() {
+    if (cart.length === 0) return
+    setChargeError(null)
+
+    try {
+      const sale = recordSuccessfulSale({
+        cashierId: userId,
+        cashierName: profile?.displayName || profile?.email || null,
+        storeId: profile?.storeId ?? null,
+        lines: cart.map((line) => ({
+          itemId: line.item.itemId,
+          name: line.item.name,
+          weight: line.item.weight,
+          qty: line.qty,
+          unitPricePaisa: line.item.price,
+          lineTotalPaisa: line.item.price * line.qty,
+          isLoyaltyReward: line.isLoyaltyReward,
+        })),
+        totals: {
+          grossSubtotal: totals.grossSubtotal,
+          friendsFamilyDiscount: totals.friendsFamilyDiscount,
+          friendsFamilyPercent: totals.friendsFamilyPercent,
+          occasionDiscount: totals.occasionDiscount,
+          occasionPercent: totals.occasionPercent,
+          occasionName: totals.occasionName,
+          loyaltyDiscount: totals.loyaltyDiscount,
+          loyaltyLabel: totals.loyaltyLabel,
+          taxableAmount: totals.taxableAmount,
+          gstAmount: totals.gstAmount,
+          gstPercent: totals.gstPercent,
+          total: totals.total,
+        },
+        loyalty: {
+          mode: loyaltyMode,
+          freeItemId: selectedLoyaltyReward?.id ?? null,
+          freeItemName: selectedLoyaltyReward
+            ? `${selectedLoyaltyReward.name} (${selectedLoyaltyReward.weight})`
+            : null,
+        },
+      })
+
+      setLastInvoiceId(sale.invoiceId)
+      clearCart()
+      setInvoiceTick((tick) => tick + 1)
+    } catch {
+      setChargeError("Could not record this sale. Try again.")
+    }
   }
 
   return (
@@ -274,9 +331,10 @@ export function PosPage() {
           <div>
             <h2 className="text-base font-semibold">Current order</h2>
             <p className="text-xs text-muted-foreground">
+              Invoice {nextInvoiceId}
               {itemCount === 0
-                ? "No items yet"
-                : `${itemCount} item${itemCount === 1 ? "" : "s"}`}
+                ? " · No items yet"
+                : ` · ${itemCount} item${itemCount === 1 ? "" : "s"}`}
             </p>
           </div>
           <Button
@@ -429,12 +487,21 @@ export function PosPage() {
             ) : null}
           </div>
 
+          {lastInvoiceId && cart.length === 0 ? (
+            <p className="rounded-md bg-muted px-3 py-2 text-center text-xs text-muted-foreground">
+              Recorded as <span className="font-medium text-foreground">{lastInvoiceId}</span>
+            </p>
+          ) : null}
+          {chargeError ? (
+            <p className="text-center text-xs text-destructive">{chargeError}</p>
+          ) : null}
+
           <Button
             type="button"
             size="lg"
             className="h-12 w-full text-base"
             disabled={cart.length === 0}
-            onClick={clearCart}
+            onClick={chargeOrder}
           >
             Charge {formatMoney(totals.total)}
           </Button>
