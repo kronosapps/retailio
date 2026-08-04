@@ -124,6 +124,17 @@ export type MenuCategory = (typeof MENU_CATEGORIES)[number]
 
 export const MENU_ITEMS = menuCatalog.items
 
+export function getMenuImageUrls(): string[] {
+  const urls = new Set<string>()
+  for (const item of MENU_ITEMS) {
+    if (item.image) urls.add(item.image)
+    for (const weight of item.weights) {
+      if (weight.image) urls.add(weight.image)
+    }
+  }
+  return [...urls]
+}
+
 export function getMenuItemsByCategory(category: MenuCategory): MenuItem[] {
   if (category === "All") return MENU_ITEMS
   return MENU_ITEMS.filter((item) => item.category === category)
