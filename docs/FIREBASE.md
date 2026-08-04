@@ -9,7 +9,7 @@ React / Modules
       ↓
 Repositories (extend BaseRepository)
       ↓
-@/services/firebase  (ONLY entrypoint)
+@/core/firebase  (infrastructure entrypoint)
       ↓
 Firebase App · Firestore · Auth
 ```
@@ -18,16 +18,23 @@ Firebase App · Firestore · Auth
 
 | Path | Purpose |
 |------|---------|
-| `src/services/firebase/firebase.ts` | Read `import.meta.env`, init once, export app/db/auth |
-| `src/services/firebase/firestore.ts` | Generic CRUD / query / transaction / batch helpers |
-| `src/services/firebase/auth.ts` | Auth instance + login / logout / currentUser |
-| `src/services/firebase/collections.ts` | `COLLECTIONS` constants (no magic strings) |
-| `src/services/firebase/errors.ts` | Safe error mapping for UI |
-| `src/services/firebase/index.ts` | Public barrel export |
+| `src/core/config/env.ts` | Central `import.meta.env` access |
+| `src/core/firebase/firebase.ts` | Init once, export app/db/auth |
+| `src/core/firebase/firestore.ts` | Generic CRUD / query / transaction / batch |
+| `src/core/firebase/auth.ts` | Auth instance + login / logout / currentUser |
+| `src/core/firebase/collections.ts` | `COLLECTIONS` constants (no magic strings) |
+| `src/core/firebase/errors.ts` | Safe error mapping for UI |
+| `src/core/firebase/index.ts` | Public barrel export |
 | `src/types/documents.ts` | `BaseDocument`, Invoice, Payment, … |
 | `src/repositories/BaseRepository.ts` | Abstract CRUD for future repos |
+| `src/services/sync/` | Business sync (Sheets, etc.) — not infrastructure |
+| `src/shared/` | Pure shared helpers |
 | `firestore.rules` | Authenticated-only development rules |
 | `firestore.indexes.json` | Index config (empty starter) |
+
+## Why `core/` instead of `services/firebase`
+
+Firebase is application infrastructure (like config and logging). Business services (sync, reporting) stay under `services/`. Future Storage, Cloud Messaging, Remote Config, Analytics also belong under `core/firebase/` (or sibling `core/` packages).
 
 ## Why repositories exist
 
@@ -54,7 +61,7 @@ import {
   createDocument,
   getDocument,
   queryCollection,
-} from "@/services/firebase"
+} from "@/core/firebase"
 import { where, orderBy } from "firebase/firestore"
 
 await createDocument(COLLECTIONS.CUSTOMERS, id, data)
@@ -70,42 +77,23 @@ Prefer `BaseRepository` subclasses over calling helpers from React.
 
 ## Authentication initialization
 
-1. `firebase.ts` reads `VITE_FIREBASE_*` and calls `initializeApp` **once** when configured
-2. `auth.ts` uses that Auth instance
-3. `login({ email, password })` / `logout()` / `currentUser()` are the supported API
-4. Google / phone providers can be added inside `auth.ts` later (`AuthProviders` markers)
+1. `core/config/env.ts` exposes Firebase env values
+2. `firebase.ts` calls `initializeApp` **once** when configured
+3. `auth.ts` uses that Auth instance
+4. `login({ email, password })` / `logout()` / `currentUser()` are the supported API
 
-Development logging: initialization is logged only when `import.meta.env.DEV` is true.
-
-## Environment variables
-
-Required:
-
-- `VITE_FIREBASE_API_KEY`
-- `VITE_FIREBASE_AUTH_DOMAIN`
-- `VITE_FIREBASE_PROJECT_ID`
-- `VITE_FIREBASE_STORAGE_BUCKET`
-- `VITE_FIREBASE_APP_ID`
-
-Optional: `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_MEASUREMENT_ID`
-
-If required vars are missing, soft exports (`db`, `auth`) stay `null` so local POS can run; calling strict helpers / `initializeFirebase()` throws `AppFirebaseError` with a clear message.
-
-## Security rules
-
-`firestore.rules` allows **authenticated** read/write only in development.  
-Comments mark where production role/store scoping will be added.  
-Never deploy `allow read, write: if true`.
+Development logging: initialization is logged only when `env.dev` is true.
 
 ## Import rule
 
 ```ts
 // ✅
-import { COLLECTIONS, login, getDocument } from "@/services/firebase"
+import { COLLECTIONS, login, getDocument } from "@/core/firebase"
+import { env } from "@/core/config/env"
 
 // ❌
 import { initializeApp } from "firebase/app"
 import { getFirestore } from "firebase/firestore"
 ```
 
-Legacy re-exports `@/lib/firebase` and `@/firebase` remain for existing code and forward to this service.
+Legacy shims `@/services/firebase`, `@/lib/firebase`, and `@/firebase` re-export `@/core/firebase`.

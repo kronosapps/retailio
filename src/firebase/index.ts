@@ -1,20 +1,4 @@
 /**
- * Legacy path `@/firebase`.
- * Prefer `@/services/firebase` for new modules.
+ * @deprecated Import from `@/core/firebase` instead.
  */
-export {
-  auth,
-  db,
-  firebaseApp,
-  isFirebaseConfigured,
-  getFirebaseApp,
-  getFirestoreDb,
-  getFirebaseAuth,
-  initializeFirebase,
-  COLLECTIONS,
-  login,
-  logout,
-  currentUser,
-  AppFirebaseError,
-  getFirebaseErrorMessage,
-} from "@/services/firebase"
+export * from "@/core/firebase"

@@ -2,6 +2,12 @@ import { initializeApp, type FirebaseApp } from "firebase/app"
 import { getAuth, type Auth } from "firebase/auth"
 import { getFirestore, type Firestore } from "firebase/firestore"
 
+import {
+  env,
+  getMissingFirebaseEnvKeys,
+  isFirebaseEnvConfigured,
+} from "@/core/config/env"
+
 import { AppFirebaseError } from "./errors"
 
 type FirebaseEnvConfig = {
@@ -14,49 +20,18 @@ type FirebaseEnvConfig = {
   measurementId?: string
 }
 
-const REQUIRED_ENV_KEYS = [
-  "VITE_FIREBASE_API_KEY",
-  "VITE_FIREBASE_AUTH_DOMAIN",
-  "VITE_FIREBASE_PROJECT_ID",
-  "VITE_FIREBASE_STORAGE_BUCKET",
-  "VITE_FIREBASE_APP_ID",
-] as const
-
 function readFirebaseConfig(): FirebaseEnvConfig | null {
-  const apiKey = import.meta.env.VITE_FIREBASE_API_KEY as string | undefined
-  const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as
-    | string
-    | undefined
-  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID as
-    | string
-    | undefined
-  const storageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET as
-    | string
-    | undefined
-  const messagingSenderId = import.meta.env
-    .VITE_FIREBASE_MESSAGING_SENDER_ID as string | undefined
-  const appId = import.meta.env.VITE_FIREBASE_APP_ID as string | undefined
-  const measurementId = import.meta.env.VITE_FIREBASE_MEASUREMENT_ID as
-    | string
-    | undefined
+  if (!isFirebaseEnvConfigured()) return null
 
-  const missing = REQUIRED_ENV_KEYS.filter((key) => {
-    const value = import.meta.env[key] as string | undefined
-    return !value || !String(value).trim()
-  })
-
-  if (missing.length > 0) {
-    return null
-  }
-
+  const { firebase } = env
   return {
-    apiKey: apiKey!.trim(),
-    authDomain: authDomain!.trim(),
-    projectId: projectId!.trim(),
-    storageBucket: (storageBucket || "").trim(),
-    messagingSenderId: (messagingSenderId || "").trim(),
-    appId: appId!.trim(),
-    measurementId: measurementId?.trim() || undefined,
+    apiKey: firebase.apiKey,
+    authDomain: firebase.authDomain,
+    projectId: firebase.projectId,
+    storageBucket: firebase.storageBucket,
+    messagingSenderId: firebase.messagingSenderId,
+    appId: firebase.appId,
+    measurementId: firebase.measurementId || undefined,
   }
 }
 
@@ -79,10 +54,7 @@ export function initializeFirebase(): {
   auth: Auth
 } {
   if (!config) {
-    const missing = REQUIRED_ENV_KEYS.filter((key) => {
-      const value = import.meta.env[key] as string | undefined
-      return !value || !String(value).trim()
-    })
+    const missing = getMissingFirebaseEnvKeys()
     throw new AppFirebaseError(
       "firebase/not-configured",
       `Firebase configuration is incomplete. Missing: ${missing.join(", ")}. Copy values from .env.example into .env.`
@@ -94,7 +66,7 @@ export function initializeFirebase(): {
     firestoreDb = getFirestore(app)
     authInstance = getAuth(app)
 
-    if (import.meta.env.DEV) {
+    if (env.dev) {
       console.info(
         `[RetailOS] Firebase initialized (project: ${config.projectId})`
       )
@@ -112,7 +84,7 @@ if (isFirebaseConfigured) {
   try {
     initializeFirebase()
   } catch (error) {
-    if (import.meta.env.DEV) {
+    if (env.dev) {
       console.error("[RetailOS] Firebase failed to initialize", error)
     }
   }

@@ -1,3 +1,4 @@
+import { env } from "@/core/config/env"
 import {
   getPaymentSettings,
   savePaymentSettings,
@@ -7,7 +8,7 @@ import {
 /**
  * Settings module facade.
  * Merchant UPI remains in payment settings store for backward compatibility.
- * Google Script URL comes from VITE_GOOGLE_SCRIPT_URL (env), not secrets in code.
+ * Google Script URL comes from env (VITE_GOOGLE_SCRIPT_URL), not secrets in code.
  */
 export class SettingsService {
   static getPaymentSettings(): PaymentSettings {
@@ -19,6 +20,6 @@ export class SettingsService {
   }
 
   static getGoogleScriptUrl(): string {
-    return (import.meta.env.VITE_GOOGLE_SCRIPT_URL as string | undefined)?.trim() || ""
+    return env.googleScriptUrl
   }
 }

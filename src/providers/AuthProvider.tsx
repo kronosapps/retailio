@@ -20,7 +20,7 @@ import {
   login as firebaseLogin,
   logout as firebaseLogout,
   subscribeToAuthChanges,
-} from "@/services/firebase"
+} from "@/core/firebase"
 import type { UserProfile, UserRole } from "@/types/user"
 
 const LOCAL_SESSION_KEY = "retailos.auth.local"

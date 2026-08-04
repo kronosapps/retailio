@@ -1,7 +1,8 @@
-import { COLLECTIONS } from "./collections"
-import { getDocument } from "./firestore"
 import { MissingStoreProfileError, parseUserProfile } from "@/lib/user-profile"
 import type { UserProfile } from "@/types/user"
+
+import { COLLECTIONS } from "./collections"
+import { getDocument } from "./firestore"
 
 /**
  * Load RetailOS staff profile from Firestore users/{uid}.

@@ -4,7 +4,7 @@ import {
   type DocumentData,
 } from "firebase/firestore"
 
-import { db, isFirebaseConfigured } from "@/firebase"
+import { db, isFirebaseConfigured } from "@/core/firebase"
 
 /**
  * Best-effort Firestore write.

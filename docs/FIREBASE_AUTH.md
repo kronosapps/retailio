@@ -1,6 +1,6 @@
 # Firebase Auth setup (RetailOS)
 
-When `VITE_FIREBASE_*` is configured, login uses **Firebase Authentication**.  
+When `VITE_FIREBASE_*` is configured (via `src/core/config/env.ts`), login uses **Firebase Authentication**.  
 Local `.env` passwords are only used if Firebase is not configured.
 
 ## 1. Enable Email/Password

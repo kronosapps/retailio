@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { InvalidLocalCredentialsError } from "@/data/local-users"
 import { MissingStoreProfileError } from "@/lib/user-profile"
-import { AppFirebaseError, getFirebaseErrorMessage } from "@/services/firebase"
+import { AppFirebaseError, getFirebaseErrorMessage } from "@/core/firebase"
 import { useAuth } from "@/providers/AuthProvider"
 import type { UserRole } from "@/types/user"
 

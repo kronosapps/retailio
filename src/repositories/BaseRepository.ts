@@ -1,4 +1,4 @@
-import type { CollectionName } from "@/services/firebase"
+import type { CollectionName } from "@/core/firebase"
 import {
   createDocument,
   deleteDocument,
@@ -7,7 +7,7 @@ import {
   queryCollection,
   updateDocument,
   upsertDocument,
-} from "@/services/firebase"
+} from "@/core/firebase"
 import type { BaseDocument } from "@/types/documents"
 import type { DocumentData, QueryConstraint, UpdateData } from "firebase/firestore"
 

@@ -1,11 +1,7 @@
 import * as React from "react"
-import { isFirebaseConfigured, db, auth } from "@/services/firebase"
-
-
 
 import { cn } from "@/lib/utils"
 
-console.log({ isFirebaseConfigured, hasDb: !!db, hasAuth: !!auth })
 function Card({
   className,
   size = "default",
@@ -29,7 +25,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-header"
       className={cn(
-        "group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-xl px-(--card-spacing) has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing)",
+        "group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-xl px-(--card-spacing) group-data-[size=sm]/card:px-(--card-spacing) has-[>img]:grid-cols-[1fr_auto] has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-(--card-spacing) [&>img]:col-start-2 [&>img]:row-span-2 [&>img]:row-start-1",
         className
       )}
       {...props}
@@ -42,7 +38,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-title"
       className={cn(
-        "font-heading text-base leading-normal font-medium group-data-[size=sm]/card:text-sm",
+        "font-heading text-base leading-snug font-medium group-data-[size=sm]/card:text-sm",
         className
       )}
       {...props}
@@ -77,7 +73,10 @@ function CardContent({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-content"
-      className={cn("px-(--card-spacing)", className)}
+      className={cn(
+        "px-(--card-spacing) group-data-[size=sm]/card:px-(--card-spacing)",
+        className
+      )}
       {...props}
     />
   )
@@ -88,7 +87,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-footer"
       className={cn(
-        "flex items-center rounded-b-xl px-(--card-spacing) [.border-t]:pt-(--card-spacing)",
+        "flex items-center rounded-b-xl px-(--card-spacing) group-data-[size=sm]/card:px-(--card-spacing) [.border-t]:pt-(--card-spacing)",
         className
       )}
       {...props}

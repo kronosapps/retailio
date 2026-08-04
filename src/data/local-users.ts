@@ -1,3 +1,4 @@
+import { env } from "@/core/config/env"
 import type { UserProfile, UserRole } from "@/types/user"
 
 export type LocalUserRecord = {
@@ -9,10 +10,10 @@ export type LocalUserRecord = {
   storeId: string
 }
 
-const storeId = import.meta.env.VITE_STORE_ID || "store-1"
+const storeId = env.storeId
 
 /**
- * Local staff accounts for login (no Firebase Auth users).
+ * Local staff accounts for login (fallback when Firebase is not configured).
  * Default admin/cashier passwords come from .env / .env.example.
  *
  * To add another cashier, append an object below in this file.
@@ -20,17 +21,17 @@ const storeId = import.meta.env.VITE_STORE_ID || "store-1"
 export const LOCAL_USERS: LocalUserRecord[] = [
   {
     id: "local-admin",
-    email: import.meta.env.VITE_ADMIN_EMAIL || "admin@retailos.local",
-    password: import.meta.env.VITE_ADMIN_PASSWORD || "Admin007",
-    displayName: import.meta.env.VITE_ADMIN_NAME || "Store Admin",
+    email: env.localAuth.adminEmail,
+    password: env.localAuth.adminPassword,
+    displayName: env.localAuth.adminName,
     role: "admin",
     storeId,
   },
   {
     id: "local-cashier-001",
-    email: import.meta.env.VITE_CASHIER_EMAIL || "cashier@retailos.local",
-    password: import.meta.env.VITE_CASHIER_PASSWORD || "Cashier001",
-    displayName: import.meta.env.VITE_CASHIER_NAME || "Front Cashier",
+    email: env.localAuth.cashierEmail,
+    password: env.localAuth.cashierPassword,
+    displayName: env.localAuth.cashierName,
     role: "cashier",
     storeId,
   },

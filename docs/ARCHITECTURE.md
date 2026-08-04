@@ -33,9 +33,11 @@ No layer may skip another layer.
 | `src/pages/` | Route-level screens (UI orchestration only) |
 | `src/modules/` | Business modules (Invoice, Payment, Inventory, …) |
 | `src/repositories/` | One Firestore collection each; publish events |
+| `src/core/firebase/` | Firebase infrastructure (init, auth, Firestore helpers) |
+| `src/core/config/` | Centralized env (`env.ts`) |
 | `src/services/sync/` | SyncManager, queue, retries, Sheets provider |
 | `src/googleSheets/` | Low-level Apps Script POST client (provider-only) |
-| `src/firebase/` | Shared Firebase app/auth/db exports |
+| `src/shared/` | Pure shared helpers |
 | `src/events/` | EventBus, Publisher, Subscriber, EventTypes, logs |
 | `src/sync/` | Re-export of `services/sync` |
 | `src/providers/` | React context providers (Auth, …) |

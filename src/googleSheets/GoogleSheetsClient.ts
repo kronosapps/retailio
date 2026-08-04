@@ -5,6 +5,8 @@
  * POST body shape:
  * { action: "insert" | "update", sheet: string, data: object }
  */
+import { env } from "@/core/config/env"
+
 export type GoogleSheetsRequest = {
   action: "insert" | "update"
   sheet: string
@@ -12,9 +14,7 @@ export type GoogleSheetsRequest = {
 }
 
 export function getGoogleScriptUrl(): string {
-  const fromEnv = (import.meta.env.VITE_GOOGLE_SCRIPT_URL as string | undefined)
-    ?.trim()
-  return fromEnv || ""
+  return env.googleScriptUrl
 }
 
 export async function postToGoogleSheets(
