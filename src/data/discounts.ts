@@ -1,5 +1,6 @@
 import discountData from "./discounts.json"
 import { type Paisa, percentOfPaisa, roundPaisa } from "@/lib/money"
+import { loyaltyConfig } from "./loyalty"
 import { splitInclusiveGst, taxConfig } from "./tax"
 
 export type OccasionDiscount = {
@@ -78,6 +79,8 @@ export type OrderTotals = {
   occasionDiscount: Paisa
   occasionPercent: number
   occasionName: string | null
+  loyaltyDiscount: Paisa
+  loyaltyLabel: string | null
   /** Payable amount after discounts (GST inclusive), in paisa. */
   total: Paisa
   taxableAmount: Paisa
@@ -92,6 +95,8 @@ export function calculateOrderTotals(
     applyOccasion: boolean
     occasion: OccasionDiscount | null
     friendsFamilyPercent: number
+    /** Apply punch-card % off (mutually exclusive with a free loyalty item). */
+    redeemLoyalty?: boolean
   }
 ): OrderTotals {
   const grossSubtotal = roundPaisa(
@@ -112,7 +117,17 @@ export function calculateOrderTotals(
       ? percentOfPaisa(afterFriendsFamily, occasionPercent)
       : 0
 
-  const total = Math.max(0, afterFriendsFamily - occasionDiscount)
+  const afterOccasion = Math.max(0, afterFriendsFamily - occasionDiscount)
+
+  let loyaltyDiscount: Paisa = 0
+  let loyaltyLabel: string | null = null
+  if (options.redeemLoyalty) {
+    const { percent, label } = loyaltyConfig.percentReward
+    loyaltyDiscount = percentOfPaisa(afterOccasion, percent)
+    loyaltyLabel = label
+  }
+
+  const total = Math.max(0, afterOccasion - loyaltyDiscount)
   const gst = splitInclusiveGst(total, taxConfig.gst.percent)
 
   return {
@@ -123,6 +138,8 @@ export function calculateOrderTotals(
     occasionDiscount,
     occasionPercent,
     occasionName: occasion?.name ?? null,
+    loyaltyDiscount,
+    loyaltyLabel,
     total,
     taxableAmount: gst.taxableAmount,
     gstAmount: gst.gstAmount,

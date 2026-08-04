@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { ArrowLeft, Minus, Percent, Plus, Trash2 } from "lucide-react"
+import { ArrowLeft, Minus, Percent, Plus, Stamp, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,6 +13,12 @@ import {
   discountConfig,
   getActiveOccasionDiscount,
 } from "@/data/discounts"
+import { getLoyaltyRewardSummary, loyaltyConfig } from "@/data/loyalty"
+import {
+  LOYALTY_REWARD_ITEMS,
+  getLoyaltyRewardItem,
+  type LoyaltyRewardItem,
+} from "@/data/loyalty-rewards"
 import {
   MENU_CATEGORIES,
   formatMoney,
@@ -28,6 +34,27 @@ import { cn } from "@/lib/utils"
 type CartLine = {
   item: MenuVariant
   qty: number
+  /** Free punch-card reward line (not editable like normal menu items). */
+  isLoyaltyReward?: boolean
+}
+
+type MenuPanel = "menu" | "discounts" | "loyalty"
+type LoyaltyMode = "off" | "percent" | "item"
+
+const LOYALTY_CART_ID_PREFIX = "loyalty-reward__"
+
+function toLoyaltyCartVariant(reward: LoyaltyRewardItem): MenuVariant {
+  const variant: MenuVariant = {
+    id: `${LOYALTY_CART_ID_PREFIX}${reward.id}`,
+    itemId: reward.id,
+    name: reward.name,
+    weight: reward.weight,
+    price: 0,
+    category: "Loyalty",
+    color: reward.color,
+  }
+  if (reward.image) variant.image = reward.image
+  return variant
 }
 
 function isMultiWeightItem(item: MenuItem) {
@@ -112,13 +139,22 @@ export function PosPage() {
   const [applyOccasion, setApplyOccasion] = useState(false)
   const [friendsFamilyPercent, setFriendsFamilyPercent] = useState(0)
   const [discountTab, setDiscountTab] = useState("occasion")
-  const [showDiscounts, setShowDiscounts] = useState(false)
+  const [menuPanel, setMenuPanel] = useState<MenuPanel>("menu")
+  const [loyaltyMode, setLoyaltyMode] = useState<LoyaltyMode>("off")
+  const [selectedLoyaltyRewardId, setSelectedLoyaltyRewardId] = useState<
+    string | null
+  >(null)
 
   const activeOccasion = useMemo(() => getActiveOccasionDiscount(), [])
   const fnfMax = discountConfig.friendsAndFamily.maxPercent
   const fnfPresets = discountConfig.friendsAndFamily.presets
+  const selectedLoyaltyReward = getLoyaltyRewardItem(selectedLoyaltyRewardId)
   const hasActiveDiscount =
     (applyOccasion && Boolean(activeOccasion)) || friendsFamilyPercent > 0
+  const hasActiveLoyaltyPercent = loyaltyMode === "percent"
+  const hasActiveLoyaltyItem =
+    loyaltyMode === "item" && Boolean(selectedLoyaltyReward)
+  const hasActiveLoyalty = hasActiveLoyaltyPercent || hasActiveLoyaltyItem
 
   const items = useMemo(() => getMenuItemsByCategory(category), [category])
   const multiWeightItems = useMemo(
@@ -141,9 +177,16 @@ export function PosPage() {
           applyOccasion,
           occasion: activeOccasion,
           friendsFamilyPercent,
+          redeemLoyalty: hasActiveLoyaltyPercent,
         }
       ),
-    [cart, applyOccasion, activeOccasion, friendsFamilyPercent]
+    [
+      cart,
+      applyOccasion,
+      activeOccasion,
+      friendsFamilyPercent,
+      hasActiveLoyaltyPercent,
+    ]
   )
 
   const itemCount = cart.reduce((sum, line) => sum + line.qty, 0)
@@ -151,10 +194,14 @@ export function PosPage() {
   function addWeight(item: MenuItem, weightOption: MenuWeight) {
     const variant = toMenuVariant(item, weightOption)
     setCart((prev) => {
-      const existing = prev.find((line) => line.item.id === variant.id)
+      const existing = prev.find(
+        (line) => !line.isLoyaltyReward && line.item.id === variant.id
+      )
       if (existing) {
         return prev.map((line) =>
-          line.item.id === variant.id ? { ...line, qty: line.qty + 1 } : line
+          !line.isLoyaltyReward && line.item.id === variant.id
+            ? { ...line, qty: line.qty + 1 }
+            : line
         )
       }
       return [...prev, { item: variant, qty: 1 }]
@@ -163,17 +210,56 @@ export function PosPage() {
 
   function setQty(variantId: string, qty: number) {
     setCart((prev) => {
-      if (qty <= 0) return prev.filter((line) => line.item.id !== variantId)
+      if (qty <= 0) {
+        return prev.filter(
+          (line) => line.isLoyaltyReward || line.item.id !== variantId
+        )
+      }
       return prev.map((line) =>
-        line.item.id === variantId ? { ...line, qty } : line
+        !line.isLoyaltyReward && line.item.id === variantId
+          ? { ...line, qty }
+          : line
       )
     })
+  }
+
+  function syncLoyaltyRewardLine(reward: LoyaltyRewardItem | null) {
+    setCart((prev) => {
+      const withoutLoyalty = prev.filter((line) => !line.isLoyaltyReward)
+      if (!reward) return withoutLoyalty
+      return [
+        ...withoutLoyalty,
+        { item: toLoyaltyCartVariant(reward), qty: 1, isLoyaltyReward: true },
+      ]
+    })
+  }
+
+  function clearLoyaltyReward() {
+    setLoyaltyMode("off")
+    setSelectedLoyaltyRewardId(null)
+    syncLoyaltyRewardLine(null)
+  }
+
+  function chooseLoyaltyPercent() {
+    setLoyaltyMode("percent")
+    setSelectedLoyaltyRewardId(null)
+    syncLoyaltyRewardLine(null)
+  }
+
+  function selectLoyaltyReward(rewardId: string) {
+    const reward = getLoyaltyRewardItem(rewardId)
+    if (!reward) return
+    setLoyaltyMode("item")
+    setSelectedLoyaltyRewardId(rewardId)
+    syncLoyaltyRewardLine(reward)
   }
 
   function clearCart() {
     setCart([])
     setApplyOccasion(false)
     setFriendsFamilyPercent(0)
+    setLoyaltyMode("off")
+    setSelectedLoyaltyRewardId(null)
   }
 
   function updateFriendsFamilyPercent(value: number) {
@@ -222,41 +308,56 @@ export function PosPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">
                       {line.item.name}
+                      {line.isLoyaltyReward ? (
+                        <span className="ml-1 text-xs font-normal text-muted-foreground">
+                          (Loyalty free)
+                        </span>
+                      ) : null}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {line.item.weight} · {formatMoney(line.item.price)} each
+                      {line.isLoyaltyReward
+                        ? `${line.item.weight} · Free`
+                        : `${line.item.weight} · ${formatMoney(line.item.price)} each`}
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      className="size-9"
-                      onClick={() => setQty(line.item.id, line.qty - 1)}
-                      aria-label={`Decrease ${line.item.name} ${line.item.weight}`}
-                    >
-                      <Minus />
-                    </Button>
-                    <span className="w-6 text-center text-sm font-semibold tabular-nums">
-                      {line.qty}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon-sm"
-                      className="size-9"
-                      onClick={() => setQty(line.item.id, line.qty + 1)}
-                      aria-label={`Increase ${line.item.name} ${line.item.weight}`}
-                    >
-                      <Plus />
-                    </Button>
-                  </div>
+                  {line.isLoyaltyReward ? (
+                    <p className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">
+                      Free
+                    </p>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon-sm"
+                          className="size-9"
+                          onClick={() => setQty(line.item.id, line.qty - 1)}
+                          aria-label={`Decrease ${line.item.name} ${line.item.weight}`}
+                        >
+                          <Minus />
+                        </Button>
+                        <span className="w-6 text-center text-sm font-semibold tabular-nums">
+                          {line.qty}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon-sm"
+                          className="size-9"
+                          onClick={() => setQty(line.item.id, line.qty + 1)}
+                          aria-label={`Increase ${line.item.name} ${line.item.weight}`}
+                        >
+                          <Plus />
+                        </Button>
+                      </div>
 
-                  <p className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">
-                    {formatMoney(line.item.price * line.qty)}
-                  </p>
+                      <p className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">
+                        {formatMoney(line.item.price * line.qty)}
+                      </p>
+                    </>
+                  )}
                 </li>
               ))}
             </ul>
@@ -287,6 +388,14 @@ export function PosPage() {
                 </span>
                 <span className="tabular-nums">
                   −{formatMoney(totals.occasionDiscount)}
+                </span>
+              </div>
+            ) : null}
+            {totals.loyaltyDiscount > 0 ? (
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span>{totals.loyaltyLabel ?? "Loyalty"}</span>
+                <span className="tabular-nums">
+                  −{formatMoney(totals.loyaltyDiscount)}
                 </span>
               </div>
             ) : null}
@@ -332,33 +441,34 @@ export function PosPage() {
         </div>
       </aside>
 
-      {/* Menu / Discounts (shared panel) */}
+      {/* Menu / Discounts / Loyalty (shared panel) */}
       <section className="flex min-h-0 min-w-0 flex-col">
         <div className="shrink-0 space-y-2 border-b border-border px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold">
-                {showDiscounts ? "Discounts" : "Menu"}
+                {menuPanel === "discounts"
+                  ? "Discounts"
+                  : menuPanel === "loyalty"
+                    ? loyaltyConfig.name
+                    : "Menu"}
               </h2>
               <p className="text-xs text-muted-foreground">
-                {showDiscounts
+                {menuPanel === "discounts"
                   ? "Applied to the whole order"
-                  : "Tap items to add to the order"}
+                  : menuPanel === "loyalty"
+                    ? "Offline punch cards — stamp in person"
+                    : "Tap items to add to the order"}
               </p>
             </div>
-            <Button
-              type="button"
-              variant={showDiscounts ? "secondary" : "outline"}
-              size="sm"
-              onClick={() => setShowDiscounts((open) => !open)}
-            >
-              {showDiscounts ? (
-                <>
-                  <ArrowLeft data-icon="inline-start" />
-                  Back to menu
-                </>
-              ) : (
-                <>
+            {menuPanel === "menu" ? (
+              <div className="flex shrink-0 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setMenuPanel("discounts")}
+                >
                   <Percent data-icon="inline-start" />
                   Discount
                   {hasActiveDiscount ? (
@@ -366,12 +476,36 @@ export function PosPage() {
                       On
                     </span>
                   ) : null}
-                </>
-              )}
-            </Button>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setMenuPanel("loyalty")}
+                >
+                  <Stamp data-icon="inline-start" />
+                  Loyalty
+                  {hasActiveLoyalty ? (
+                    <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                      On
+                    </span>
+                  ) : null}
+                </Button>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setMenuPanel("menu")}
+              >
+                <ArrowLeft data-icon="inline-start" />
+                Back to menu
+              </Button>
+            )}
           </div>
 
-          {!showDiscounts ? (
+          {menuPanel === "menu" ? (
             <div className="flex gap-2 overflow-x-auto pb-0.5">
               {MENU_CATEGORIES.map((name) => (
                 <button
@@ -393,7 +527,7 @@ export function PosPage() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
-          {showDiscounts ? (
+          {menuPanel === "discounts" ? (
             <div className="mx-auto w-full max-w-xl">
               <Tabs value={discountTab} onValueChange={setDiscountTab}>
                 <TabsList className="grid w-full grid-cols-2">
@@ -511,11 +645,113 @@ export function PosPage() {
                 <Button
                   type="button"
                   className="w-full"
-                  onClick={() => setShowDiscounts(false)}
+                  onClick={() => setMenuPanel("menu")}
                 >
                   Done — back to menu
                 </Button>
               </div>
+            </div>
+          ) : menuPanel === "loyalty" ? (
+            <div className="mx-auto w-full max-w-xl space-y-4">
+              <div className="rounded-lg border border-border px-3 py-3">
+                <p className="text-sm font-medium">{loyaltyConfig.name}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {loyaltyConfig.note}
+                </p>
+                <p className="mt-2 text-xs font-medium">
+                  Reward: {getLoyaltyRewardSummary()}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm">
+                  Choose one reward for this order
+                </Label>
+                <div className="grid gap-2">
+                  <button
+                    type="button"
+                    onClick={chooseLoyaltyPercent}
+                    className={cn(
+                      "rounded-lg border px-3 py-2.5 text-left transition-colors active:scale-[0.99]",
+                      loyaltyMode === "percent"
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:bg-muted"
+                    )}
+                  >
+                    <p className="text-sm font-medium">
+                      {loyaltyConfig.percentReward.percent}% off the order
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      No free item — discount only
+                    </p>
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm">Or choose one free item</Label>
+                <p className="text-xs text-muted-foreground">
+                  Selecting a free item replaces the percent discount.
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {LOYALTY_REWARD_ITEMS.map((reward) => {
+                    const selected =
+                      loyaltyMode === "item" &&
+                      selectedLoyaltyRewardId === reward.id
+                    return (
+                      <button
+                        key={reward.id}
+                        type="button"
+                        onClick={() => selectLoyaltyReward(reward.id)}
+                        className={cn(
+                          "rounded-lg border px-3 py-2.5 text-left transition-colors active:scale-[0.99]",
+                          selected
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:bg-muted"
+                        )}
+                      >
+                        <p className="text-sm font-medium">{reward.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {reward.weight} · worth {formatMoney(reward.value)}
+                        </p>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {hasActiveLoyaltyPercent ? (
+                <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
+                  {totals.loyaltyLabel}: −
+                  {formatMoney(totals.loyaltyDiscount)} on this order
+                </p>
+              ) : null}
+
+              {hasActiveLoyaltyItem && selectedLoyaltyReward ? (
+                <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
+                  Free {selectedLoyaltyReward.name} (
+                  {selectedLoyaltyReward.weight}) added to the order
+                </p>
+              ) : null}
+
+              {hasActiveLoyalty ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={clearLoyaltyReward}
+                >
+                  Clear loyalty reward
+                </Button>
+              ) : null}
+
+              <Button
+                type="button"
+                className="w-full"
+                onClick={() => setMenuPanel("menu")}
+              >
+                Done — back to menu
+              </Button>
             </div>
           ) : items.length === 0 ? (
             <div className="flex min-h-40 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">

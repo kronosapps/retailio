@@ -1,0 +1,44 @@
+{
+  "items": [
+    {
+      "id": "loyalty-bellam-halwa-100",
+      "name": "Bellam Halwa",
+      "weight": "100 gm",
+      "value": 110,
+      "color": "#FED7AA",
+      "image": "/menu/bellam-halwa.png"
+    },
+    {
+      "id": "loyalty-honey-halwa-100",
+      "name": "Honey Halwa",
+      "weight": "100 gm",
+      "value": 120,
+      "color": "#FDE68A",
+      "image": "/menu/honey-halwa.png"
+    },
+    {
+      "id": "loyalty-multi-nuts-halwa-100",
+      "name": "Multi Nuts Halwa",
+      "weight": "100 gm",
+      "value": 149,
+      "color": "#FDBA74",
+      "image": "/menu/multi-nuts-halwa.png"
+    },
+    {
+      "id": "loyalty-dry-fruit-laddu",
+      "name": "Dry Fruit Laddu",
+      "weight": "1 Box",
+      "value": 299,
+      "color": "#FEF08A",
+      "image": "/menu/dry-fruit-laddu.png"
+    },
+    {
+      "id": "loyalty-putharekulu",
+      "name": "Atreyapuram Putharekulu",
+      "weight": "1 Box",
+      "value": 249,
+      "color": "#FDE68A",
+      "image": "/menu/putharekulu.png"
+    }
+  ]
+}
