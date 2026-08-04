@@ -9,10 +9,13 @@ import "./index.css"
 
 const queryClient = new QueryClient()
 
+// Vite BASE_URL is "/retailio/" in production; React Router wants no trailing slash.
+const routerBasename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/"
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <BrowserRouter basename={routerBasename === "/" ? undefined : routerBasename}>
         <AuthProvider>
           <App />
         </AuthProvider>

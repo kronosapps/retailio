@@ -3,13 +3,13 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": " https://kronosapps.github.io/retailio/",
+  "homepage": "https://kronosapps.github.io/retailio/",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "predeploy": "npm run build",
+    "predeploy": "npm run build && node scripts/copy-404.mjs",
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {

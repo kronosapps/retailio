@@ -1,4 +1,5 @@
 import menuData from "./menu.json"
+import { assetUrl } from "@/lib/asset-url"
 
 export type MenuWeight = {
   weight: string
@@ -57,7 +58,7 @@ function normalizeWeights(
         ? (entry as MenuWeight).color
         : fallbackColor
 
-    const image =
+    const imageRaw =
       typeof (entry as { image?: unknown }).image === "string" &&
       (entry as { image: string }).image
         ? (entry as { image: string }).image
@@ -68,7 +69,7 @@ function normalizeWeights(
       price: (entry as MenuWeight).price,
       color,
     }
-    if (image) weight.image = image
+    if (imageRaw) weight.image = assetUrl(imageRaw)
     weights.push(weight)
   }
   return weights
@@ -93,8 +94,11 @@ function normalizeMenuData(raw: unknown): MenuData {
       }
 
       const itemColor = typeof item.color === "string" ? item.color : "#e5e5e5"
-      const itemImage = typeof item.image === "string" ? item.image : undefined
-      const weights = normalizeWeights(item.weights, itemColor, itemImage)
+      const itemImageRaw =
+        typeof item.image === "string" ? item.image : undefined
+      const itemImage = itemImageRaw ? assetUrl(itemImageRaw) : undefined
+      // Pass raw fallback into weights so each weight applies assetUrl once
+      const weights = normalizeWeights(item.weights, itemColor, itemImageRaw)
       if (weights.length === 0) continue
 
       const normalized: MenuItem = {
