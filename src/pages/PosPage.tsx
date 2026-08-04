@@ -20,11 +20,95 @@ type CartLine = {
   qty: number
 }
 
+function isMultiWeightItem(item: MenuItem) {
+  return item.weights.length > 1
+}
+
+function WeightTile({
+  item,
+  weightOption,
+  onAdd,
+}: {
+  item: MenuItem
+  weightOption: MenuWeight
+  onAdd: () => void
+}) {
+  const image = weightOption.image || item.image
+  return (
+    <button
+      type="button"
+      onClick={onAdd}
+      className="relative flex min-h-[5.5rem] flex-col items-start justify-between overflow-hidden rounded-lg border border-black/10 p-2.5 text-left text-white shadow-sm transition-transform active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      style={{
+        backgroundColor: weightOption.color || item.color || "#44403c",
+        backgroundImage: image
+          ? `linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0.2)), url("${image}")`
+          : "linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.2))",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      <span className="relative z-10 text-xs font-semibold drop-shadow sm:text-sm">
+        {weightOption.weight}
+      </span>
+      <span className="relative z-10 text-xs font-medium drop-shadow sm:text-sm">
+        {formatMoney(weightOption.price)}
+      </span>
+    </button>
+  )
+}
+
+function SingleProductCard({
+  item,
+  onAdd,
+}: {
+  item: MenuItem
+  onAdd: (item: MenuItem, weight: MenuWeight) => void
+}) {
+  const weightOption = item.weights[0]
+  if (!weightOption) return null
+  const image = weightOption.image || item.image
+
+  return (
+    <button
+      type="button"
+      onClick={() => onAdd(item, weightOption)}
+      className="relative flex min-h-40 flex-col items-stretch justify-end overflow-hidden rounded-xl border border-black/15 text-left text-white shadow-sm transition-transform active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      style={{
+        backgroundColor: weightOption.color || item.color || "#44403c",
+        backgroundImage: image
+          ? `linear-gradient(to top, rgba(0,0,0,0.82), rgba(0,0,0,0.2)), url("${image}")`
+          : "linear-gradient(to top, rgba(0,0,0,0.75), rgba(0,0,0,0.35))",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      <div className="relative z-10 space-y-1 p-3">
+        <p className="line-clamp-2 text-sm font-semibold drop-shadow sm:text-base">
+          {item.name}
+        </p>
+        <p className="text-xs text-white/90 drop-shadow">{weightOption.weight}</p>
+        <p className="text-sm font-semibold drop-shadow">
+          {formatMoney(weightOption.price)}
+        </p>
+      </div>
+    </button>
+  )
+}
+
 export function PosPage() {
   const [category, setCategory] = useState<MenuCategory>("All")
   const [cart, setCart] = useState<CartLine[]>([])
 
   const items = useMemo(() => getMenuItemsByCategory(category), [category])
+  const multiWeightItems = useMemo(
+    () => items.filter(isMultiWeightItem),
+    [items]
+  )
+  const singleWeightItems = useMemo(
+    () => items.filter((item) => !isMultiWeightItem(item)),
+    [items]
+  )
 
   const subtotal = cart.reduce(
     (sum, line) => sum + line.item.price * line.qty,
@@ -187,8 +271,8 @@ export function PosPage() {
               No items in this category
             </div>
           ) : (
-            <div className="space-y-4">
-              {items.map((item) => (
+            <div className="space-y-6">
+              {multiWeightItems.map((item) => (
                 <div
                   key={item.id}
                   className="rounded-xl border border-border bg-background p-3"
@@ -196,38 +280,51 @@ export function PosPage() {
                   <h3 className="mb-2 text-sm font-semibold tracking-tight sm:text-base">
                     {item.name}
                   </h3>
-                  <div className="grid grid-cols-4 gap-2">
-                    {item.weights.map((weightOption) => {
-                      const image =
-                        weightOption.image || item.image || undefined
-                      return (
-                        <button
-                          key={`${item.id}-${weightOption.weight}`}
-                          type="button"
-                          onClick={() => addWeight(item, weightOption)}
-                          className="relative flex min-h-[5.5rem] flex-col items-start justify-between overflow-hidden rounded-lg border border-black/10 p-2.5 text-left text-white shadow-sm transition-transform active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          style={{
-                            backgroundColor:
-                              weightOption.color || item.color || "#e5e5e5",
-                            backgroundImage: image
-                              ? `linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0.2)), url(${image})`
-                              : undefined,
-                            backgroundSize: "cover",
-                            backgroundPosition: "center",
-                          }}
-                        >
-                          <span className="relative z-10 text-xs font-semibold drop-shadow sm:text-sm">
-                            {weightOption.weight}
-                          </span>
-                          <span className="relative z-10 text-xs font-medium drop-shadow sm:text-sm">
-                            {formatMoney(weightOption.price)}
-                          </span>
-                        </button>
-                      )
-                    })}
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                      gap: "0.5rem",
+                    }}
+                  >
+                    {item.weights.map((weightOption) => (
+                      <WeightTile
+                        key={`${item.id}-${weightOption.weight}`}
+                        item={item}
+                        weightOption={weightOption}
+                        onAdd={() => addWeight(item, weightOption)}
+                      />
+                    ))}
                   </div>
                 </div>
               ))}
+
+              {singleWeightItems.length > 0 ? (
+                <div className="space-y-2" data-menu-layout="product-grid">
+                  {multiWeightItems.length > 0 ? (
+                    <h3 className="text-sm font-semibold text-muted-foreground">
+                      Products
+                    </h3>
+                  ) : null}
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(auto-fill, minmax(10.5rem, 1fr))",
+                      gap: "0.75rem",
+                      width: "100%",
+                    }}
+                  >
+                    {singleWeightItems.map((item) => (
+                      <SingleProductCard
+                        key={item.id}
+                        item={item}
+                        onAdd={addWeight}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
           )}
         </div>
