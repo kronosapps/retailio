@@ -1,4 +1,5 @@
 import discountData from "./discounts.json"
+import { type Paisa, percentOfPaisa, roundPaisa } from "@/lib/money"
 import { splitInclusiveGst, taxConfig } from "./tax"
 
 export type OccasionDiscount = {
@@ -63,22 +64,24 @@ export function clampDiscountPercent(value: number, maxPercent: number) {
 }
 
 export type OrderLineInput = {
-  unitPrice: number
+  /** Unit price in paisa. */
+  unitPricePaisa: Paisa
   qty: number
 }
 
+/** All money fields are integer paisa. */
 export type OrderTotals = {
-  grossSubtotal: number
-  friendsFamilyDiscount: number
+  grossSubtotal: Paisa
+  friendsFamilyDiscount: Paisa
   friendsFamilyPercent: number
-  afterFriendsFamily: number
-  occasionDiscount: number
+  afterFriendsFamily: Paisa
+  occasionDiscount: Paisa
   occasionPercent: number
   occasionName: string | null
-  /** Payable amount (menu prices after discounts; GST inclusive). */
-  total: number
-  taxableAmount: number
-  gstAmount: number
+  /** Payable amount after discounts (GST inclusive), in paisa. */
+  total: Paisa
+  taxableAmount: Paisa
+  gstAmount: Paisa
   gstPercent: number
   gstLabel: string
 }
@@ -91,20 +94,22 @@ export function calculateOrderTotals(
     friendsFamilyPercent: number
   }
 ): OrderTotals {
-  const grossSubtotal = lines.reduce(
-    (sum, line) => sum + line.unitPrice * line.qty,
-    0
+  const grossSubtotal = roundPaisa(
+    lines.reduce((sum, line) => sum + line.unitPricePaisa * line.qty, 0)
   )
 
   const friendsFamilyPercent = Math.max(0, options.friendsFamilyPercent)
-  const friendsFamilyDiscount = (grossSubtotal * friendsFamilyPercent) / 100
+  const friendsFamilyDiscount = percentOfPaisa(
+    grossSubtotal,
+    friendsFamilyPercent
+  )
   const afterFriendsFamily = Math.max(0, grossSubtotal - friendsFamilyDiscount)
 
   const occasion = options.applyOccasion ? options.occasion : null
   const occasionPercent = occasion?.percent ?? 0
   const occasionDiscount =
     occasion && occasionPercent > 0
-      ? (afterFriendsFamily * occasionPercent) / 100
+      ? percentOfPaisa(afterFriendsFamily, occasionPercent)
       : 0
 
   const total = Math.max(0, afterFriendsFamily - occasionDiscount)

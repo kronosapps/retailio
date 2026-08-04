@@ -134,7 +134,7 @@ export function PosPage() {
     () =>
       calculateOrderTotals(
         cart.map((line) => ({
-          unitPrice: line.item.price,
+          unitPricePaisa: line.item.price,
           qty: line.qty,
         })),
         {

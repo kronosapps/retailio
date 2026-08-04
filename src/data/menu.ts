@@ -1,9 +1,14 @@
 import menuData from "./menu.json"
 import { assetUrl } from "@/lib/asset-url"
+import { type Paisa, rupeesToPaisa } from "@/lib/money"
+
+export type { Paisa }
+export { formatMoney, paisaToRupees, rupeesToPaisa } from "@/lib/money"
 
 export type MenuWeight = {
   weight: string
-  price: number
+  /** Unit price in paisa (integer). menu.json authors prices in rupees. */
+  price: Paisa
   color: string
   image?: string
 }
@@ -23,7 +28,8 @@ export type MenuVariant = {
   itemId: string
   name: string
   weight: string
-  price: number
+  /** Unit price in paisa (integer). */
+  price: Paisa
   category: string
   color: string
   image?: string
@@ -66,7 +72,8 @@ function normalizeWeights(
 
     const weight: MenuWeight = {
       weight: (entry as MenuWeight).weight,
-      price: (entry as MenuWeight).price,
+      // Authoring unit in menu.json is rupees; runtime is paisa.
+      price: rupeesToPaisa((entry as MenuWeight).price),
       color,
     }
     if (imageRaw) weight.image = assetUrl(imageRaw)
@@ -156,12 +163,4 @@ export function toMenuVariant(
   }
   if (image) variant.image = image
   return variant
-}
-
-export function formatMoney(amount: number) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(amount)
 }

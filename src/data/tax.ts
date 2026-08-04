@@ -1,3 +1,5 @@
+import { type Paisa, roundPaisa } from "@/lib/money"
+
 import taxData from "./tax.json"
 
 export type GstConfig = {
@@ -13,25 +15,27 @@ export type TaxConfig = {
 
 export const taxConfig = taxData as TaxConfig
 
-function roundMoney(amount: number) {
-  return Math.round(amount)
-}
-
-/** Split an inclusive total into taxable value + GST (sums exactly to total). */
-export function splitInclusiveGst(inclusiveTotal: number, percent = taxConfig.gst.percent) {
-  const total = Math.max(0, inclusiveTotal)
+/**
+ * Split an inclusive paisa total into taxable value + GST.
+ * GST is rounded to the nearest paisa; taxable + gst === total.
+ */
+export function splitInclusiveGst(
+  inclusiveTotalPaisa: Paisa,
+  percent = taxConfig.gst.percent
+) {
+  const total = Math.max(0, roundPaisa(inclusiveTotalPaisa))
   const rate = Math.max(0, percent)
 
   if (total <= 0 || rate <= 0) {
     return {
       taxableAmount: total,
-      gstAmount: 0,
+      gstAmount: 0 as Paisa,
       gstPercent: rate,
       total,
     }
   }
 
-  const gstAmount = roundMoney((total * rate) / (100 + rate))
+  const gstAmount = roundPaisa((total * rate) / (100 + rate))
   const taxableAmount = total - gstAmount
 
   return {
