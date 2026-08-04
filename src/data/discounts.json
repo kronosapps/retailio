@@ -1,0 +1,16 @@
+{
+  "occasion": {
+    "id": "festival-offer",
+    "name": "Festival Offer",
+    "percent": 10,
+    "active": true,
+    "startsOn": "2026-01-01",
+    "endsOn": "2026-12-31",
+    "note": "Fixed store-wide discount for the active occasion period"
+  },
+  "friendsAndFamily": {
+    "presets": [5, 10, 15, 20, 25],
+    "maxPercent": 50,
+    "note": "Variable whole-order discount for friends and family"
+  }
+}
