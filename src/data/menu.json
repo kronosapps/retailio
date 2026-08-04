@@ -1,82 +1,123 @@
 {
-  "categories": ["Halwa", "Snacks", "Drinks"],
+  "categories": ["Madugula Halwa","Halwa Rolls", "Laddu", "Putharekulu","Combo"],
   "items": [
     {
       "id": "bellam-halwa",
       "name": "Bellam Halwa",
-      "category": "Halwa",
+      "category": "Madugula Halwa",
       "color": "#FDE68A",
-      "image": "/menu/bellam-halwa.jpg",
+      "image": "/menu/bellam-halwa-main.png",
       "weights": [
-        { "weight": "100 gm", "price": 80, "color": "#FED7AA", "image": "/menu/bellam-halwa.jpg" },
-        { "weight": "250 gm", "price": 180, "color": "#FED7EB", "image": "/menu/bellam-halwa.jpg" },
-        { "weight": "500 gm", "price": 340, "color": "#FED7EF", "image": "/menu/bellam-halwa.jpg" },
-        { "weight": "1 kg", "price": 650, "color": "#FED7EE", "image": "/menu/bellam-halwa.jpg" }
+        { "weight": "100 gm", "price": 110, "color": "#FED7AA", "image": "/menu/bellam-halwa.png" },
+        { "weight": "250 gm", "price": 249, "color": "#FED7EB", "image": "/menu/bellam-halwa.png" },
+        { "weight": "500 gm", "price": 499, "color": "#FED7EF", "image": "/menu/bellam-halwa.png" },
+        { "weight": "1 kg", "price": 999, "color": "#FED7EE", "image": "/menu/bellam-halwa.png" }
       ]
     },
     {
-      "id": "badam-halwa",
-      "name": "Badam Halwa",
-      "category": "Halwa",
+      "id": "honey-halwa",
+      "name": "Honey Halwa",
+      "category": "Madugula Halwa",
       "color": "#FED7AA",
-      "image": "/menu/badam-halwa.jpg",
+      "image": "/menu/bellam-halwa-main.png",
       "weights": [
-        { "weight": "100 gm", "price": 120, "color": "#FDE68A", "image": "/menu/badam-halwa.jpg" },
-        { "weight": "250 gm", "price": 280, "color": "#FCD34D", "image": "/menu/badam-halwa.jpg" },
-        { "weight": "500 gm", "price": 520, "color": "#FBBF24", "image": "/menu/badam-halwa.jpg" },
-        { "weight": "1 kg", "price": 980, "color": "#F59E0B", "image": "/menu/badam-halwa.jpg" }
+        { "weight": "100 gm", "price": 120, "color": "#FDE68A", "image": "/menu/honey-halwa.png" },
+        { "weight": "250 gm", "price": 275, "color": "#FCD34D", "image": "/menu/honey-halwa.png" },
+        { "weight": "500 gm", "price": 549, "color": "#FBBF24", "image": "/menu/honey-halwa.png" },
+        { "weight": "1 kg", "price": 1049, "color": "#F59E0B", "image": "/menu/honey-halwa.png" }
       ]
     },
     {
-      "id": "carrot-halwa",
-      "name": "Carrot Halwa",
-      "category": "Halwa",
+      "id": "multi-nuts-halwa",
+      "name": "Multi Nuts Halwa",
+      "category": "Madugula Halwa",
       "color": "#FDBA74",
-      "image": "/menu/carrot-halwa.jpg",
+      "image": "/menu/bellam-halwa-main.png",
       "weights": [
-        { "weight": "100 gm", "price": 90, "color": "#FED7AA", "image": "/menu/carrot-halwa.jpg" },
-        { "weight": "250 gm", "price": 210, "color": "#FDBA74", "image": "/menu/carrot-halwa.jpg" },
-        { "weight": "500 gm", "price": 390, "color": "#FB923C", "image": "/menu/carrot-halwa.jpg" },
-        { "weight": "1 kg", "price": 740, "color": "#F97316", "image": "/menu/carrot-halwa.jpg" }
+        { "weight": "100 gm", "price": 149, "color": "#FED7AA", "image": "/menu/multi-nuts-halwa.png" },
+        { "weight": "250 gm", "price": 349, "color": "#FDBA74", "image": "/menu/multi-nuts-halwa.png" },
+        { "weight": "500 gm", "price": 699, "color": "#FB923C", "image": "/menu/multi-nuts-halwa.png" },
+        { "weight": "1 kg", "price": 1349, "color": "#F97316", "image": "/menu/multi-nuts-halwa.png" }
       ]
     },
     {
-      "id": "mixture",
-      "name": "Mixture",
-      "category": "Snacks",
+      "id": "bellam-halwa-rolls",
+      "name": "Bellam Halwa Rolls",
+      "category": "Halwa Rolls",
+      "color": "#FED7AA",
+      "image": "/menu/halwa-rolls.png",
+      "weights": [
+        { "weight": "500 gm", "price": 550, "color": "#FDE68A", "image": "/menu/halwa-rolls.png" }
+      ]
+    },
+    {
+      "id": "honey-halwa-rolls",
+      "name": "Honey Halwa Rolls",
+      "category": "Halwa Rolls",
+      "color": "#FED7AA",
+      "image": "/menu/halwa-rolls.png",
+      "weights": [
+        { "weight": "500 gm", "price": 600, "color": "#FDE68A", "image": "/menu/halwa-rolls.png" }
+      ]
+    },
+    {
+      "id": "dry-fruit-laddu",
+      "name": "Dry Fruit Laddu",
+      "category": "Laddu",
       "color": "#FEF08A",
-      "image": "/menu/mixture.jpg",
+      "image": "/menu/dry-fruit-laddu.png",
       "weights": [
-        { "weight": "100 gm", "price": 40, "color": "#FEF08A", "image": "/menu/mixture.jpg" },
-        { "weight": "250 gm", "price": 90, "color": "#FDE047", "image": "/menu/mixture.jpg" },
-        { "weight": "500 gm", "price": 170, "color": "#FACC15", "image": "/menu/mixture.jpg" },
-        { "weight": "1 kg", "price": 320, "color": "#EAB308", "image": "/menu/mixture.jpg" }
+        { "weight": "1 Box", "price": 299, "color": "#FEF08A", "image": "/menu/dry-fruit-laddu.png" }
       ]
     },
     {
-      "id": "murukku",
-      "name": "Murukku",
-      "category": "Snacks",
+      "id": "putharekulu",
+      "name": "Atreyapuram Putharekulu",
+      "category": "Putharekulu",
       "color": "#FCD34D",
-      "image": "/menu/murukku.jpg",
+      "image": "/menu/putharekulu.png",
       "weights": [
-        { "weight": "100 gm", "price": 50, "color": "#FDE68A", "image": "/menu/murukku.jpg" },
-        { "weight": "250 gm", "price": 110, "color": "#FCD34D", "image": "/menu/murukku.jpg" },
-        { "weight": "500 gm", "price": 200, "color": "#FBBF24", "image": "/menu/murukku.jpg" },
-        { "weight": "1 kg", "price": 380, "color": "#D97706", "image": "/menu/murukku.jpg" }
+        { "weight": "1 Box", "price": 249, "color": "#FDE68A", "image": "/menu/putharekulu.png" }
       ]
     },
     {
-      "id": "filter-coffee",
-      "name": "Filter Coffee",
-      "category": "Drinks",
+      "id": "regular-combo",
+      "name": "Regular Combo",
+      "category": "Combo",
       "color": "#D6D3D1",
-      "image": "/menu/filter-coffee.jpg",
+      "image": "/menu/regular-combo.png",
       "weights": [
-        { "weight": "100 gm", "price": 60, "color": "#E7E5E4", "image": "/menu/filter-coffee.jpg" },
-        { "weight": "250 gm", "price": 140, "color": "#D6D3D1", "image": "/menu/filter-coffee.jpg" },
-        { "weight": "500 gm", "price": 260, "color": "#A8A29E", "image": "/menu/filter-coffee.jpg" },
-        { "weight": "1 kg", "price": 480, "color": "#78716C", "image": "/menu/filter-coffee.jpg" }
+        { "weight": "3 Items", "price": 699, "color": "#E7E5E4", "image": "/menu/regular-combo.png" }
+      ]
+    },
+    {
+      "id": "trio-combo",
+      "name": "Trio Combo",
+      "category": "Combo",
+      "color": "#D6D3D1",
+      "image": "/menu/trio-combo.png",
+      "weights": [
+        { "weight": "3 Items", "price": 799, "color": "#E7E5E4", "image": "/menu/trio-combo.png" }
+      ]
+    },
+    {
+      "id": "family-combo",
+      "name": "Family Combo",
+      "category": "Combo",
+      "color": "#D6D3D1",
+      "image": "/menu/family-combo.png",
+      "weights": [
+        { "weight": "5 Items", "price": 1299, "color": "#E7E5E4", "image": "/menu/family-combo.png" }
+      ]
+    },
+    {
+      "id": "premium-combo",
+      "name": "Premium Combo",
+      "category": "Combo",
+      "color": "#D6D3D1",
+      "image": "/menu/premium-combo.png",
+      "weights": [
+        { "weight": "3 Items", "price": 799, "color": "#E7E5E4", "image": "/menu/premium-combo.png" }
       ]
     }
   ]
