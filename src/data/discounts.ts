@@ -1,4 +1,5 @@
 import discountData from "./discounts.json"
+import { splitInclusiveGst, taxConfig } from "./tax"
 
 export type OccasionDiscount = {
   id: string
@@ -74,7 +75,12 @@ export type OrderTotals = {
   occasionDiscount: number
   occasionPercent: number
   occasionName: string | null
+  /** Payable amount (menu prices after discounts; GST inclusive). */
   total: number
+  taxableAmount: number
+  gstAmount: number
+  gstPercent: number
+  gstLabel: string
 }
 
 export function calculateOrderTotals(
@@ -101,6 +107,9 @@ export function calculateOrderTotals(
       ? (afterFriendsFamily * occasionPercent) / 100
       : 0
 
+  const total = Math.max(0, afterFriendsFamily - occasionDiscount)
+  const gst = splitInclusiveGst(total, taxConfig.gst.percent)
+
   return {
     grossSubtotal,
     friendsFamilyDiscount,
@@ -109,6 +118,10 @@ export function calculateOrderTotals(
     occasionDiscount,
     occasionPercent,
     occasionName: occasion?.name ?? null,
-    total: Math.max(0, afterFriendsFamily - occasionDiscount),
+    total,
+    taxableAmount: gst.taxableAmount,
+    gstAmount: gst.gstAmount,
+    gstPercent: gst.gstPercent,
+    gstLabel: taxConfig.gst.label,
   }
 }

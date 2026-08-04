@@ -290,10 +290,34 @@ export function PosPage() {
                 </span>
               </div>
             ) : null}
+            {cart.length > 0 && totals.gstAmount > 0 ? (
+              <>
+                <Separator className="my-1" />
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>Taxable value</span>
+                  <span className="tabular-nums">
+                    {formatMoney(totals.taxableAmount)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>
+                    {totals.gstLabel} ({totals.gstPercent}%)
+                  </span>
+                  <span className="tabular-nums">
+                    {formatMoney(totals.gstAmount)}
+                  </span>
+                </div>
+              </>
+            ) : null}
             <div className="flex items-center justify-between font-semibold">
               <span>Total</span>
               <span className="tabular-nums">{formatMoney(totals.total)}</span>
             </div>
+            {cart.length > 0 && totals.gstAmount > 0 ? (
+              <p className="text-[11px] text-muted-foreground">
+                Inclusive of {totals.gstLabel} — charge unchanged
+              </p>
+            ) : null}
           </div>
 
           <Button

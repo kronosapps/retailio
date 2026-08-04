@@ -1,0 +1,8 @@
+{
+  "gst": {
+    "percent": 5,
+    "label": "GST",
+    "inclusive": true,
+    "note": "Menu prices are inclusive of GST. GST is broken out from the payable total and does not increase the charge."
+  }
+}
