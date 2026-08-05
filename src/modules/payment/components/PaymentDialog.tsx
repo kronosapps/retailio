@@ -366,6 +366,41 @@ export function PaymentDialog() {
                     placeholder="Prefer VITE_GOOGLE_SCRIPT_URL in .env"
                   />
                 </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="wa-business-name">
+                    WhatsApp business name
+                  </Label>
+                  <Input
+                    id="wa-business-name"
+                    value={settings.whatsappBusinessName}
+                    onChange={(event) =>
+                      persistSettings({
+                        whatsappBusinessName: event.target.value,
+                      })
+                    }
+                    placeholder="e.g. Pavani's Foods"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="wa-webhook">
+                    WhatsApp send webhook
+                  </Label>
+                  <Input
+                    id="wa-webhook"
+                    value={settings.whatsappWebhookUrl}
+                    onChange={(event) =>
+                      persistSettings({
+                        whatsappWebhookUrl: event.target.value,
+                      })
+                    }
+                    placeholder="Prefer VITE_WHATSAPP_WEBHOOK_URL in .env"
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground sm:col-span-2">
+                  Company WhatsApp needs a Business API / BSP webhook — see{" "}
+                  <code className="text-[10px]">docs/WHATSAPP_RECEIPTS.md</code>
+                  . Never paste Meta API tokens into the browser app.
+                </p>
               </div>
             ) : null}
           </div>

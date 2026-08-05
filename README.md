@@ -76,3 +76,5 @@ Script: [`scripts/wipe-firestore.mjs`](scripts/wipe-firestore.mjs)
 - Prefer `npm run db:wipe` (with confirmation) for manual use; reserve `--force` for automation.
 
 More Firebase architecture notes: [`docs/FIREBASE.md`](docs/FIREBASE.md).
+
+Company WhatsApp receipts (business number via webhook): [`docs/WHATSAPP_RECEIPTS.md`](docs/WHATSAPP_RECEIPTS.md).

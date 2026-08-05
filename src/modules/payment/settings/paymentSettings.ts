@@ -10,6 +10,10 @@ export type PaymentSettings = {
   paymentTimeoutMinutes: number
   /** Optional Apps Script / webhook URL. Empty = skip Sheets sync. */
   sheetsWebhookUrl: string
+  /** Label shown when sending receipts from company WhatsApp */
+  whatsappBusinessName: string
+  /** Webhook that delivers messages via WhatsApp Business API / BSP */
+  whatsappWebhookUrl: string
 }
 
 function sanitize(settings: Partial<PaymentSettings>): PaymentSettings {
@@ -38,6 +42,14 @@ function sanitize(settings: Partial<PaymentSettings>): PaymentSettings {
     sheetsWebhookUrl:
       typeof settings.sheetsWebhookUrl === "string"
         ? settings.sheetsWebhookUrl.trim()
+        : "",
+    whatsappBusinessName:
+      typeof settings.whatsappBusinessName === "string"
+        ? settings.whatsappBusinessName.trim()
+        : "",
+    whatsappWebhookUrl:
+      typeof settings.whatsappWebhookUrl === "string"
+        ? settings.whatsappWebhookUrl.trim()
         : "",
   }
 }

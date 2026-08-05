@@ -4,5 +4,11 @@ export {
   buildWhatsAppReceiptUrl,
   loadReceiptContext,
   normalizeWhatsAppPhone,
-  printReceipt,
 } from "./buildReceipt"
+export { printReceipt } from "./printReceipt"
+export {
+  getWhatsAppBusinessLabel,
+  getWhatsAppWebhookUrl,
+  isBusinessWhatsAppConfigured,
+  sendBusinessWhatsAppReceipt,
+} from "./whatsappClient"

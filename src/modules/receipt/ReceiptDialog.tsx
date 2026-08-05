@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react"
-import { MessageCircle, Printer, QrCode, Smartphone, X } from "lucide-react"
+import {
+  CheckCircle2,
+  MessageCircle,
+  Printer,
+  QrCode,
+  Smartphone,
+  X,
+} from "lucide-react"
 import QRCode from "qrcode"
 
 import { Button } from "@/components/ui/button"
@@ -25,9 +32,14 @@ import {
   buildWhatsAppReceiptUrl,
   loadReceiptContext,
   normalizeWhatsAppPhone,
-  printReceipt,
   type ReceiptContext,
 } from "./buildReceipt"
+import { printReceipt } from "./printReceipt"
+import {
+  getWhatsAppBusinessLabel,
+  isBusinessWhatsAppConfigured,
+  sendBusinessWhatsAppReceipt,
+} from "./whatsappClient"
 
 type SendMode = "phone" | "qr"
 
@@ -45,7 +57,11 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
   const [mobile, setMobile] = useState("")
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [status, setStatus] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [businessConfigured, setBusinessConfigured] = useState(() =>
+    isBusinessWhatsAppConfigured()
+  )
 
   useEffect(() => {
     if (!invoiceId) {
@@ -56,6 +72,7 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
       setMobile("")
       setQrDataUrl(null)
       setError(null)
+      setStatus(null)
       return
     }
 
@@ -66,6 +83,8 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
     setMobile("")
     setQrDataUrl(null)
     setError(null)
+    setStatus(null)
+    setBusinessConfigured(isBusinessWhatsAppConfigured())
   }, [invoiceId])
 
   const ctx: ReceiptContext | null =
@@ -96,7 +115,7 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
       })
       .catch(() => {
         if (!cancelled) {
-          setError("Could not generate WhatsApp QR. Try phone number instead.")
+          setError("Could not generate QR. Use mobile number instead.")
           setQrDataUrl(null)
         }
       })
@@ -109,26 +128,65 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
     }
   }, [sale, payment, panel, sendMode])
 
-  function handlePrint() {
+  async function handlePrint() {
     if (!ctx) return
     setError(null)
-    const ok = printReceipt(ctx)
-    if (!ok) {
-      setError("Pop-up blocked. Allow pop-ups to print the receipt.")
+    setStatus(null)
+    setBusy(true)
+    try {
+      const ok = await printReceipt(ctx)
+      if (!ok) {
+        setError("Could not open the print dialog. Try again.")
+      } else {
+        setStatus("Print dialog opened — choose your printer.")
+      }
+    } finally {
+      setBusy(false)
     }
   }
 
-  function handleSendWhatsApp() {
-    if (!ctx) return
+  async function handleSendBusinessWhatsApp() {
+    if (!ctx || !sale) return
     setError(null)
+    setStatus(null)
     const phone = normalizeWhatsAppPhone(mobile)
     if (!phone) {
-      setError("Enter a valid 10-digit mobile number.")
+      setError("Enter a valid 10-digit customer mobile number.")
       return
     }
-    const text = buildReceiptText(ctx)
-    const url = buildWhatsAppReceiptUrl(text, phone)
-    window.open(url, "_blank", "noopener,noreferrer")
+
+    setBusy(true)
+    try {
+      await sendBusinessWhatsAppReceipt({
+        to: phone,
+        message: buildReceiptText(ctx),
+        invoiceId: sale.invoiceId,
+      })
+      setStatus(
+        `Receipt queued via ${getWhatsAppBusinessLabel()} WhatsApp to +${phone}.`
+      )
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not send receipt via company WhatsApp."
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function handleOpenDeviceWhatsApp() {
+    if (!ctx) return
+    setError(null)
+    setStatus(null)
+    const phone = normalizeWhatsAppPhone(mobile)
+    if (!phone) {
+      setError("Enter a valid 10-digit customer mobile number.")
+      return
+    }
+    const url = buildWhatsAppReceiptUrl(buildReceiptText(ctx), phone)
+    window.location.href = url
   }
 
   if (!open) return null
@@ -140,7 +198,7 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
         if (!next) onClose()
       }}
     >
-      <DialogContent className="max-w-md sm:max-w-lg" showCloseButton={false}>
+      <DialogContent className="max-h-[min(92vh,820px)] max-w-md overflow-y-auto sm:max-w-lg" showCloseButton={false}>
         <DialogHeader>
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -168,19 +226,20 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
             Could not load this invoice for receipt.
           </p>
         ) : panel === "menu" ? (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Payment recorded. Print a paper receipt or send it on WhatsApp.
-            </p>
+          <div className="space-y-4">
+            <pre className="max-h-48 overflow-auto rounded-lg border border-border bg-muted/30 p-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
+              {buildReceiptText(ctx)}
+            </pre>
             <div className="grid gap-2 sm:grid-cols-2">
               <Button
                 type="button"
                 size="lg"
                 className="h-auto flex-col gap-1 py-4"
-                onClick={handlePrint}
+                disabled={busy}
+                onClick={() => void handlePrint()}
               >
                 <Printer className="size-5" />
-                <span>Print receipt</span>
+                <span>{busy ? "Printing…" : "Print receipt"}</span>
               </Button>
               <Button
                 type="button"
@@ -190,6 +249,8 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
                 onClick={() => {
                   setPanel("send")
                   setError(null)
+                  setStatus(null)
+                  setBusinessConfigured(isBusinessWhatsAppConfigured())
                 }}
               >
                 <Smartphone className="size-5" />
@@ -199,6 +260,24 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
           </div>
         ) : (
           <div className="space-y-4">
+            {businessConfigured ? (
+              <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                Sending as{" "}
+                <span className="font-medium text-foreground">
+                  {getWhatsAppBusinessLabel()}
+                </span>{" "}
+                (company WhatsApp). Customer receives the message — no app opens
+                on this POS.
+              </p>
+            ) : (
+              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+                Company WhatsApp is not configured yet. Add{" "}
+                <code className="text-[10px]">VITE_WHATSAPP_WEBHOOK_URL</code>{" "}
+                or set the webhook under Payment → merchant settings. Until then
+                you can open WhatsApp on this device as a fallback.
+              </p>
+            )}
+
             <div className="flex gap-2">
               <button
                 type="button"
@@ -241,32 +320,44 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
                     onChange={(e) =>
                       setMobile(e.target.value.replace(/\D/g, "").slice(0, 12))
                     }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault()
-                        handleSendWhatsApp()
-                      }
-                    }}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Opens WhatsApp with the receipt message for this number.
-                  </p>
                 </div>
-                <Button
-                  type="button"
-                  className="w-full"
-                  disabled={mobile.replace(/\D/g, "").length < 10}
-                  onClick={handleSendWhatsApp}
-                >
-                  <MessageCircle data-icon="inline-start" />
-                  Send on WhatsApp
-                </Button>
+                {businessConfigured ? (
+                  <Button
+                    type="button"
+                    className="w-full"
+                    disabled={busy || mobile.replace(/\D/g, "").length < 10}
+                    onClick={() => void handleSendBusinessWhatsApp()}
+                  >
+                    <MessageCircle data-icon="inline-start" />
+                    {busy ? "Sending…" : "Send via company WhatsApp"}
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    className="w-full"
+                    disabled={mobile.replace(/\D/g, "").length < 10}
+                    onClick={handleOpenDeviceWhatsApp}
+                  >
+                    <MessageCircle data-icon="inline-start" />
+                    Open WhatsApp on this device
+                  </Button>
+                )}
+                {businessConfigured ? (
+                  <button
+                    type="button"
+                    className="w-full text-center text-xs text-muted-foreground underline-offset-2 hover:underline"
+                    onClick={handleOpenDeviceWhatsApp}
+                  >
+                    Or open WhatsApp on this device instead
+                  </button>
+                ) : null}
               </div>
             ) : (
               <div className="flex flex-col items-center gap-3">
                 {busy && !qrDataUrl ? (
                   <p className="text-sm text-muted-foreground">
-                    Generating WhatsApp QR…
+                    Generating QR…
                   </p>
                 ) : null}
                 {qrDataUrl ? (
@@ -279,8 +370,9 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
                   />
                 ) : null}
                 <p className="max-w-sm text-center text-xs text-muted-foreground">
-                  Customer scans this QR on their phone. WhatsApp opens with the
-                  receipt ready to send or save.
+                  Customer scans to open WhatsApp with the receipt text. For
+                  silent send from your business number, use Mobile number +
+                  company WhatsApp webhook.
                 </p>
               </div>
             )}
@@ -294,6 +386,7 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
               onClick={() => {
                 setPanel("menu")
                 setError(null)
+                setStatus(null)
               }}
             >
               Back to receipt options
@@ -301,9 +394,13 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
           </div>
         )}
 
-        {error ? (
-          <p className="text-sm text-destructive">{error}</p>
+        {status ? (
+          <p className="flex items-start gap-2 text-sm text-foreground">
+            <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-green-600" />
+            {status}
+          </p>
         ) : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
         <DialogFooter>
           <Button type="button" variant="secondary" onClick={onClose}>

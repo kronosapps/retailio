@@ -32,6 +32,12 @@ export const env = {
   /** Google Apps Script → Sheets (sync only, not source of truth) */
   googleScriptUrl: read("VITE_GOOGLE_SCRIPT_URL"),
 
+  /**
+   * WhatsApp Business send webhook (Apps Script / Cloud Function / BSP).
+   * Never put Meta access tokens in the browser — only a server webhook URL.
+   */
+  whatsappWebhookUrl: read("VITE_WHATSAPP_WEBHOOK_URL"),
+
   /** Local-auth fallback credentials (used only when Firebase is unset) */
   localAuth: {
     adminEmail: read("VITE_ADMIN_EMAIL") || "admin@retailos.local",

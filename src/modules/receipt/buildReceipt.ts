@@ -120,7 +120,7 @@ export function buildWhatsAppReceiptUrl(
   return `https://wa.me/?${params.toString()}`
 }
 
-/** Thermal-friendly HTML for window.print / print window. */
+/** Thermal-friendly HTML for iframe print. */
 export function buildReceiptHtml(ctx: ReceiptContext): string {
   const text = buildReceiptText(ctx)
     .replace(/&/g, "&amp;")
@@ -149,19 +149,4 @@ export function buildReceiptHtml(ctx: ReceiptContext): string {
 </head>
 <body>${text}</body>
 </html>`
-}
-
-export function printReceipt(ctx: ReceiptContext): boolean {
-  const html = buildReceiptHtml(ctx)
-  const popup = window.open("", "_blank", "noopener,noreferrer,width=420,height=720")
-  if (!popup) return false
-  popup.document.open()
-  popup.document.write(html)
-  popup.document.close()
-  popup.focus()
-  // Allow layout before print
-  window.setTimeout(() => {
-    popup.print()
-  }, 250)
-  return true
 }
