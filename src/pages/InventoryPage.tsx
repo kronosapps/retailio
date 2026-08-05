@@ -1,17 +1,22 @@
-import { useEffect, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useState, type FormEvent } from "react"
 import { PackagePlus, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { formatPackLabel } from "@/data/posCatalog"
 import {
   InventoryService,
   type InventoryRecord,
 } from "@/modules/inventory"
+import { ProductService, type ProductRecord } from "@/modules/products"
+import { cn } from "@/lib/utils"
 import { useAuth } from "@/providers/AuthProvider"
 
 type FormState = {
+  selectedSku: string
+  productId: string
   name: string
   sku: string
   quantity: string
@@ -21,13 +26,22 @@ type FormState = {
 }
 
 const EMPTY_FORM: FormState = {
+  selectedSku: "",
+  productId: "",
   name: "",
   sku: "",
   quantity: "",
-  unit: "kg",
-  category: "Ingredients",
+  unit: "",
+  category: "",
   notes: "",
 }
+
+const selectClassName = cn(
+  "h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-2.5 py-1 text-base shadow-xs outline-none transition-[color,box-shadow]",
+  "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+  "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
+  "md:text-sm dark:bg-input/30"
+)
 
 function formatWhen(iso: string): string {
   try {
@@ -40,15 +54,21 @@ function formatWhen(iso: string): string {
   }
 }
 
+function productOptionLabel(product: ProductRecord): string {
+  const pack = formatPackLabel(product.unitSize)
+  return `${product.name} · ${pack} (${product.sku})`
+}
+
 export function InventoryPage() {
   const { userId, profile } = useAuth()
   const [items, setItems] = useState<InventoryRecord[]>([])
+  const [products, setProducts] = useState<ProductRecord[]>([])
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  function refresh() {
+  function refreshInventory() {
     setItems(InventoryService.list())
   }
 
@@ -57,16 +77,25 @@ export function InventoryPage() {
 
     async function boot() {
       try {
-        await InventoryService.ensureSamples(
-          profile?.storeId ?? null,
-          userId
-        )
+        const [catalog] = await Promise.all([
+          ProductService.ensureCatalogSeeded(
+            profile?.storeId ?? null,
+            userId
+          ),
+          InventoryService.ensureSamples(profile?.storeId ?? null, userId),
+        ])
+        if (cancelled) return
+        setProducts(catalog.filter((p) => p.active !== false))
+        refreshInventory()
       } catch (err) {
         if (import.meta.env.DEV) {
-          console.warn("[RetailOS] Inventory sample seed failed", err)
+          console.warn("[RetailOS] Inventory page boot failed", err)
+        }
+        if (!cancelled) {
+          setProducts(ProductService.list().filter((p) => p.active !== false))
+          refreshInventory()
         }
       }
-      if (!cancelled) refresh()
     }
 
     void boot()
@@ -75,17 +104,50 @@ export function InventoryPage() {
     }
   }, [profile?.storeId, userId])
 
+  const sortedProducts = useMemo(() => {
+    return [...products].sort((a, b) => {
+      const byName = a.name.localeCompare(b.name, undefined, {
+        sensitivity: "base",
+      })
+      if (byName !== 0) return byName
+      return a.unitSize - b.unitSize
+    })
+  }, [products])
+
+  function onProductSelect(sku: string) {
+    if (!sku) {
+      setForm((f) => ({
+        ...EMPTY_FORM,
+        quantity: f.quantity,
+        notes: f.notes,
+      }))
+      return
+    }
+
+    const product = products.find((p) => p.sku === sku)
+    if (!product) return
+
+    setForm((f) => ({
+      ...f,
+      selectedSku: product.sku,
+      productId: product.productId,
+      name: product.name,
+      sku: product.sku,
+      unit: formatPackLabel(product.unitSize),
+      category: product.category,
+    }))
+  }
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
 
-    const name = form.name.trim()
-    const quantity = Number(form.quantity)
-
-    if (!name) {
-      setError("Name is required.")
+    if (!form.selectedSku || !form.name.trim() || !form.sku.trim()) {
+      setError("Select a product from the catalog.")
       return
     }
+
+    const quantity = Number(form.quantity)
     if (!Number.isFinite(quantity) || quantity < 0) {
       setError("Quantity must be zero or a positive number.")
       return
@@ -95,8 +157,9 @@ export function InventoryPage() {
     try {
       await InventoryService.create(
         {
-          name,
-          sku: form.sku,
+          name: form.name.trim(),
+          sku: form.sku.trim(),
+          productId: form.productId,
           quantity,
           unit: form.unit,
           category: form.category,
@@ -106,7 +169,7 @@ export function InventoryPage() {
         userId
       )
       setForm(EMPTY_FORM)
-      refresh()
+      refreshInventory()
     } catch (err) {
       if (import.meta.env.DEV) {
         console.error("[RetailOS] Add inventory failed", err)
@@ -127,7 +190,7 @@ export function InventoryPage() {
     setError(null)
     try {
       await InventoryService.delete(item.id)
-      refresh()
+      refreshInventory()
     } catch (err) {
       if (import.meta.env.DEV) {
         console.error("[RetailOS] Delete inventory failed", err)
@@ -143,9 +206,8 @@ export function InventoryPage() {
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Inventory</h1>
         <p className="text-sm text-muted-foreground">
-          Add stock when it arrives, remove items you no longer track. Changes
-          save locally, to Firestore when configured, and sync to the Inventory
-          Google Sheet.
+          Pick a product from the catalog, enter quantity, and save. Changes go
+          to local storage, Firestore, and the Inventory Google Sheet.
         </p>
       </header>
 
@@ -161,15 +223,36 @@ export function InventoryPage() {
           onSubmit={(e) => void onSubmit(e)}
           className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
         >
-          <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
+          <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+            <Label htmlFor="inv-product">Product</Label>
+            <select
+              id="inv-product"
+              className={selectClassName}
+              value={form.selectedSku}
+              onChange={(e) => onProductSelect(e.target.value)}
+              required
+            >
+              <option value="">
+                {sortedProducts.length === 0
+                  ? "Loading products…"
+                  : "Select a product…"}
+              </option>
+              {sortedProducts.map((product) => (
+                <option key={product.sku} value={product.sku}>
+                  {productOptionLabel(product)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
             <Label htmlFor="inv-name">Name</Label>
             <Input
               id="inv-name"
               value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="e.g. Almonds"
-              required
-              autoComplete="off"
+              readOnly
+              placeholder="Select a product"
+              className="bg-muted/40"
             />
           </div>
 
@@ -178,9 +261,31 @@ export function InventoryPage() {
             <Input
               id="inv-sku"
               value={form.sku}
-              onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
-              placeholder="Optional"
-              autoComplete="off"
+              readOnly
+              placeholder="Auto-filled"
+              className="bg-muted/40"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="inv-category">Category</Label>
+            <Input
+              id="inv-category"
+              value={form.category}
+              readOnly
+              placeholder="Auto-filled"
+              className="bg-muted/40"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="inv-unit">Unit / pack</Label>
+            <Input
+              id="inv-unit"
+              value={form.unit}
+              readOnly
+              placeholder="Auto-filled"
+              className="bg-muted/40"
             />
           </div>
 
@@ -200,43 +305,6 @@ export function InventoryPage() {
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="inv-unit">Unit</Label>
-            <Input
-              id="inv-unit"
-              value={form.unit}
-              onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
-              placeholder="kg, L, pcs…"
-              list="inv-unit-suggestions"
-            />
-            <datalist id="inv-unit-suggestions">
-              <option value="kg" />
-              <option value="L" />
-              <option value="pcs" />
-              <option value="pack" />
-              <option value="box" />
-            </datalist>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="inv-category">Category</Label>
-            <Input
-              id="inv-category"
-              value={form.category}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, category: e.target.value }))
-              }
-              placeholder="Ingredients, Packaging…"
-              list="inv-category-suggestions"
-            />
-            <datalist id="inv-category-suggestions">
-              <option value="Ingredients" />
-              <option value="Packaging" />
-              <option value="Finished goods" />
-              <option value="Consumables" />
-            </datalist>
-          </div>
-
           <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
             <Label htmlFor="inv-notes">Notes</Label>
             <Input
@@ -250,14 +318,18 @@ export function InventoryPage() {
           </div>
 
           <div className="flex items-center gap-3 sm:col-span-2 lg:col-span-3">
-            <Button type="submit" disabled={busy}>
+            <Button
+              type="submit"
+              disabled={busy || !form.selectedSku || sortedProducts.length === 0}
+            >
               {busy ? "Saving…" : "Add to inventory"}
             </Button>
             {error ? (
               <p className="text-sm text-destructive">{error}</p>
             ) : (
               <p className="text-xs text-muted-foreground">
-                Writes to database and queues a Google Sheets sync.
+                Name, SKU, category, and pack size come from the product
+                catalog.
               </p>
             )}
           </div>
