@@ -52,11 +52,11 @@ const ROUTES: Partial<Record<string, SheetRoute>> = {
   },
   [EventTypes.PRODUCT_CREATED]: {
     sheet: "Products",
-    sync: (p, data) => p.syncInventory(data),
+    sync: (p, data) => p.syncProduct(data),
   },
   [EventTypes.PRODUCT_UPDATED]: {
     sheet: "Products",
-    sync: (p, data) => p.syncInventory(data),
+    sync: (p, data) => p.syncProduct(data),
   },
 }
 

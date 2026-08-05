@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react"
 
 import { SplashScreen } from "@/components/SplashScreen"
-import { getMenuImageUrls } from "@/data/menu"
+import { getProductDisplayImageUrls } from "@/data/productDisplay"
 import { assetUrl } from "@/lib/asset-url"
 import { preloadImages } from "@/lib/preload-images"
 
@@ -23,7 +23,7 @@ export function AssetBootstrap({ children }: AssetBootstrapProps) {
       const urls = [
         assetUrl("/menu/bellam-halwa-main.png"),
         assetUrl("/favicon.svg"),
-        ...getMenuImageUrls(),
+        ...getProductDisplayImageUrls(),
       ]
 
       await preloadImages(urls, ({ ratio }) => {
@@ -54,7 +54,7 @@ export function AssetBootstrap({ children }: AssetBootstrapProps) {
       <SplashScreen
         progress={progress}
         title="RetailOS"
-        subtitle="Loading and caching menu images…"
+        subtitle="Loading and caching product images…"
       />
     )
   }

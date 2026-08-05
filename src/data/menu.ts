@@ -11,9 +11,13 @@ export type MenuWeight = {
   price: Paisa
   color: string
   image?: string
+  /** Catalog SKU when built from products DB */
+  sku?: string
+  barcode?: string | null
 }
 
 export type MenuItem = {
+  /** Product group id (catalog productId) or legacy menu item id */
   id: string
   name: string
   category: string
@@ -24,6 +28,7 @@ export type MenuItem = {
 
 /** A specific weight selection sold on POS / cart */
 export type MenuVariant = {
+  /** Unique cart key — catalog SKU when available */
   id: string
   itemId: string
   name: string
@@ -33,6 +38,8 @@ export type MenuVariant = {
   category: string
   color: string
   image?: string
+  sku?: string
+  barcode?: string | null
 }
 
 export type MenuData = {
@@ -125,10 +132,12 @@ function normalizeMenuData(raw: unknown): MenuData {
 
 export const menuCatalog = normalizeMenuData(menuData)
 
-export const MENU_CATEGORIES = ["All", ...menuCatalog.categories] as const
+/** @deprecated Prefer POS categories from `buildPosCatalog` / product DB */
+export const MENU_CATEGORIES = ["All", ...menuCatalog.categories]
 
-export type MenuCategory = (typeof MENU_CATEGORIES)[number]
+export type MenuCategory = string
 
+/** @deprecated Prefer product catalog via ProductService + buildPosCatalog */
 export const MENU_ITEMS = menuCatalog.items
 
 export function getMenuImageUrls(): string[] {
@@ -153,7 +162,9 @@ export function toMenuVariant(
 ): MenuVariant {
   const image = weightOption.image || item.image
   const variant: MenuVariant = {
-    id: `${item.id}__${weightOption.weight}`,
+    id:
+      weightOption.sku?.trim() ||
+      `${item.id}__${weightOption.weight}`,
     itemId: item.id,
     name: item.name,
     weight: weightOption.weight,
@@ -162,5 +173,7 @@ export function toMenuVariant(
     color: weightOption.color || item.color,
   }
   if (image) variant.image = image
+  if (weightOption.sku) variant.sku = weightOption.sku
+  if (weightOption.barcode !== undefined) variant.barcode = weightOption.barcode
   return variant
 }

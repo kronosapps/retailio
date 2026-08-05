@@ -6,6 +6,10 @@ export {
   InventoryRepository,
 } from "./InventoryRepository"
 export {
+  productRepository,
+  ProductRepository,
+} from "./ProductRepository"
+export {
   customerRepository,
   CustomerRepository,
 } from "./CustomerRepository"

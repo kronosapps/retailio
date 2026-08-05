@@ -1,4 +1,5 @@
 import {
+  deleteDoc,
   doc,
   setDoc,
   type DocumentData,
@@ -25,6 +26,29 @@ export async function upsertDocument(
     if (import.meta.env.DEV) {
       console.warn(
         `[RetailOS] Firestore upsert skipped for ${collectionName}/${id}`,
+        error
+      )
+    }
+    return "local-only"
+  }
+}
+
+/**
+ * Best-effort Firestore delete. Local persistence is the caller's job.
+ */
+export async function removeDocument(
+  collectionName: string,
+  id: string
+): Promise<"firestore" | "local-only"> {
+  if (!isFirebaseConfigured || !db) return "local-only"
+
+  try {
+    await deleteDoc(doc(db, collectionName, id))
+    return "firestore"
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.warn(
+        `[RetailOS] Firestore delete skipped for ${collectionName}/${id}`,
         error
       )
     }

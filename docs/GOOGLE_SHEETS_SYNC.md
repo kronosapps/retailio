@@ -188,7 +188,7 @@ If the URL is empty, sync is skipped quietly (POS still works).
 | `CUSTOMER_*` | `Customers` |
 | `SUPPLIER_CREATED` | `Suppliers` |
 | `EXPENSE_CREATED` | `Expenses` |
-| `PRODUCT_*` | `Products` |
+| `PRODUCT_CREATED` / `PRODUCT_UPDATED` | `Products` |
 
 Payment payload example:
 

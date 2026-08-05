@@ -84,9 +84,24 @@ export interface User extends BaseDocument {
 }
 
 export interface Product extends BaseDocument {
+  /** Parent product group id (e.g. PID-MH-BL-001); variants share this */
+  productId: string
+  /** Unique sellable SKU — also used as Firestore document id */
+  sku: string
+  barcode: string | null
   name: string
   category: string
-  sku?: string
+  brand: string | null
+  unitSize: number
+  unit: string
+  gstRate: number
+  hsnCode: string | null
+  purchasePricePaisa: number | null
+  sellingPricePaisa: number
+  mrpPaisa: number | null
+  purchasePrice: number | null
+  sellingPrice: number
+  mrp: number | null
   storeId: string | null
   active: boolean
 }

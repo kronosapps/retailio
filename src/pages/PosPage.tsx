@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { ArrowLeft, Minus, Percent, Plus, Stamp, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -14,8 +14,14 @@ import {
   getActiveOccasionDiscount,
 } from "@/data/discounts"
 import { peekNextInvoiceId } from "@/data/invoices"
+import {
+  buildPosCatalog,
+  getPosCategories,
+  getPosItemsByCategory,
+} from "@/data/posCatalog"
 import { InvoiceService } from "@/modules/invoice"
 import { openPayment, PaymentDialog } from "@/modules/payment"
+import { ProductService } from "@/modules/products"
 import { getLoyaltyRewardSummary, loyaltyConfig } from "@/data/loyalty"
 import {
   LOYALTY_REWARD_ITEMS,
@@ -23,11 +29,10 @@ import {
   type LoyaltyRewardItem,
 } from "@/data/loyalty-rewards"
 import {
-  MENU_CATEGORIES,
   formatMoney,
-  getMenuItemsByCategory,
   toMenuVariant,
   type MenuCategory,
+  type MenuData,
   type MenuItem,
   type MenuVariant,
   type MenuWeight,
@@ -139,6 +144,12 @@ function SingleProductCard({
 
 export function PosPage() {
   const { userId, profile } = useAuth()
+  const [catalog, setCatalog] = useState<MenuData>(() =>
+    buildPosCatalog(ProductService.list())
+  )
+  const [catalogReady, setCatalogReady] = useState(
+    () => ProductService.list().length > 0
+  )
   const [category, setCategory] = useState<MenuCategory>("All")
   const [cart, setCart] = useState<CartLine[]>([])
   const [applyOccasion, setApplyOccasion] = useState(false)
@@ -153,6 +164,43 @@ export function PosPage() {
   const [lastInvoiceId, setLastInvoiceId] = useState<string | null>(null)
   const [chargeError, setChargeError] = useState<string | null>(null)
 
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadCatalog() {
+      try {
+        const products = await ProductService.ensureCatalogSeeded(
+          profile?.storeId ?? null,
+          userId
+        )
+        if (cancelled) return
+        setCatalog(buildPosCatalog(products))
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn("[RetailOS] POS catalog load failed", error)
+        }
+        if (!cancelled) {
+          setCatalog(buildPosCatalog(ProductService.list()))
+        }
+      } finally {
+        if (!cancelled) setCatalogReady(true)
+      }
+    }
+
+    void loadCatalog()
+    return () => {
+      cancelled = true
+    }
+  }, [profile?.storeId, userId])
+
+  const categories = useMemo(() => getPosCategories(catalog), [catalog])
+
+  useEffect(() => {
+    if (!categories.includes(category)) {
+      setCategory("All")
+    }
+  }, [categories, category])
+
   const activeOccasion = useMemo(() => getActiveOccasionDiscount(), [])
   const fnfMax = discountConfig.friendsAndFamily.maxPercent
   const fnfPresets = discountConfig.friendsAndFamily.presets
@@ -164,7 +212,10 @@ export function PosPage() {
     loyaltyMode === "item" && Boolean(selectedLoyaltyReward)
   const hasActiveLoyalty = hasActiveLoyaltyPercent || hasActiveLoyaltyItem
 
-  const items = useMemo(() => getMenuItemsByCategory(category), [category])
+  const items = useMemo(
+    () => getPosItemsByCategory(catalog, category),
+    [catalog, category]
+  )
   const multiWeightItems = useMemo(
     () => items.filter(isMultiWeightItem),
     [items]
@@ -589,7 +640,7 @@ export function PosPage() {
 
           {menuPanel === "menu" ? (
             <div className="flex gap-2 overflow-x-auto pb-0.5">
-              {MENU_CATEGORIES.map((name) => (
+              {categories.map((name) => (
                 <button
                   key={name}
                   type="button"
@@ -835,9 +886,13 @@ export function PosPage() {
                 Done — back to menu
               </Button>
             </div>
+          ) : !catalogReady ? (
+            <div className="flex min-h-40 items-center justify-center text-sm text-muted-foreground">
+              Loading products…
+            </div>
           ) : items.length === 0 ? (
             <div className="flex min-h-40 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
-              No items in this category
+              No products in this category
             </div>
           ) : (
             <div className="space-y-6">
@@ -858,7 +913,10 @@ export function PosPage() {
                   >
                     {item.weights.map((weightOption) => (
                       <WeightTile
-                        key={`${item.id}-${weightOption.weight}`}
+                        key={
+                          weightOption.sku ||
+                          `${item.id}-${weightOption.weight}`
+                        }
                         item={item}
                         weightOption={weightOption}
                         onAdd={() => addWeight(item, weightOption)}

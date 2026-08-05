@@ -1,3 +1,5 @@
+import { env } from "@/core/config/env"
+import { ProductService } from "@/modules/products"
 import { syncManager } from "@/services/sync"
 
 /**
@@ -6,4 +8,13 @@ import { syncManager } from "@/services/sync"
  */
 export function bootstrapApp() {
   syncManager.start()
+
+  // Seed Pavani's Foods catalog once (local + Firestore + Sheets)
+  void ProductService.ensureCatalogSeeded(env.storeId || null, "system").catch(
+    (error) => {
+      if (import.meta.env.DEV) {
+        console.warn("[RetailOS] Product catalog seed failed", error)
+      }
+    }
+  )
 }
