@@ -84,9 +84,16 @@ export type OrderTotals = {
   /** Payable amount after discounts (GST inclusive), in paisa. */
   total: Paisa
   taxableAmount: Paisa
+  /** Total GST = CGST + SGST */
   gstAmount: Paisa
   gstPercent: number
   gstLabel: string
+  cgstAmount: Paisa
+  sgstAmount: Paisa
+  cgstPercent: number
+  sgstPercent: number
+  cgstLabel: string
+  sgstLabel: string
 }
 
 export function calculateOrderTotals(
@@ -145,5 +152,11 @@ export function calculateOrderTotals(
     gstAmount: gst.gstAmount,
     gstPercent: gst.gstPercent,
     gstLabel: taxConfig.gst.label,
+    cgstAmount: gst.cgstAmount,
+    sgstAmount: gst.sgstAmount,
+    cgstPercent: gst.cgstPercent,
+    sgstPercent: gst.sgstPercent,
+    cgstLabel: taxConfig.gst.cgstLabel,
+    sgstLabel: taxConfig.gst.sgstLabel,
   }
 }

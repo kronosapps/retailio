@@ -359,6 +359,10 @@ export function PosPage() {
           taxableAmount: totals.taxableAmount,
           gstAmount: totals.gstAmount,
           gstPercent: totals.gstPercent,
+          cgstAmount: totals.cgstAmount,
+          sgstAmount: totals.sgstAmount,
+          cgstPercent: totals.cgstPercent,
+          sgstPercent: totals.sgstPercent,
           total: totals.total,
         },
         loyalty: {
@@ -534,10 +538,18 @@ export function PosPage() {
                 </div>
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span>
-                    {totals.gstLabel} ({totals.gstPercent}%)
+                    {totals.sgstLabel} ({totals.sgstPercent}%)
                   </span>
                   <span className="tabular-nums">
-                    {formatMoney(totals.gstAmount)}
+                    {formatMoney(totals.sgstAmount)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>
+                    {totals.cgstLabel} ({totals.cgstPercent}%)
+                  </span>
+                  <span className="tabular-nums">
+                    {formatMoney(totals.cgstAmount)}
                   </span>
                 </div>
               </>
@@ -548,7 +560,8 @@ export function PosPage() {
             </div>
             {cart.length > 0 && totals.gstAmount > 0 ? (
               <p className="text-[11px] text-muted-foreground">
-                Inclusive of {totals.gstLabel} — charge unchanged
+                Inclusive of {totals.sgstLabel} {totals.sgstPercent}% +{" "}
+                {totals.cgstLabel} {totals.cgstPercent}% — charge unchanged
               </p>
             ) : null}
           </div>

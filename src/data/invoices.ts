@@ -1,4 +1,4 @@
-import type { Paisa } from "@/lib/money"
+import { type Paisa, roundPaisa } from "@/lib/money"
 import type { PaymentMethod, PaymentStatus } from "@/modules/payment/types"
 
 const STORAGE_KEY = "retailos.invoices.v1"
@@ -42,6 +42,10 @@ export type RecordedSale = {
     taxableAmount: Paisa
     gstAmount: Paisa
     gstPercent: number
+    cgstAmount: Paisa
+    sgstAmount: Paisa
+    cgstPercent: number
+    sgstPercent: number
     total: Paisa
   }
   loyalty: {
@@ -73,6 +77,38 @@ function emptyStore(): InvoiceStoreV2 {
   return { version: 2, sequencesByDate: {}, sales: [] }
 }
 
+function normalizeSaleTotals(
+  totals: RecordedSale["totals"]
+): RecordedSale["totals"] {
+  const gstAmount = totals.gstAmount ?? 0
+  const cgstAmount =
+    typeof totals.cgstAmount === "number"
+      ? totals.cgstAmount
+      : roundPaisa(gstAmount / 2)
+  const sgstAmount =
+    typeof totals.sgstAmount === "number"
+      ? totals.sgstAmount
+      : gstAmount - cgstAmount
+
+  return {
+    ...totals,
+    gstAmount,
+    cgstAmount,
+    sgstAmount,
+    cgstPercent:
+      typeof totals.cgstPercent === "number" ? totals.cgstPercent : 2.5,
+    sgstPercent:
+      typeof totals.sgstPercent === "number" ? totals.sgstPercent : 2.5,
+  }
+}
+
+function normalizeSale(sale: RecordedSale): RecordedSale {
+  return {
+    ...sale,
+    totals: normalizeSaleTotals(sale.totals),
+  }
+}
+
 function migrateStore(raw: unknown): InvoiceStoreV2 {
   if (!raw || typeof raw !== "object") return emptyStore()
   const data = raw as InvoiceStoreV2 & LegacyInvoiceStore
@@ -81,7 +117,7 @@ function migrateStore(raw: unknown): InvoiceStoreV2 {
     return {
       version: 2,
       sequencesByDate: data.sequencesByDate,
-      sales: data.sales,
+      sales: data.sales.map(normalizeSale),
     }
   }
 
@@ -90,14 +126,16 @@ function migrateStore(raw: unknown): InvoiceStoreV2 {
   return {
     version: 2,
     sequencesByDate: {},
-    sales: sales.map((sale) => ({
-      ...sale,
-      dateKey: sale.dateKey || "legacy",
-      paymentId: sale.paymentId ?? null,
-      paymentStatus: sale.paymentStatus ?? "Paid",
-      paymentMethod: sale.paymentMethod ?? null,
-      customerName: sale.customerName ?? "Walk-in",
-    })),
+    sales: sales.map((sale) =>
+      normalizeSale({
+        ...sale,
+        dateKey: sale.dateKey || "legacy",
+        paymentId: sale.paymentId ?? null,
+        paymentStatus: sale.paymentStatus ?? "Paid",
+        paymentMethod: sale.paymentMethod ?? null,
+        customerName: sale.customerName ?? "Walk-in",
+      })
+    ),
   }
 }
 

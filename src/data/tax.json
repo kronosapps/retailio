@@ -3,6 +3,10 @@
     "percent": 5,
     "label": "GST",
     "inclusive": true,
-    "note": "Menu prices are inclusive of GST. Amounts are calculated in paisa; GST is broken out from the payable total and does not increase the charge."
+    "cgstPercent": 2.5,
+    "sgstPercent": 2.5,
+    "cgstLabel": "CGST",
+    "sgstLabel": "SGST",
+    "note": "Menu prices are inclusive of GST (CGST 2.5% + SGST 2.5%). Amounts are calculated in paisa; tax is broken out from the payable total and does not increase the charge."
   }
 }

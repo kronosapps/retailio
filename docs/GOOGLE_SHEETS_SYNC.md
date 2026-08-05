@@ -190,6 +190,27 @@ If the URL is empty, sync is skipped quietly (POS still works).
 | `EXPENSE_CREATED` | `Expenses` |
 | `PRODUCT_CREATED` / `PRODUCT_UPDATED` | `Products` |
 
+Invoice payload example (amounts in rupees):
+
+```json
+{
+  "action": "insert",
+  "sheet": "Invoices",
+  "data": {
+    "invoiceNumber": "INV-20260805-00012",
+    "customerName": "Walk-in",
+    "taxableAmount": 104.76,
+    "sgstPercent": 2.5,
+    "sgstAmount": 2.62,
+    "cgstPercent": 2.5,
+    "cgstAmount": 2.62,
+    "gstPercent": 5,
+    "gstAmount": 5.24,
+    "total": 110
+  }
+}
+```
+
 Payment payload example:
 
 ```json

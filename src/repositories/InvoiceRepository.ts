@@ -6,6 +6,7 @@ import {
   type CreateInvoiceInput,
   type RecordedSale,
 } from "@/data/invoices"
+import { paisaToRupees } from "@/lib/money"
 import { EventPublisher } from "@/events/EventPublisher"
 import { EventTypes } from "@/events/EventTypes"
 
@@ -35,11 +36,19 @@ export class InvoiceRepository {
       {
         invoiceId: sale.invoiceId,
         invoiceNumber: sale.invoiceId,
-        totalPaisa: sale.totals.total,
         customerName: sale.customerName ?? "Walk-in",
         paymentStatus: sale.paymentStatus,
         createdAt: sale.createdAt,
         storeId: sale.storeId,
+        taxableAmount: paisaToRupees(sale.totals.taxableAmount),
+        sgstPercent: sale.totals.sgstPercent,
+        sgstAmount: paisaToRupees(sale.totals.sgstAmount),
+        cgstPercent: sale.totals.cgstPercent,
+        cgstAmount: paisaToRupees(sale.totals.cgstAmount),
+        gstPercent: sale.totals.gstPercent,
+        gstAmount: paisaToRupees(sale.totals.gstAmount),
+        total: paisaToRupees(sale.totals.total),
+        totalPaisa: sale.totals.total,
       },
       sale.storeId
     )
