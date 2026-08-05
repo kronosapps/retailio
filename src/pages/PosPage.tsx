@@ -21,6 +21,7 @@ import {
 } from "@/data/posCatalog"
 import { InvoiceService } from "@/modules/invoice"
 import { openPayment, PaymentDialog } from "@/modules/payment"
+import { ReceiptDialog } from "@/modules/receipt"
 import { ProductService } from "@/modules/products"
 import { getLoyaltyRewardSummary, loyaltyConfig } from "@/data/loyalty"
 import {
@@ -162,6 +163,7 @@ export function PosPage() {
   >(null)
   const [invoiceTick, setInvoiceTick] = useState(0)
   const [lastInvoiceId, setLastInvoiceId] = useState<string | null>(null)
+  const [receiptInvoiceId, setReceiptInvoiceId] = useState<string | null>(null)
   const [chargeError, setChargeError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -378,9 +380,10 @@ export function PosPage() {
       setInvoiceTick((tick) => tick + 1)
 
       openPayment(InvoiceService.toPayable(sale), {
-        onPaid: () => {
-          setLastInvoiceId(sale.invoiceId)
+        onPaid: (invoiceId) => {
+          setLastInvoiceId(invoiceId)
           clearCart()
+          setReceiptInvoiceId(invoiceId)
         },
       })
     } catch (error) {
@@ -394,6 +397,10 @@ export function PosPage() {
   return (
     <>
     <PaymentDialog />
+    <ReceiptDialog
+      invoiceId={receiptInvoiceId}
+      onClose={() => setReceiptInvoiceId(null)}
+    />
     <div className="grid h-full w-full grid-cols-1 grid-rows-[minmax(0,38%)_minmax(0,1fr)] lg:grid-cols-[minmax(280px,32%)_minmax(0,1fr)] lg:grid-rows-1">
       {/* Current order */}
       <aside className="flex min-h-0 flex-col border-b border-border bg-sidebar text-sidebar-foreground lg:border-r lg:border-b-0">
