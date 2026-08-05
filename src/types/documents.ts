@@ -100,6 +100,8 @@ export interface Product extends BaseDocument {
   unitSize: number
   unit: string
   gstRate: number
+  cgst: number
+  sgst: number
   hsnCode: string | null
   purchasePricePaisa: number | null
   sellingPricePaisa: number

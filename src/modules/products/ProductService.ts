@@ -30,6 +30,14 @@ export class ProductService {
   ) {
     return productRepository.ensureCatalogSeeded(storeId, actorId)
   }
+
+  /** Force push products.json → local + Firestore + Sheets. */
+  static syncCatalogFromSeed(
+    storeId?: string | null,
+    actorId?: string | null
+  ) {
+    return productRepository.syncCatalogFromSeed(storeId, actorId)
+  }
 }
 
 export type { ProductRecord }

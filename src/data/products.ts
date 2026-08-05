@@ -11,6 +11,12 @@ import catalogSeed from "./products.json"
 
 const STORAGE_KEY = "retailos.products.v1"
 
+/**
+ * Bump when products.json schema/content must re-upload to
+ * localStorage + Firestore + Google Sheets (even if already seeded).
+ */
+export const PRODUCT_CATALOG_VERSION = 2
+
 export type ProductSeedRow = {
   productId: string
   sku: string
@@ -20,6 +26,10 @@ export type ProductSeedRow = {
   brand: string | null
   unitSize: number
   gstRate: number
+  /** CGST % (e.g. 2.5) */
+  cgst?: number | null
+  /** SGST % (e.g. 2.5) */
+  sgst?: number | null
   hsnCode: string | null
   purchasePrice: number | null
   sellingPrice: number
@@ -40,6 +50,8 @@ export type ProductRecord = {
   /** Display unit string (same numeric value as catalog Unit) */
   unit: string
   gstRate: number
+  cgst: number
+  sgst: number
   hsnCode: string | null
   purchasePricePaisa: Paisa | null
   sellingPricePaisa: Paisa
@@ -58,12 +70,14 @@ export type ProductRecord = {
 
 type ProductStore = {
   version: 1
+  /** Tracks which products.json generation was last synced */
+  catalogVersion: number
   items: ProductRecord[]
   seeded: boolean
 }
 
 function emptyStore(): ProductStore {
-  return { version: 1, items: [], seeded: false }
+  return { version: 1, catalogVersion: 0, items: [], seeded: false }
 }
 
 function readStore(): ProductStore {
@@ -74,6 +88,8 @@ function readStore(): ProductStore {
     if (!Array.isArray(parsed.items)) return emptyStore()
     return {
       version: 1,
+      catalogVersion:
+        typeof parsed.catalogVersion === "number" ? parsed.catalogVersion : 0,
       items: parsed.items as ProductRecord[],
       seeded: Boolean(parsed.seeded),
     }
@@ -107,6 +123,15 @@ export function seedRowToRecord(
   const brand = row.brand?.trim() || null
   const hsnCode = row.hsnCode?.trim() || null
   const barcode = row.barcode?.trim() || null
+  const gstRate = Number.isFinite(row.gstRate) ? row.gstRate : 0
+  const cgst =
+    typeof row.cgst === "number" && Number.isFinite(row.cgst)
+      ? row.cgst
+      : gstRate / 2
+  const sgst =
+    typeof row.sgst === "number" && Number.isFinite(row.sgst)
+      ? row.sgst
+      : gstRate / 2
 
   return {
     id: row.sku.trim(),
@@ -118,7 +143,9 @@ export function seedRowToRecord(
     brand,
     unitSize: Number.isFinite(row.unitSize) ? row.unitSize : 1,
     unit: String(row.unitSize),
-    gstRate: Number.isFinite(row.gstRate) ? row.gstRate : 0,
+    gstRate,
+    cgst,
+    sgst,
     hsnCode,
     purchasePricePaisa:
       purchasePrice === null ? null : rupeesToPaisa(purchasePrice),
@@ -177,9 +204,19 @@ export function isProductCatalogSeeded(): boolean {
   return store.seeded && store.items.length > 0
 }
 
-export function markProductCatalogSeeded() {
+/** True when local catalog is behind the bundled products.json generation. */
+export function needsProductCatalogResync(): boolean {
+  const store = readStore()
+  if (!store.seeded || store.items.length === 0) return true
+  return store.catalogVersion < PRODUCT_CATALOG_VERSION
+}
+
+export function markProductCatalogSeeded(
+  catalogVersion: number = PRODUCT_CATALOG_VERSION
+) {
   const store = readStore()
   store.seeded = true
+  store.catalogVersion = catalogVersion
   writeStore(store)
 }
 
@@ -192,8 +229,16 @@ export function upsertLocalProduct(record: ProductRecord): ProductRecord {
   return record
 }
 
-export function replaceLocalProducts(items: ProductRecord[]) {
-  writeStore({ version: 1, items, seeded: true })
+export function replaceLocalProducts(
+  items: ProductRecord[],
+  catalogVersion: number = PRODUCT_CATALOG_VERSION
+) {
+  writeStore({
+    version: 1,
+    catalogVersion,
+    items,
+    seeded: true,
+  })
 }
 
 export function deleteLocalProduct(id: string): ProductRecord | null {

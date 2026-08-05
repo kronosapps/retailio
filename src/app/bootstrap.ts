@@ -9,7 +9,7 @@ import { syncManager } from "@/services/sync"
 export function bootstrapApp() {
   syncManager.start()
 
-  // Seed Pavani's Foods catalog once (local + Firestore + Sheets)
+  // Seed / re-sync catalog when products.json generation changes (Firestore + Sheets)
   void ProductService.ensureCatalogSeeded(env.storeId || null, "system").catch(
     (error) => {
       if (import.meta.env.DEV) {

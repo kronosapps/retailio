@@ -2,9 +2,10 @@ import {
   buildCatalogRecords,
   deleteLocalProduct,
   getLocalProduct,
-  isProductCatalogSeeded,
   listLocalProducts,
   markProductCatalogSeeded,
+  needsProductCatalogResync,
+  PRODUCT_CATALOG_VERSION,
   replaceLocalProducts,
   upsertLocalProduct,
   type ProductRecord,
@@ -44,7 +45,7 @@ export class ProductRepository {
     await upsertDocument(COLLECTION, next.id, next)
     await EventPublisher.publish(
       isNew ? EventTypes.PRODUCT_CREATED : EventTypes.PRODUCT_UPDATED,
-      next,
+      toSheetsPayload(next),
       next.storeId
     )
     return next
@@ -57,7 +58,7 @@ export class ProductRepository {
     await EventPublisher.publish(
       EventTypes.PRODUCT_UPDATED,
       {
-        ...existing,
+        ...toSheetsPayload(existing),
         active: false,
         deleted: true,
         deletedAt: new Date().toISOString(),
@@ -68,31 +69,63 @@ export class ProductRepository {
   }
 
   /**
-   * Seeds the full Pavani's Foods catalog once into local + Firestore + Sheets.
+   * Seeds / re-syncs products.json → local + Firestore + Sheets.
+   * Re-runs when PRODUCT_CATALOG_VERSION increases (e.g. new cgst/sgst fields).
    */
   async ensureCatalogSeeded(
     storeId: string | null = env.storeId || null,
     actorId: string | null = "system"
   ): Promise<ProductRecord[]> {
-    if (isProductCatalogSeeded()) {
+    if (!needsProductCatalogResync()) {
       return listLocalProducts()
     }
 
+    return this.syncCatalogFromSeed(storeId, actorId)
+  }
+
+  /** Always push the bundled products.json to local, Firestore, and Sheets. */
+  async syncCatalogFromSeed(
+    storeId: string | null = env.storeId || null,
+    actorId: string | null = "system"
+  ): Promise<ProductRecord[]> {
     const catalog = buildCatalogRecords(storeId, actorId)
-    // Local first so the UI has data even if cloud/sync is slow
-    replaceLocalProducts(catalog)
+    replaceLocalProducts(catalog, PRODUCT_CATALOG_VERSION)
 
     for (const product of catalog) {
       await upsertDocument(COLLECTION, product.id, product)
       await EventPublisher.publish(
-        EventTypes.PRODUCT_CREATED,
-        product,
+        EventTypes.PRODUCT_UPDATED,
+        toSheetsPayload(product),
         product.storeId
       )
     }
 
-    markProductCatalogSeeded()
+    markProductCatalogSeeded(PRODUCT_CATALOG_VERSION)
     return listLocalProducts()
+  }
+}
+
+/** Flat payload so Sheets gets cgst/sgst columns clearly. */
+function toSheetsPayload(product: ProductRecord) {
+  return {
+    productId: product.productId,
+    sku: product.sku,
+    barcode: product.barcode,
+    name: product.name,
+    category: product.category,
+    brand: product.brand,
+    unitSize: product.unitSize,
+    unit: product.unit,
+    gstRate: product.gstRate,
+    cgst: product.cgst,
+    sgst: product.sgst,
+    hsnCode: product.hsnCode,
+    purchasePrice: product.purchasePrice,
+    sellingPrice: product.sellingPrice,
+    mrp: product.mrp,
+    storeId: product.storeId,
+    active: product.active,
+    updatedAt: product.updatedAt,
   }
 }
 
