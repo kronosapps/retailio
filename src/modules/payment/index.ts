@@ -5,11 +5,13 @@
 export { openPayment, closePayment } from "./session"
 export { PaymentDialog } from "./components/PaymentDialog"
 export { usePayment } from "./hooks/usePayment"
+export { useCashCounter } from "./hooks/useCashCounter"
 export type {
   PayableInvoice,
   Payment,
   PaymentSession,
   PaymentMethod,
+  PaymentSettlementInput,
   PaymentStatus,
 } from "./types"
 export { PaymentError } from "./types"

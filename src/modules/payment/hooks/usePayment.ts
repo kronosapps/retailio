@@ -21,11 +21,18 @@ import {
   savePaymentSettings,
   type PaymentSettings,
 } from "../settings/paymentSettings"
+import { allocateCashReceipt } from "../store/cashCounter"
 import {
   appendPaymentLog,
   getPaymentByInvoiceId,
 } from "../store/paymentStore"
-import { PaymentError, type Payment, type PaymentMethod } from "../types"
+import {
+  PaymentError,
+  type Payment,
+  type PaymentMethod,
+  type PaymentSettlementInput,
+} from "../types"
+import { normalizeUpiTxnLast4 } from "../utils"
 
 export function usePayment() {
   const uiSession = useSyncExternalStore(
@@ -198,69 +205,101 @@ export function usePayment() {
     }
   }, [invoice, customerName, remarks])
 
-  const markPaid = useCallback(async () => {
-    if (!payment || !invoice) return
-    if (payment.status === "Paid") {
-      setError("Invoice is already paid.")
-      return
-    }
-    if (payment.status === "Expired") {
-      setError("Payment session expired. Regenerate QR first.")
-      return
-    }
-    if (payment.status !== "Pending") {
-      setError("Only pending payment sessions can be marked paid.")
-      return
-    }
-
-    setBusy(true)
-    setError(null)
-    try {
-      const verified = await manualUpiProvider.verifyPayment(payment)
-      if (!verified.verified || verified.status !== "Paid") {
-        throw new PaymentError(
-          "EXPIRED",
-          verified.message || "Could not verify payment session."
-        )
+  const markPaid = useCallback(
+    async (settlement: PaymentSettlementInput) => {
+      if (!payment || !invoice) return
+      if (payment.status === "Paid") {
+        setError("Invoice is already paid.")
+        return
+      }
+      if (payment.status === "Expired") {
+        setError("Payment session expired. Regenerate QR first.")
+        return
+      }
+      if (payment.status !== "Pending") {
+        setError("Only pending payment sessions can be marked paid.")
+        return
+      }
+      if (settlement.method !== method) {
+        setError("Payment method changed. Try again.")
+        return
       }
 
-      const paidAt = new Date().toISOString()
-      // Repository persists + publishes PAYMENT_RECEIVED → SyncManager → Sheets
-      const paid = await paymentRepository.update(payment.paymentId, {
-        status: "Paid",
-        paidAt,
-        customerName,
-        remarks: remarks.trim() || payment.remarks,
-        paymentMethod: method,
-      })
+      let upiTxnLast4: string | null = null
+      if (settlement.method === "UPI") {
+        upiTxnLast4 = normalizeUpiTxnLast4(settlement.upiTxnLast4)
+        if (!upiTxnLast4) {
+          setError("Enter the last 4 digits of the UPI transaction ID.")
+          return
+        }
+      }
 
-      await invoiceRepository.updatePaymentFields(invoice.invoiceId, {
-        paymentId: paid.paymentId,
-        paymentStatus: "Paid",
-        paymentMethod: paid.paymentMethod,
-        customerName,
-      })
+      setBusy(true)
+      setError(null)
+      try {
+        const verified = await manualUpiProvider.verifyPayment(payment)
+        if (!verified.verified || verified.status !== "Paid") {
+          throw new PaymentError(
+            "EXPIRED",
+            verified.message || "Could not verify payment session."
+          )
+        }
 
-      appendPaymentLog({
-        paymentId: paid.paymentId,
-        invoiceId: paid.invoiceId,
-        event: "MARKED_PAID",
-        message: `Session ${paid.paymentId} marked paid via ${paid.paymentMethod}.`,
-      })
+        let cashReceiptNumber: number | null = null
+        let cashReceiptId: string | null = null
+        if (settlement.method === "Cash") {
+          const cash = allocateCashReceipt()
+          cashReceiptNumber = cash.sequence
+          cashReceiptId = cash.cashReceiptId
+        }
 
-      setPayment(paid)
-      uiSession.callbacks.onPaid?.(invoice.invoiceId)
-      closePayment()
-    } catch (err) {
-      setError(
-        err instanceof PaymentError
-          ? err.message
-          : "Could not mark payment as paid."
-      )
-    } finally {
-      setBusy(false)
-    }
-  }, [payment, invoice, customerName, remarks, method, uiSession.callbacks])
+        const paidAt = new Date().toISOString()
+        // Repository persists + publishes PAYMENT_RECEIVED → SyncManager → Sheets
+        const paid = await paymentRepository.update(payment.paymentId, {
+          status: "Paid",
+          paidAt,
+          customerName,
+          remarks: remarks.trim() || payment.remarks,
+          paymentMethod: method,
+          upiTxnLast4,
+          cashReceiptNumber,
+          cashReceiptId,
+        })
+
+        await invoiceRepository.updatePaymentFields(invoice.invoiceId, {
+          paymentId: paid.paymentId,
+          paymentStatus: "Paid",
+          paymentMethod: paid.paymentMethod,
+          customerName,
+        })
+
+        const tallyRef =
+          paid.paymentMethod === "UPI"
+            ? `UPI …${paid.upiTxnLast4}`
+            : paid.cashReceiptId || `Cash #${paid.cashReceiptNumber}`
+
+        appendPaymentLog({
+          paymentId: paid.paymentId,
+          invoiceId: paid.invoiceId,
+          event: "MARKED_PAID",
+          message: `Session ${paid.paymentId} marked paid via ${paid.paymentMethod} (${tallyRef}).`,
+        })
+
+        setPayment(paid)
+        uiSession.callbacks.onPaid?.(invoice.invoiceId)
+        closePayment()
+      } catch (err) {
+        setError(
+          err instanceof PaymentError
+            ? err.message
+            : "Could not mark payment as paid."
+        )
+      } finally {
+        setBusy(false)
+      }
+    },
+    [payment, invoice, customerName, remarks, method, uiSession.callbacks]
+  )
 
   const cancelPayment = useCallback(async () => {
     if (!payment || !invoice) {

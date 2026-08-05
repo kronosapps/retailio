@@ -115,6 +115,9 @@ export async function createPaymentSession(options: {
     qrExpiresAt: null,
     customerName: options.customerName.trim() || "Walk-in",
     attempt,
+    upiTxnLast4: null,
+    cashReceiptNumber: null,
+    cashReceiptId: null,
   }
 
   await paymentRepository.save(session)

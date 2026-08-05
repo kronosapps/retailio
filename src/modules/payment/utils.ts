@@ -29,15 +29,25 @@ export function isValidVpa(upiId: string): boolean {
   return /^[a-zA-Z0-9.\-_]{2,}@[a-zA-Z]{2,}$/.test(value)
 }
 
-export function paymentMethodLabel(method: PaymentMethod): string {
+export function paymentMethodLabel(method: PaymentMethod | string): string {
   switch (method) {
     case "BankTransfer":
       return "Bank Transfer"
     case "SplitPayment":
       return "Split Payment"
-    default:
+    case "Cash":
+    case "UPI":
+    case "Card":
       return method
+    default:
+      return String(method)
   }
+}
+
+/** Normalize / validate UPI txn last-4 from cashier input. */
+export function normalizeUpiTxnLast4(value: string): string | null {
+  const digits = value.replace(/\D/g, "").slice(-4)
+  return digits.length === 4 ? digits : null
 }
 
 export function paymentStatusTone(

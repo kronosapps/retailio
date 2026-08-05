@@ -30,7 +30,7 @@ function normalizePayment(raw: LegacyPayment): Payment | null {
     amountPaisa: raw.amountPaisa ?? 0,
     amount: raw.amount ?? 0,
     currency: raw.currency || "INR",
-    paymentMethod: raw.paymentMethod || "UPI",
+    paymentMethod: raw.paymentMethod === "Cash" ? "Cash" : "UPI",
     status: raw.status || "Pending",
     createdAt: raw.createdAt || new Date().toISOString(),
     paidAt: raw.paidAt ?? null,
@@ -40,6 +40,14 @@ function normalizePayment(raw: LegacyPayment): Payment | null {
     qrExpiresAt: raw.qrExpiresAt ?? raw.expiresAt ?? null,
     customerName: raw.customerName || "Walk-in",
     attempt: typeof raw.attempt === "number" ? raw.attempt : 1,
+    upiTxnLast4:
+      typeof raw.upiTxnLast4 === "string" && raw.upiTxnLast4.length === 4
+        ? raw.upiTxnLast4
+        : null,
+    cashReceiptNumber:
+      typeof raw.cashReceiptNumber === "number" ? raw.cashReceiptNumber : null,
+    cashReceiptId:
+      typeof raw.cashReceiptId === "string" ? raw.cashReceiptId : null,
   }
 }
 

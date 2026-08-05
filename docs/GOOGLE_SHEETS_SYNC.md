@@ -225,10 +225,15 @@ Payment payload example:
     "paymentMethod": "UPI",
     "status": "Paid",
     "paidAt": "2026-08-04T12:00:00.000Z",
-    "customerName": "Walk-in"
+    "customerName": "Walk-in",
+    "upiTxnLast4": "4821",
+    "cashReceiptNumber": null,
+    "cashReceiptId": null
   }
 }
 ```
+
+Cash payments set `cashReceiptNumber` / `cashReceiptId` (daily counter) and leave `upiTxnLast4` null.
 
 ---
 

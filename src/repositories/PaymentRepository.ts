@@ -90,6 +90,9 @@ function toPaymentSyncPayload(payment: Payment) {
     status: payment.status,
     paidAt: payment.paidAt,
     customerName: payment.customerName,
+    upiTxnLast4: payment.upiTxnLast4,
+    cashReceiptNumber: payment.cashReceiptNumber,
+    cashReceiptId: payment.cashReceiptId,
   }
 }
 

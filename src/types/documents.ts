@@ -42,6 +42,11 @@ export interface Payment extends BaseDocument {
   merchantUPI?: string
   merchantName?: string
   customerName?: string
+  /** Last 4 digits of UPI txn id (customer phone) */
+  upiTxnLast4?: string | null
+  /** Daily cash slip sequence */
+  cashReceiptNumber?: number | null
+  cashReceiptId?: string | null
 }
 
 export interface Customer extends BaseDocument {

@@ -7,12 +7,8 @@ export type PaymentStatus =
   | "Cancelled"
   | "Expired"
 
-export type PaymentMethod =
-  | "Cash"
-  | "UPI"
-  | "Card"
-  | "BankTransfer"
-  | "SplitPayment"
+/** Active tender types on POS. Legacy Card/Bank/Split may still exist in old rows. */
+export type PaymentMethod = "Cash" | "UPI"
 
 export type PaymentLogEvent =
   | "SESSION_CREATED"
@@ -56,7 +52,21 @@ export type Payment = {
   customerName: string
   /** 1-based attempt number for this invoice. */
   attempt: number
+  /**
+   * Last 4 digits of the UPI transaction id from the customer's phone.
+   * Used for end-of-day tally. Null for non-UPI or unpaid sessions.
+   */
+  upiTxnLast4: string | null
+  /** Daily cash slip number (resets each calendar day). Null unless Cash + Paid. */
+  cashReceiptNumber: number | null
+  /** e.g. CASH-20260805-0001 */
+  cashReceiptId: string | null
 }
+
+/** Details collected when cashier confirms Mark as Paid. */
+export type PaymentSettlementInput =
+  | { method: "UPI"; upiTxnLast4: string }
+  | { method: "Cash" }
 
 /** Alias clarifying that Payment is a session record. */
 export type PaymentSession = Payment
