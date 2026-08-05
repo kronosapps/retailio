@@ -16,6 +16,22 @@
     "mrp": 110
   },
   {
+    "productId": "Test-001",
+    "sku": "Test-101",
+    "barcode": "101001",
+    "name": "Test",
+    "category": "Test Halwa",
+    "brand": "Pavani's Foods",
+    "unitSize": 100,
+    "gstRate": 5,
+    "cgst":2.5,
+    "sgst":2.5,
+    "hsnCode": null,
+    "purchasePrice": null,
+    "sellingPrice": 1,
+    "mrp": 1
+  },
+  {
     "productId": "PID-MH-BL-001",
     "sku": "MH-BL-0250",
     "barcode": "100210250",

@@ -1,77 +1,78 @@
-# React + TypeScript + Vite
+# RetailOS
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Point-of-sale and store ops app (Vite + React + TypeScript + Firebase).
 
-Currently, two official plugins are available:
+## Scripts
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Start local Vite server |
+| `npm run build` | Typecheck + production build |
+| `npm run deploy` | Build and publish to GitHub Pages |
+| `npm run db:wipe` | Wipe Firestore app data (keeps `users`) |
+| `npm run db:wipe:force` | Same wipe, no confirmation prompt |
 
-## React Compiler
+---
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+## Wipe Firestore (start fresh)
 
-Note: This will impact Vite dev & build performances.
+Use this when you want a clean Firestore database **without** deleting staff login profiles in `users`.
 
-## Expanding the ESLint configuration
+### Prerequisites
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+1. [Firebase CLI](https://firebase.google.com/docs/cli) installed  
+   `npm i -g firebase-tools`
+2. Logged in and on the RetailOS project:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+firebase login
+firebase use retailio-7586e
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Run the wipe
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+From the repo root:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+npm run db:wipe
 ```
+
+When prompted, type `wipe` and press Enter.
+
+Skip the prompt (CI / scripting):
+
+```bash
+npm run db:wipe:force
+```
+
+### What gets deleted
+
+| Collection | Deleted? |
+|------------|----------|
+| `products` | Yes |
+| `customers` | Yes |
+| `suppliers` | Yes |
+| `invoices` | Yes |
+| `payments` | Yes |
+| `inventory` | Yes |
+| `expenses` | Yes |
+| `settings` | Yes |
+| `sync_events` | Yes |
+| **`users`** | **No — kept** |
+
+Script: [`scripts/wipe-firestore.mjs`](scripts/wipe-firestore.mjs)
+
+### After wiping
+
+1. **Browser local data** — DevTools → Application → Local Storage → remove keys starting with `retailos.`  
+   (Otherwise the app may keep old invoices / inventory / product seed flags offline.)
+2. **Hard-refresh** the app — the product catalog reseeds from `src/data/products.json` into local + Firestore.
+3. **Google Sheets** — not cleared by this command; empty the sheet tabs manually if needed.
+
+### Safety notes
+
+- This only affects the Firebase project selected by `firebase use`.
+- It does **not** delete Firebase Auth accounts; only Firestore docs outside `users`.
+- Prefer `npm run db:wipe` (with confirmation) for manual use; reserve `--force` for automation.
+
+More Firebase architecture notes: [`docs/FIREBASE.md`](docs/FIREBASE.md).

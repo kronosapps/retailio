@@ -97,3 +97,17 @@ import { getFirestore } from "firebase/firestore"
 ```
 
 Legacy shims `@/services/firebase`, `@/lib/firebase`, and `@/firebase` re-export `@/core/firebase`.
+
+## Wipe Firestore (keep users)
+
+To clear all app collections and start fresh while keeping `users`:
+
+```bash
+firebase login
+firebase use retailio-7586e
+npm run db:wipe
+```
+
+Force (no prompt): `npm run db:wipe:force`
+
+Full instructions: see the root [`README.md`](../README.md#wipe-firestore-start-fresh).
