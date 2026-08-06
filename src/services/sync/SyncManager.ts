@@ -3,6 +3,7 @@ import { EventTypes, type DomainEvent } from "@/events/EventTypes"
 
 import { googleSheetsSyncProvider } from "./GoogleSheetsSyncProvider"
 import { retryManager } from "./RetryManager"
+import { shouldEnqueueLiveSheetSync } from "./syncPolicy"
 import { syncQueue, type SyncQueueItem } from "./SyncQueue"
 import type { SyncProvider } from "./SyncProvider"
 
@@ -41,6 +42,14 @@ const ROUTES: Partial<Record<string, SheetRoute>> = {
   [EventTypes.CUSTOMER_UPDATED]: {
     sheet: "Customers",
     sync: (p, data) => p.syncCustomer(data),
+  },
+  [EventTypes.REFUND_CREATED]: {
+    sheet: "Refunds",
+    sync: (p, data) => p.syncRefund(data),
+  },
+  [EventTypes.REFUND_UPDATED]: {
+    sheet: "Refunds",
+    sync: (p, data) => p.syncRefund(data),
   },
   [EventTypes.SUPPLIER_CREATED]: {
     sheet: "Suppliers",
@@ -99,6 +108,9 @@ export class SyncManager {
   }
 
   private enqueueFromEvent(event: DomainEvent) {
+    // Invoices / payments / refunds / customers wait for End of Day.
+    if (!shouldEnqueueLiveSheetSync(event.type)) return
+
     const route = ROUTES[event.type]
     if (!route) return
 

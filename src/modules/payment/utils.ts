@@ -64,6 +64,8 @@ export function paymentStatusTone(
       return "danger"
     case "Expired":
       return "muted"
+    case "Refunded":
+      return "danger"
     default:
       return "muted"
   }

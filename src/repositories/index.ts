@@ -14,6 +14,10 @@ export {
   CustomerRepository,
 } from "./CustomerRepository"
 export {
+  refundRepository,
+  RefundRepository,
+} from "./RefundRepository"
+export {
   supplierRepository,
   SupplierRepository,
 } from "./SupplierRepository"

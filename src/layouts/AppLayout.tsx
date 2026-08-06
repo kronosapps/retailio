@@ -2,7 +2,10 @@ import { NavLink, Outlet } from "react-router-dom"
 import {
   LayoutDashboard,
   Package,
+  Receipt,
+  Settings2,
   ShoppingCart,
+  Users,
   LogOut,
 } from "lucide-react"
 
@@ -15,6 +18,19 @@ const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, adminOnly: true },
   { to: "/pos", label: "POS", icon: ShoppingCart, adminOnly: false },
   { to: "/inventory", label: "Inventory", icon: Package, adminOnly: true },
+  { to: "/customers", label: "Customers", icon: Users, adminOnly: true },
+  {
+    to: "/transactions",
+    label: "Transactions",
+    icon: Receipt,
+    adminOnly: true,
+  },
+  {
+    to: "/options",
+    label: "Admin Options",
+    icon: Settings2,
+    adminOnly: true,
+  },
 ] as const
 
 export function AppLayout() {

@@ -21,9 +21,17 @@ export interface Invoice extends BaseDocument {
   customerName: string
   /** Payable total in paisa */
   totalPaisa: number
-  paymentStatus: "Pending" | "Paid" | "Failed" | "Cancelled" | "Expired" | null
+  paymentStatus:
+    | "Pending"
+    | "Paid"
+    | "Failed"
+    | "Cancelled"
+    | "Expired"
+    | "Refunded"
+    | null
   paymentId: string | null
   paymentMethod: string | null
+  customerPhone?: string | null
   lines: unknown[]
   totals: Record<string, unknown>
 }
@@ -37,11 +45,19 @@ export interface Payment extends BaseDocument {
   amountPaisa: number
   currency: string
   paymentMethod: string
-  status: "Pending" | "Paid" | "Failed" | "Cancelled" | "Expired"
+  status:
+    | "Pending"
+    | "Paid"
+    | "Failed"
+    | "Cancelled"
+    | "Expired"
+    | "Refunded"
   paidAt: string | null
   merchantUPI?: string
   merchantName?: string
   customerName?: string
+  customerId?: string | null
+  customerPhone?: string | null
   /** Last 4 digits of UPI txn id (customer phone) */
   upiTxnLast4?: string | null
   /** Daily cash slip sequence */
@@ -53,6 +69,25 @@ export interface Customer extends BaseDocument {
   name: string
   phone?: string
   email?: string
+  notes?: string
+  storeId: string | null
+  totalSpendPaisa?: number
+  visitCount?: number
+  lastPurchaseAt?: string | null
+}
+
+export interface Refund extends BaseDocument {
+  refundId: string
+  invoiceId: string
+  paymentId: string | null
+  customerId: string | null
+  customerName: string
+  amountPaisa: number
+  amount: number
+  method: string
+  reason: string
+  restock: boolean
+  status: "Completed" | "Cancelled"
   storeId: string | null
 }
 

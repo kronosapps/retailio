@@ -63,6 +63,45 @@ export function PosLayout() {
               >
                 Inventory
               </NavLink>
+              <NavLink
+                to="/customers"
+                className={({ isActive }) =>
+                  cn(
+                    "rounded-md px-2.5 py-1.5 text-sm transition-colors",
+                    isActive
+                      ? "bg-muted font-medium text-foreground"
+                      : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                  )
+                }
+              >
+                Customers
+              </NavLink>
+              <NavLink
+                to="/transactions"
+                className={({ isActive }) =>
+                  cn(
+                    "rounded-md px-2.5 py-1.5 text-sm transition-colors",
+                    isActive
+                      ? "bg-muted font-medium text-foreground"
+                      : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                  )
+                }
+              >
+                Transactions
+              </NavLink>
+              <NavLink
+                to="/options"
+                className={({ isActive }) =>
+                  cn(
+                    "rounded-md px-2.5 py-1.5 text-sm transition-colors",
+                    isActive
+                      ? "bg-muted font-medium text-foreground"
+                      : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                  )
+                }
+              >
+                Options
+              </NavLink>
             </nav>
           ) : null}
         </div>

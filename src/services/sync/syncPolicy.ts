@@ -1,0 +1,32 @@
+import { EventTypes, type EventType } from "@/events/EventTypes"
+
+/**
+ * Events that sync to Google Sheets immediately (catalog / stock).
+ * Sales-day events wait for Admin Options → End of Day.
+ */
+export const LIVE_SHEET_EVENTS = new Set<EventType>([
+  EventTypes.INVENTORY_CHANGED,
+  EventTypes.PRODUCT_CREATED,
+  EventTypes.PRODUCT_UPDATED,
+  EventTypes.SUPPLIER_CREATED,
+  EventTypes.EXPENSE_CREATED,
+])
+
+/**
+ * Transactional / day-report events — synced only via End of Day.
+ */
+export const EOD_ONLY_SHEET_EVENTS = new Set<EventType>([
+  EventTypes.INVOICE_CREATED,
+  EventTypes.INVOICE_UPDATED,
+  EventTypes.PAYMENT_RECEIVED,
+  EventTypes.PAYMENT_FAILED,
+  EventTypes.REFUND_CREATED,
+  EventTypes.REFUND_UPDATED,
+  EventTypes.CUSTOMER_CREATED,
+  EventTypes.CUSTOMER_UPDATED,
+])
+
+/** Live queue: everything except EOD-only sales/customer events. */
+export function shouldEnqueueLiveSheetSync(eventType: EventType): boolean {
+  return !EOD_ONLY_SHEET_EVENTS.has(eventType)
+}

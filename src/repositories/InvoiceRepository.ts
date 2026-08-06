@@ -37,6 +37,8 @@ export class InvoiceRepository {
         invoiceId: sale.invoiceId,
         invoiceNumber: sale.invoiceId,
         customerName: sale.customerName ?? "Walk-in",
+        customerId: sale.customerId ?? null,
+        customerPhone: sale.customerPhone ?? null,
         paymentStatus: sale.paymentStatus,
         createdAt: sale.createdAt,
         storeId: sale.storeId,
@@ -75,6 +77,9 @@ export class InvoiceRepository {
         paymentId: sale.paymentId,
         paymentStatus: sale.paymentStatus,
         paymentMethod: sale.paymentMethod,
+        customerId: sale.customerId ?? null,
+        customerName: sale.customerName ?? "Walk-in",
+        customerPhone: sale.customerPhone ?? null,
         updatedAt: new Date().toISOString(),
       },
       sale.storeId

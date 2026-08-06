@@ -50,6 +50,20 @@ export class GoogleSheetsSyncProvider implements SyncProvider {
     })
   }
 
+  private async sendBatch(sheet: string, rows: unknown[]) {
+    const url = resolveScriptUrl(this.scriptUrl)
+    if (!url) return
+    if (rows.length === 0) return
+
+    const records = rows.map(asRecord)
+    // Prefer one batch POST; Apps Script falls back to per-row if needed.
+    await postToGoogleSheets(url, {
+      action: "batchInsert",
+      sheet,
+      rows: records,
+    })
+  }
+
   syncInvoice(data: unknown) {
     return this.send("Invoices", data)
   }
@@ -70,12 +84,24 @@ export class GoogleSheetsSyncProvider implements SyncProvider {
     return this.send("Customers", data)
   }
 
+  syncRefund(data: unknown) {
+    return this.send("Refunds", data)
+  }
+
   syncSupplier(data: unknown) {
     return this.send("Suppliers", data)
   }
 
   syncExpense(data: unknown) {
     return this.send("Expenses", data)
+  }
+
+  syncBatch(sheet: string, rows: unknown[]) {
+    return this.sendBatch(sheet, rows)
+  }
+
+  syncDailyClose(data: unknown) {
+    return this.send("DailyClose", data)
   }
 }
 

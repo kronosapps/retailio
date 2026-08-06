@@ -26,6 +26,8 @@ export type RecordedSale = {
   cashierName: string | null
   storeId: string | null
   customerName?: string
+  customerId?: string | null
+  customerPhone?: string | null
   paymentId?: string | null
   paymentStatus?: PaymentStatus | null
   paymentMethod?: PaymentMethod | null
@@ -194,6 +196,8 @@ export type CreateInvoiceInput = Omit<
   | "paymentMethod"
 > & {
   customerName?: string
+  customerId?: string | null
+  customerPhone?: string | null
 }
 
 /**
@@ -211,6 +215,8 @@ export function createInvoice(input: CreateInvoiceInput): RecordedSale {
     dateKey,
     createdAt: new Date().toISOString(),
     customerName: input.customerName?.trim() || "Walk-in",
+    customerId: input.customerId ?? null,
+    customerPhone: input.customerPhone ?? null,
     paymentId: null,
     paymentStatus: "Pending",
     paymentMethod: null,
@@ -247,6 +253,8 @@ export function updateInvoicePayment(
     paymentStatus?: PaymentStatus | null
     paymentMethod?: PaymentMethod | null
     customerName?: string
+    customerId?: string | null
+    customerPhone?: string | null
   }
 ): RecordedSale | null {
   const store = readStore()
@@ -258,6 +266,12 @@ export function updateInvoicePayment(
     ...current,
     ...patch,
     customerName: patch.customerName ?? current.customerName,
+    customerId:
+      patch.customerId !== undefined ? patch.customerId : current.customerId,
+    customerPhone:
+      patch.customerPhone !== undefined
+        ? patch.customerPhone
+        : current.customerPhone,
   }
   const sales = [...store.sales]
   sales[index] = next
@@ -272,6 +286,8 @@ export function toPayableInvoice(sale: RecordedSale) {
     dailySequence: sale.sequence,
     amountPaisa: sale.totals.total,
     customerName: sale.customerName ?? "Walk-in",
+    customerId: sale.customerId ?? null,
+    customerPhone: sale.customerPhone ?? null,
     paymentId: sale.paymentId ?? null,
     paymentStatus: sale.paymentStatus ?? null,
     paymentMethod: sale.paymentMethod ?? null,

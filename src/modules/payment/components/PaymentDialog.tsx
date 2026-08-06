@@ -39,6 +39,8 @@ export function PaymentDialog() {
     setMethod,
     customerName,
     setCustomerName,
+    customerPhone,
+    setCustomerPhone,
     qrDataUrl,
     error,
     busy,
@@ -127,7 +129,7 @@ export function PaymentDialog() {
             </div>
           </DialogHeader>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="pay-customer">Customer name</Label>
               <Input
@@ -135,6 +137,21 @@ export function PaymentDialog() {
                 value={customerName}
                 onChange={(event) => setCustomerName(event.target.value)}
                 placeholder="Walk-in"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="pay-phone">Mobile (optional)</Label>
+              <Input
+                id="pay-phone"
+                inputMode="tel"
+                autoComplete="tel"
+                value={customerPhone}
+                onChange={(event) =>
+                  setCustomerPhone(
+                    event.target.value.replace(/[^\d+\s-]/g, "").slice(0, 16)
+                  )
+                }
+                placeholder="10-digit mobile"
               />
             </div>
             <div className="space-y-1.5">

@@ -64,6 +64,7 @@ export type RecentSaleRow = {
   paymentMethod: string | null
   totalPaisa: number
   status: string
+  canRefund?: boolean
 }
 
 export type StockRow = {

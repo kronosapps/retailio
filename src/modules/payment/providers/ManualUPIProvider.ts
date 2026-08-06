@@ -55,11 +55,27 @@ export class ManualUPIProvider implements PaymentProvider {
     }
   }
 
-  async refund(): Promise<VerifyPaymentResult> {
+  async refund(payment: Payment, reason?: string): Promise<VerifyPaymentResult> {
+    if (payment.status === "Refunded") {
+      return {
+        verified: true,
+        status: "Refunded",
+        message: "Already refunded.",
+      }
+    }
+    if (payment.status !== "Paid") {
+      return {
+        verified: false,
+        status: payment.status,
+        message: "Only paid sessions can be refunded.",
+      }
+    }
     return {
-      verified: false,
-      status: "Failed",
-      message: "Refunds are not supported for Manual UPI yet.",
+      verified: true,
+      status: "Refunded",
+      message: reason?.trim()
+        ? `Refund recorded by cashier: ${reason.trim()}`
+        : "Refund recorded by cashier (manual confirmation).",
     }
   }
 

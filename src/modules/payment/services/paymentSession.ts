@@ -69,11 +69,16 @@ export async function createPaymentSession(options: {
   invoice: PayableInvoice
   method: PaymentMethod
   customerName: string
+  customerPhone?: string | null
+  customerId?: string | null
   remarks: string | null
 }): Promise<Payment> {
   const invoice = options.invoice
   if (invoice.paymentStatus === "Paid") {
     throw new PaymentError("ALREADY_PAID", "Invoice is already paid.")
+  }
+  if (invoice.paymentStatus === "Refunded") {
+    throw new PaymentError("UNKNOWN", "Invoice was refunded.")
   }
 
   await cancelOpenSessions(invoice.invoiceId)
@@ -114,6 +119,8 @@ export async function createPaymentSession(options: {
     qrGeneratedAt: null,
     qrExpiresAt: null,
     customerName: options.customerName.trim() || "Walk-in",
+    customerId: options.customerId ?? invoice.customerId ?? null,
+    customerPhone: options.customerPhone ?? invoice.customerPhone ?? null,
     attempt,
     upiTxnLast4: null,
     cashReceiptNumber: null,
@@ -126,6 +133,8 @@ export async function createPaymentSession(options: {
     paymentStatus: "Pending",
     paymentMethod: options.method,
     customerName: session.customerName,
+    customerId: session.customerId,
+    customerPhone: session.customerPhone,
   })
 
   appendPaymentLog({
@@ -203,6 +212,8 @@ export async function startPaymentSession(options: {
   invoice: PayableInvoice
   method: PaymentMethod
   customerName: string
+  customerPhone?: string | null
+  customerId?: string | null
   remarks: string | null
   regenerate?: boolean
 }): Promise<{ session: Payment; qrDataUrl: string | null }> {

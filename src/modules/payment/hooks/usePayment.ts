@@ -6,6 +6,8 @@ import {
   useSyncExternalStore,
 } from "react"
 
+import { CustomerService } from "@/modules/customer"
+import { useAuth } from "@/providers/AuthProvider"
 import { invoiceRepository } from "@/repositories/InvoiceRepository"
 import { paymentRepository } from "@/repositories/PaymentRepository"
 
@@ -35,6 +37,7 @@ import {
 import { normalizeUpiTxnLast4 } from "../utils"
 
 export function usePayment() {
+  const { userId, profile } = useAuth()
   const uiSession = useSyncExternalStore(
     subscribePaymentSession,
     getPaymentSession,
@@ -46,6 +49,7 @@ export function usePayment() {
   )
   const [method, setMethod] = useState<PaymentMethod>("UPI")
   const [customerName, setCustomerName] = useState("Walk-in")
+  const [customerPhone, setCustomerPhone] = useState("")
   const [remarks, setRemarks] = useState("")
   const [payment, setPayment] = useState<Payment | null>(null)
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
@@ -60,6 +64,7 @@ export function usePayment() {
     if (!uiSession.open || !invoice) return
 
     setCustomerName(invoice.customerName || "Walk-in")
+    setCustomerPhone(invoice.customerPhone || "")
     setMethod("UPI")
     setRemarks("")
     setError(null)
@@ -72,6 +77,12 @@ export function usePayment() {
       setQrDataUrl(null)
       return
     }
+    if (invoice.paymentStatus === "Refunded") {
+      setError("Invoice was refunded.")
+      setPayment(null)
+      setQrDataUrl(null)
+      return
+    }
 
     let cancelled = false
     setBusy(true)
@@ -79,6 +90,8 @@ export function usePayment() {
       invoice,
       method: "UPI",
       customerName: invoice.customerName || "Walk-in",
+      customerPhone: invoice.customerPhone || null,
+      customerId: invoice.customerId || null,
       remarks: null,
     })
       .then((result) => {
@@ -161,6 +174,8 @@ export function usePayment() {
           invoice,
           method: nextMethod,
           customerName,
+          customerPhone: customerPhone.trim() || null,
+          customerId: invoice.customerId || null,
           remarks: remarks.trim() || null,
         })
         setPayment(result.session)
@@ -175,7 +190,7 @@ export function usePayment() {
         setBusy(false)
       }
     },
-    [invoice, payment, customerName, remarks]
+    [invoice, payment, customerName, customerPhone, remarks]
   )
 
   const regenerateQr = useCallback(async () => {
@@ -188,6 +203,8 @@ export function usePayment() {
         invoice,
         method: "UPI",
         customerName,
+        customerPhone: customerPhone.trim() || null,
+        customerId: invoice.customerId || null,
         remarks: remarks.trim() || null,
         regenerate: true,
       })
@@ -203,7 +220,7 @@ export function usePayment() {
     } finally {
       setBusy(false)
     }
-  }, [invoice, customerName, remarks])
+  }, [invoice, customerName, customerPhone, remarks])
 
   const markPaid = useCallback(
     async (settlement: PaymentSettlementInput) => {
@@ -254,11 +271,22 @@ export function usePayment() {
         }
 
         const paidAt = new Date().toISOString()
+        const customer = await CustomerService.upsertFromCheckout({
+          name: customerName,
+          phone: customerPhone,
+          storeId: profile?.storeId ?? null,
+          actorId: userId,
+          purchasePaisa: invoice.amountPaisa,
+          purchasedAt: paidAt,
+        })
+
         // Repository persists + publishes PAYMENT_RECEIVED → SyncManager → Sheets
         const paid = await paymentRepository.update(payment.paymentId, {
           status: "Paid",
           paidAt,
           customerName,
+          customerId: customer?.id ?? null,
+          customerPhone: customer?.phone ?? (customerPhone.trim() || null),
           remarks: remarks.trim() || payment.remarks,
           paymentMethod: method,
           upiTxnLast4,
@@ -271,6 +299,8 @@ export function usePayment() {
           paymentStatus: "Paid",
           paymentMethod: paid.paymentMethod,
           customerName,
+          customerId: customer?.id ?? null,
+          customerPhone: customer?.phone ?? (customerPhone.trim() || null),
         })
 
         const tallyRef =
@@ -298,7 +328,17 @@ export function usePayment() {
         setBusy(false)
       }
     },
-    [payment, invoice, customerName, remarks, method, uiSession.callbacks]
+    [
+      payment,
+      invoice,
+      customerName,
+      customerPhone,
+      remarks,
+      method,
+      uiSession.callbacks,
+      profile?.storeId,
+      userId,
+    ]
   )
 
   const cancelPayment = useCallback(async () => {
@@ -348,6 +388,8 @@ export function usePayment() {
     setMethod: changeMethod,
     customerName,
     setCustomerName,
+    customerPhone,
+    setCustomerPhone,
     remarks,
     setRemarks,
     qrDataUrl,

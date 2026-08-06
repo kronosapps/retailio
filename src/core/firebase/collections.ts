@@ -8,6 +8,7 @@ export const COLLECTIONS = {
   SUPPLIERS: "suppliers",
   INVOICES: "invoices",
   PAYMENTS: "payments",
+  REFUNDS: "refunds",
   INVENTORY: "inventory",
   EXPENSES: "expenses",
   USERS: "users",

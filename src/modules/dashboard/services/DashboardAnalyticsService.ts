@@ -2,10 +2,13 @@ import type { RecordedSale } from "@/data/invoices"
 import type { InventoryRecord } from "@/data/inventory"
 import type { ProductRecord } from "@/data/products"
 import type { Payment } from "@/modules/payment/types"
+import type { RefundRecord } from "@/data/refunds"
+import { customerRepository } from "@/repositories/CustomerRepository"
 import { inventoryRepository } from "@/repositories/InventoryRepository"
 import { invoiceRepository } from "@/repositories/InvoiceRepository"
 import { paymentRepository } from "@/repositories/PaymentRepository"
 import { productRepository } from "@/repositories/ProductRepository"
+import { refundRepository } from "@/repositories/RefundRepository"
 
 import { isInRange, resolveDashboardRange } from "./dateRanges"
 import type {
@@ -70,15 +73,24 @@ function filterByStore(
 function paidInvoices(
   invoices: RecordedSale[],
   payments: Payment[],
+  refunds: RefundRecord[],
   start: Date,
   end: Date
 ): RecordedSale[] {
+  const refundedIds = new Set(
+    refunds
+      .filter((r) => r.status === "Completed")
+      .map((r) => r.invoiceId)
+  )
   const paidIds = new Set(
     payments
       .filter((p) => p.status === "Paid")
       .map((p) => p.invoiceId)
   )
   return invoices.filter((sale) => {
+    if (sale.paymentStatus === "Refunded" || refundedIds.has(sale.invoiceId)) {
+      return false
+    }
     const paid =
       sale.paymentStatus === "Paid" || paidIds.has(sale.invoiceId)
     if (!paid) return false
@@ -90,12 +102,25 @@ function sumRevenue(sales: RecordedSale[]): number {
   return sales.reduce((sum, s) => sum + (s.totals?.total ?? 0), 0)
 }
 
+function sumRefunds(refunds: RefundRecord[], start: Date, end: Date): number {
+  return refunds
+    .filter(
+      (r) =>
+        r.status === "Completed" && isInRange(r.createdAt, start, end)
+    )
+    .reduce((sum, r) => sum + (r.amountPaisa ?? 0), 0)
+}
+
+function customerKey(sale: RecordedSale): string {
+  if (sale.customerId) return `id:${sale.customerId}`
+  const phone = (sale.customerPhone || "").replace(/\D/g, "")
+  if (phone.length >= 8) return `phone:${phone.slice(-10)}`
+  return `name:${(sale.customerName || "Walk-in").trim().toLowerCase() || "walk-in"}`
+}
+
 function uniqueCustomers(sales: RecordedSale[]): Set<string> {
   const set = new Set<string>()
-  for (const s of sales) {
-    const name = (s.customerName || "Walk-in").trim() || "Walk-in"
-    set.add(name.toLowerCase())
-  }
+  for (const s of sales) set.add(customerKey(s))
   return set
 }
 
@@ -288,13 +313,34 @@ function customerAnalytics(
   range: DashboardDateRange
 ): CustomerAnalytics {
   const spend = new Map<string, number>()
+  const labels = new Map<string, string>()
   const firstSeen = new Map<string, number>()
 
+  const directory = customerRepository.list()
+  const byId = new Map(directory.map((c) => [c.id, c]))
+
   for (const sale of allSales) {
-    const key = (sale.customerName || "Walk-in").trim().toLowerCase() || "walk-in"
+    const key = customerKey(sale)
     const t = new Date(sale.createdAt).getTime()
     const prev = firstSeen.get(key)
     if (prev == null || t < prev) firstSeen.set(key, t)
+
+    if (!labels.has(key)) {
+      const fromDir = sale.customerId ? byId.get(sale.customerId) : null
+      labels.set(
+        key,
+        fromDir?.name || sale.customerName || "Walk-in"
+      )
+    }
+  }
+
+  // Prefer repository createdAt for brand-new directory customers with no sales yet
+  for (const customer of directory) {
+    const key = `id:${customer.id}`
+    const t = new Date(customer.createdAt).getTime()
+    const prev = firstSeen.get(key)
+    if (prev == null || t < prev) firstSeen.set(key, t)
+    labels.set(key, customer.name)
   }
 
   let newCustomers = 0
@@ -302,9 +348,10 @@ function customerAnalytics(
   const periodKeys = new Set<string>()
 
   for (const sale of periodSales) {
-    const key = (sale.customerName || "Walk-in").trim().toLowerCase() || "walk-in"
+    const key = customerKey(sale)
     periodKeys.add(key)
     spend.set(key, (spend.get(key) ?? 0) + sale.totals.total)
+    labels.set(key, labels.get(key) || sale.customerName || "Walk-in")
   }
 
   for (const key of periodKeys) {
@@ -321,9 +368,12 @@ function customerAnalytics(
     total === 0 ? 0 : (returningCustomers / total) * 100
 
   let highest: CustomerAnalytics["highestSpendingCustomer"] = null
-  for (const [name, spendPaisa] of spend) {
+  for (const [key, spendPaisa] of spend) {
     if (!highest || spendPaisa > highest.spendPaisa) {
-      highest = { name, spendPaisa }
+      highest = {
+        name: labels.get(key) || key,
+        spendPaisa,
+      }
     }
   }
 
@@ -331,12 +381,7 @@ function customerAnalytics(
     newCustomers,
     returningCustomers,
     repeatPurchasePercent,
-    highestSpendingCustomer: highest
-      ? {
-          name: highest.name.replace(/\b\w/g, (c) => c.toUpperCase()),
-          spendPaisa: highest.spendPaisa,
-        }
-      : null,
+    highestSpendingCustomer: highest,
   }
 }
 
@@ -438,6 +483,9 @@ export class DashboardAnalyticsService {
     const inventory = inventoryRepository.list().filter(
       (i) => !input.storeId || !i.storeId || i.storeId === input.storeId
     )
+    const refunds = refundRepository.list().filter(
+      (r) => !input.storeId || !r.storeId || r.storeId === input.storeId
+    )
 
     const invoices = filterByStore(invoicesRaw, input.storeId)
     const { bySku } = buildProductMaps(products)
@@ -445,12 +493,20 @@ export class DashboardAnalyticsService {
     const periodSales = paidInvoices(
       invoices,
       payments,
+      refunds,
       range.start,
       range.end
     )
     const previousSales = paidInvoices(
       invoices,
       payments,
+      refunds,
+      range.previousStart,
+      range.previousEnd
+    )
+    const refundTotal = sumRefunds(refunds, range.start, range.end)
+    const prevRefundTotal = sumRefunds(
+      refunds,
       range.previousStart,
       range.previousEnd
     )
@@ -506,6 +562,7 @@ export class DashboardAnalyticsService {
     const todaySales = paidInvoices(
       invoices,
       payments,
+      refunds,
       todayRange.start,
       todayRange.end
     )
@@ -528,6 +585,7 @@ export class DashboardAnalyticsService {
         paymentMethod: s.paymentMethod ?? null,
         totalPaisa: s.totals.total,
         status: s.paymentStatus || "Pending",
+        canRefund: s.paymentStatus === "Paid",
       }))
 
     // Fix unused var in categorySales - clean that function
@@ -550,7 +608,7 @@ export class DashboardAnalyticsService {
           "currency"
         ),
         pendingPayments: kpi(pending, pending, "currency"),
-        refunds: kpi(0, 0, "currency"),
+        refunds: kpi(refundTotal, prevRefundTotal, "currency"),
       },
       charts: {
         revenueTrend: revenueTrend(periodSales, range),
@@ -578,7 +636,7 @@ export class DashboardAnalyticsService {
       }),
       meta: {
         profitApproximate: cogsNow.approximate,
-        refundsSupported: false,
+        refundsSupported: true,
         damagedSupported: false,
       },
     }

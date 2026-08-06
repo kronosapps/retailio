@@ -39,6 +39,8 @@ function normalizePayment(raw: LegacyPayment): Payment | null {
     qrGeneratedAt: raw.qrGeneratedAt ?? null,
     qrExpiresAt: raw.qrExpiresAt ?? raw.expiresAt ?? null,
     customerName: raw.customerName || "Walk-in",
+    customerId: raw.customerId ?? null,
+    customerPhone: raw.customerPhone ?? null,
     attempt: typeof raw.attempt === "number" ? raw.attempt : 1,
     upiTxnLast4:
       typeof raw.upiTxnLast4 === "string" && raw.upiTxnLast4.length === 4

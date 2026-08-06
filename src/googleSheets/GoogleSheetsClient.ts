@@ -4,14 +4,21 @@
  *
  * POST body shape:
  * { action: "insert" | "update", sheet: string, data: object }
+ * { action: "batchInsert", sheet: string, rows: object[] }
  */
 import { env } from "@/core/config/env"
 
-export type GoogleSheetsRequest = {
-  action: "insert" | "update"
-  sheet: string
-  data: Record<string, unknown>
-}
+export type GoogleSheetsRequest =
+  | {
+      action: "insert" | "update"
+      sheet: string
+      data: Record<string, unknown>
+    }
+  | {
+      action: "batchInsert"
+      sheet: string
+      rows: Record<string, unknown>[]
+    }
 
 export function getGoogleScriptUrl(): string {
   return env.googleScriptUrl

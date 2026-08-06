@@ -11,6 +11,10 @@ export interface SyncProvider {
   syncInventory(data: unknown): Promise<void>
   syncProduct(data: unknown): Promise<void>
   syncCustomer(data: unknown): Promise<void>
+  syncRefund(data: unknown): Promise<void>
   syncSupplier(data: unknown): Promise<void>
   syncExpense(data: unknown): Promise<void>
+  /** End-of-day batch: many rows for one sheet in a single request when supported. */
+  syncBatch?(sheet: string, rows: unknown[]): Promise<void>
+  syncDailyClose?(data: unknown): Promise<void>
 }

@@ -6,6 +6,7 @@ export type PaymentStatus =
   | "Failed"
   | "Cancelled"
   | "Expired"
+  | "Refunded"
 
 /** Active tender types on POS. Legacy Card/Bank/Split may still exist in old rows. */
 export type PaymentMethod = "Cash" | "UPI"
@@ -50,6 +51,8 @@ export type Payment = {
   qrGeneratedAt: string | null
   qrExpiresAt: string | null
   customerName: string
+  customerId?: string | null
+  customerPhone?: string | null
   /** 1-based attempt number for this invoice. */
   attempt: number
   /**
@@ -88,6 +91,8 @@ export type PayableInvoice = {
   dailySequence: number
   amountPaisa: Paisa
   customerName?: string
+  customerId?: string | null
+  customerPhone?: string | null
   paymentId?: string | null
   paymentStatus?: PaymentStatus | null
   paymentMethod?: PaymentMethod | null

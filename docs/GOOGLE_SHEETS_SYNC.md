@@ -4,15 +4,25 @@ Firestore remains the **source of truth**.
 Google Sheets is for **reporting / backup / analytics** only.
 
 RetailOS does **not** connect Firestore to Sheets with a Firebase plugin.  
-The app syncs like this:
+Day sales sync is **End of Day** (Admin Options), not every transaction:
 
 ```text
-POS / Auth
-  → Repository writes Firestore (+ local)
-  → EventBus publishes (e.g. PAYMENT_RECEIVED)
-  → SyncManager queues the event
-  → GoogleSheetsSyncProvider POSTs JSON
-  → Google Apps Script appends a row to Sheets
+During the day
+  → Repositories write local + Firestore
+  → Inventory / Products still sync live to Sheets
+
+End of Day (Admin Options)
+  → EndOfDayService reads today's (or yesterday's) invoices, payments,
+    refunds, customers
+  → GoogleSheetsSyncProvider POSTs batchInsert / insert
+  → Google Apps Script appends rows (Invoices, Payments, Refunds,
+    Customers, DailyClose)
+```
+
+Live event sync (inventory / products only):
+
+```text
+Repository write → EventBus → SyncManager → Google Sheets
 ```
 
 ---
@@ -25,13 +35,15 @@ POS / Auth
 
 | Tab name   | Used for                          |
 |-----------|------------------------------------|
-| `Invoices` | Invoice created / updated         |
-| `Payments` | Payment received / failed         |
-| `Inventory` | Inventory / product events       |
-| `Customers` | Customer events                  |
+| `Invoices` | End-of-day invoice dump           |
+| `Payments` | End-of-day payment dump           |
+| `Inventory` | Inventory / product events (live) |
+| `Customers` | End-of-day customer dump          |
+| `Refunds` | End-of-day refund dump            |
+| `DailyClose` | One summary row per EOD run     |
 | `Suppliers` | Supplier events                  |
 | `Expenses` | Expense events                    |
-| `Products` | Product created / updated         |
+| `Products` | Product created / updated (live)  |
 
 4. Optional: add a header row on each tab, e.g. for `Payments`:
 
@@ -51,12 +63,12 @@ invoiceNumber | transactionReference | paymentId | amount | paymentMethod | stat
  * RetailOS → Google Sheets webhook
  * Expects POST JSON:
  * { action: "insert", sheet: "Payments", data: { ... } }
+ * { action: "batchInsert", sheet: "Payments", rows: [ {...}, ... ] }
  */
 function doPost(e) {
   try {
     var body = JSON.parse(e.postData.contents);
     var sheetName = body.sheet || "Sheet1";
-    var data = body.data || {};
     var action = body.action || "insert";
 
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -65,8 +77,13 @@ function doPost(e) {
       sheet = ss.insertSheet(sheetName);
     }
 
-    if (action === "insert" || action === "update") {
-      appendObjectRow(sheet, data);
+    if (action === "batchInsert") {
+      var rows = body.rows || [];
+      for (var i = 0; i < rows.length; i++) {
+        appendObjectRow(sheet, rows[i] || {});
+      }
+    } else if (action === "insert" || action === "update") {
+      appendObjectRow(sheet, body.data || {});
     }
 
     return ContentService

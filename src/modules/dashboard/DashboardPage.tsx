@@ -1,6 +1,10 @@
-import { Suspense, lazy } from "react"
+import { Suspense, lazy, useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import {
+  RefundDialog,
+  type RefundDialogTarget,
+} from "@/modules/refund"
 
 import { BusinessInsights } from "./components/BusinessInsights"
 import { CustomerAnalyticsPanel } from "./components/CustomerAnalyticsPanel"
@@ -37,6 +41,9 @@ export function DashboardPage() {
     setCustomStart,
     setCustomEnd,
   } = useDashboard()
+  const [refundTarget, setRefundTarget] = useState<RefundDialogTarget | null>(
+    null
+  )
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 pb-8">
@@ -110,15 +117,7 @@ export function DashboardPage() {
                     title="Pending payments"
                     kpi={data.kpis.pendingPayments}
                   />
-                  <KpiCard
-                    title="Refunds"
-                    kpi={data.kpis.refunds}
-                    hint={
-                      data.meta.refundsSupported
-                        ? undefined
-                        : "Refunds not enabled yet"
-                    }
-                  />
+                  <KpiCard title="Refunds" kpi={data.kpis.refunds} />
                 </>
               )
             : null}
@@ -177,7 +176,17 @@ export function DashboardPage() {
         ) : data ? (
           <div className="grid gap-4 lg:grid-cols-2">
             <TopProductsTable rows={data.tables.topProducts} />
-            <RecentSalesTable rows={data.tables.recentSales} />
+            <RecentSalesTable
+              rows={data.tables.recentSales}
+              onRefund={(row) =>
+                setRefundTarget({
+                  invoiceId: row.invoiceId,
+                  customerName: row.customerName,
+                  totalPaisa: row.totalPaisa,
+                  paymentMethod: row.paymentMethod,
+                })
+              }
+            />
             <StockTable title="Low stock items" rows={data.tables.lowStock} />
             <StockTable
               title="Out of stock items"
@@ -186,6 +195,18 @@ export function DashboardPage() {
           </div>
         ) : null}
       </section>
+
+      <RefundDialog
+        target={refundTarget}
+        open={Boolean(refundTarget)}
+        onOpenChange={(open) => {
+          if (!open) setRefundTarget(null)
+        }}
+        onCompleted={() => {
+          setRefundTarget(null)
+          refresh()
+        }}
+      />
     </div>
   )
 }

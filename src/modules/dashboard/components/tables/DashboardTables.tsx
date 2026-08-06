@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -73,19 +74,26 @@ export function TopProductsTable({ rows }: { rows: TopProductRow[] }) {
   )
 }
 
-export function RecentSalesTable({ rows }: { rows: RecentSaleRow[] }) {
+export function RecentSalesTable({
+  rows,
+  onRefund,
+}: {
+  rows: RecentSaleRow[]
+  onRefund?: (row: RecentSaleRow) => void
+}) {
   return (
     <TableShell title="Recent sales" description="Latest paid invoices">
       {rows.length === 0 ? (
         <Empty />
       ) : (
-        <table className="w-full min-w-[520px] text-left text-sm">
+        <table className="w-full min-w-[560px] text-left text-sm">
           <thead className="text-xs text-muted-foreground">
             <tr className="border-b border-border">
               <th className="py-2 pr-2 font-medium">Invoice</th>
               <th className="py-2 pr-2 font-medium">Customer</th>
               <th className="py-2 pr-2 font-medium">Method</th>
-              <th className="py-2 font-medium">Total</th>
+              <th className="py-2 pr-2 font-medium">Total</th>
+              <th className="py-2 font-medium" />
             </tr>
           </thead>
           <tbody>
@@ -99,8 +107,21 @@ export function RecentSalesTable({ rows }: { rows: RecentSaleRow[] }) {
                 </td>
                 <td className="py-2 pr-2">{row.customerName}</td>
                 <td className="py-2 pr-2">{row.paymentMethod || "—"}</td>
-                <td className="py-2 tabular-nums">
+                <td className="py-2 pr-2 tabular-nums">
                   {formatMoney(row.totalPaisa)}
+                </td>
+                <td className="py-2 text-right">
+                  {row.canRefund && onRefund ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                      onClick={() => onRefund(row)}
+                    >
+                      Refund
+                    </Button>
+                  ) : null}
                 </td>
               </tr>
             ))}

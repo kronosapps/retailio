@@ -13,8 +13,8 @@ const ACTIONS = [
   { label: "New sale", to: "/pos", icon: ShoppingCart },
   { label: "Add product", to: "/inventory", icon: PackagePlus },
   { label: "Receive stock", to: "/inventory", icon: Warehouse },
-  { label: "Add customer", to: "/inventory", icon: UserPlus },
-  { label: "Reports", to: "/", icon: FileBarChart2 },
+  { label: "Add customer", to: "/customers", icon: UserPlus },
+  { label: "Reports", to: "/options", icon: FileBarChart2 },
 ] as const
 
 export function QuickActions() {
