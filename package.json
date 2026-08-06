@@ -12,7 +12,9 @@
     "predeploy": "npm run build && node scripts/copy-404.mjs",
     "deploy": "gh-pages -d dist",
     "db:wipe": "node scripts/wipe-firestore.mjs",
-    "db:wipe:force": "node scripts/wipe-firestore.mjs --force"
+    "db:wipe:force": "node scripts/wipe-firestore.mjs --force",
+    "functions:build": "npm --prefix backend/functions run build",
+    "functions:deploy": "firebase deploy --only functions"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

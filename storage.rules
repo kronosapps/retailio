@@ -1,0 +1,15 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Receipt PDFs are written by Cloud Functions (Admin SDK).
+    // Clients may read only when they hold a signed URL (bypasses rules),
+    // so deny direct browser listing/writes.
+    match /receipts/{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
+import { Link } from "react-router-dom"
 
 import {
   Card,
@@ -61,6 +62,7 @@ function DayPanel({ data }: { data: DayTransactions }) {
             sale.paymentStatus || "Pending",
             formatMoney(sale.totals.total),
           ])}
+          linkPrefix="/invoices/"
         />
         <TxnTable
           title="Payments"
@@ -97,12 +99,15 @@ function TxnTable({
   empty,
   headers,
   rows,
+  linkPrefix,
 }: {
   title: string
   description: string
   empty: string
   headers: string[]
   rows: string[][]
+  /** When set, first column links to `${linkPrefix}${row[0]}`. */
+  linkPrefix?: string
 }) {
   return (
     <Card size="sm">
@@ -141,7 +146,16 @@ function TxnTable({
                             : "py-2 pr-2"
                       }
                     >
-                      {cell}
+                      {cellIndex === 0 && linkPrefix ? (
+                        <Link
+                          to={`${linkPrefix}${cell}`}
+                          className="text-primary underline-offset-2 hover:underline"
+                        >
+                          {cell}
+                        </Link>
+                      ) : (
+                        cell
+                      )}
                     </td>
                   ))}
                 </tr>

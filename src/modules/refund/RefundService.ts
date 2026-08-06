@@ -1,4 +1,6 @@
 import type { RecordedSale } from "@/data/invoices"
+import { EventPublisher } from "@/events/EventPublisher"
+import { EventTypes } from "@/events/EventTypes"
 import { paisaToRupees } from "@/lib/money"
 import { manualUpiProvider } from "@/modules/payment/providers/ManualUPIProvider"
 import type { PaymentMethod } from "@/modules/payment/types"
@@ -135,6 +137,20 @@ export class RefundService {
         status: "Refunded",
       })
     }
+
+    await EventPublisher.publish(
+      EventTypes.PAYMENT_REFUNDED,
+      {
+        invoiceId: sale.invoiceId,
+        paymentId: refund.paymentId,
+        customerId: sale.customerId ?? null,
+        customerName: sale.customerName || "Walk-in",
+        customerPhone: sale.customerPhone ?? null,
+        amount: refund.amount,
+        refundId: refund.refundId,
+      },
+      refund.storeId
+    )
 
     return refund
   }

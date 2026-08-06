@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { CloudUpload, Settings2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -9,8 +9,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import {
+  StoreSettingsService,
+  type StoreSettingsRecord,
+} from "@/modules/notifications"
 import {
   EndOfDayService,
   type EndOfDayDay,
@@ -21,15 +26,29 @@ import { useAuth } from "@/providers/AuthProvider"
 import { cn } from "@/lib/utils"
 
 export function OptionsPage() {
-  const { profile } = useAuth()
+  const { profile, userId } = useAuth()
   const [day, setDay] = useState<EndOfDayDay>("today")
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<EndOfDayResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [lastRun] = useState(() => EndOfDayService.getLastRun())
+  const [storeForm, setStoreForm] = useState<StoreSettingsRecord | null>(null)
+  const [storeBusy, setStoreBusy] = useState(false)
+  const [storeMsg, setStoreMsg] = useState<string | null>(null)
 
   const sheetsConfigured = EndOfDayService.isSheetsConfigured()
   const scriptUrl = SettingsService.getGoogleScriptUrl()
+  const storeId = profile?.storeId || "store-1"
+
+  useEffect(() => {
+    let cancelled = false
+    void StoreSettingsService.get(storeId).then((settings) => {
+      if (!cancelled) setStoreForm(settings)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [storeId])
 
   async function runEndOfDay() {
     setBusy(true)
@@ -167,6 +186,86 @@ export function OptionsPage() {
               )}
             </div>
           ) : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Store settings</CardTitle>
+          <CardDescription>
+            Branding and public WhatsApp details used on receipts. Access
+            tokens stay in Cloud Functions env — never in the browser.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {storeForm ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(
+                [
+                  ["businessName", "Business name"],
+                  ["whatsappBusinessNumber", "WhatsApp business number"],
+                  ["phoneNumberId", "Phone number ID (public)"],
+                  ["supportNumber", "Support number"],
+                  ["businessAddress", "Business address"],
+                  ["storeGst", "Store GST"],
+                  ["businessLogoUrl", "Business logo URL"],
+                  ["receiptFooter", "Receipt footer"],
+                ] as const
+              ).map(([key, label]) => (
+                <div
+                  key={key}
+                  className={
+                    key === "businessAddress" || key === "receiptFooter"
+                      ? "space-y-1.5 sm:col-span-2"
+                      : "space-y-1.5"
+                  }
+                >
+                  <Label htmlFor={`store-${key}`}>{label}</Label>
+                  <Input
+                    id={`store-${key}`}
+                    value={String(storeForm[key] ?? "")}
+                    onChange={(event) =>
+                      setStoreForm((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              [key]: event.target.value,
+                            }
+                          : prev
+                      )
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          )}
+          {storeMsg ? (
+            <p className="text-sm text-muted-foreground">{storeMsg}</p>
+          ) : null}
+          <Button
+            type="button"
+            disabled={!storeForm || storeBusy}
+            onClick={() => {
+              if (!storeForm) return
+              setStoreBusy(true)
+              setStoreMsg(null)
+              void StoreSettingsService.save(storeId, storeForm, userId)
+                .then((saved) => {
+                  setStoreForm(saved)
+                  setStoreMsg("Store settings saved.")
+                })
+                .catch((err) => {
+                  setStoreMsg(
+                    err instanceof Error ? err.message : "Save failed."
+                  )
+                })
+                .finally(() => setStoreBusy(false))
+            }}
+          >
+            {storeBusy ? "Saving…" : "Save store settings"}
+          </Button>
         </CardContent>
       </Card>
 

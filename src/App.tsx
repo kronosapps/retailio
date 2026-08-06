@@ -8,6 +8,7 @@ import { PosLayout } from "@/layouts/PosLayout"
 import { CustomersPage } from "@/pages/CustomersPage"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { InventoryPage } from "@/pages/InventoryPage"
+import { InvoiceDetailsPage } from "@/pages/InvoiceDetailsPage"
 import { LoginPage } from "@/pages/LoginPage"
 import { OptionsPage } from "@/pages/OptionsPage"
 import { PosPage } from "@/pages/PosPage"
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="/inventory" element={<InventoryPage />} />
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/transactions" element={<TransactionsPage />} />
+            <Route path="/invoices/:invoiceId" element={<InvoiceDetailsPage />} />
             <Route path="/options" element={<OptionsPage />} />
           </Route>
         </Route>

@@ -53,6 +53,8 @@ export type Payment = {
   customerName: string
   customerId?: string | null
   customerPhone?: string | null
+  /** Store scope for notifications / analytics (never a secret). */
+  storeId?: string | null
   /** 1-based attempt number for this invoice. */
   attempt: number
   /**
@@ -93,6 +95,7 @@ export type PayableInvoice = {
   customerName?: string
   customerId?: string | null
   customerPhone?: string | null
+  storeId?: string | null
   paymentId?: string | null
   paymentStatus?: PaymentStatus | null
   paymentMethod?: PaymentMethod | null

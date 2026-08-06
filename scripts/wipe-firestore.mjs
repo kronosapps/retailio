@@ -23,6 +23,8 @@ const COLLECTIONS_TO_WIPE = [
   "invoices",
   "payments",
   "refunds",
+  "notifications",
+  "notification_logs",
   "inventory",
   "expenses",
   "settings",

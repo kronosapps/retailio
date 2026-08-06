@@ -44,13 +44,27 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
+    match /refunds/{id} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /notifications/{id} {
+      // Clients may queue / retry; Cloud Functions update delivery status.
+      allow read, write: if isSignedIn();
+    }
+
+    match /notification_logs/{id} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
     match /expenses/{id} {
       allow read, write: if isSignedIn();
     }
 
     match /settings/{id} {
       allow read, write: if isSignedIn();
-      // prod: admin-only writes
+      // prod: admin-only writes; never store WhatsApp access tokens here
     }
 
     match /sync_events/{id} {

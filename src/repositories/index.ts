@@ -18,6 +18,14 @@ export {
   RefundRepository,
 } from "./RefundRepository"
 export {
+  notificationRepository,
+  NotificationRepository,
+} from "./NotificationRepository"
+export {
+  storeSettingsRepository,
+  StoreSettingsRepository,
+} from "./StoreSettingsRepository"
+export {
   supplierRepository,
   SupplierRepository,
 } from "./SupplierRepository"

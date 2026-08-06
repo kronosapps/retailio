@@ -1,6 +1,7 @@
 import {
   deleteDoc,
   doc,
+  getDoc,
   setDoc,
   type DocumentData,
 } from "firebase/firestore"
@@ -30,6 +31,27 @@ export async function upsertDocument(
       )
     }
     return "local-only"
+  }
+}
+
+/** Best-effort Firestore read. Returns null when offline / unconfigured. */
+export async function getDocument<T extends DocumentData>(
+  collectionName: string,
+  id: string
+): Promise<T | null> {
+  if (!isFirebaseConfigured || !db) return null
+  try {
+    const snap = await getDoc(doc(db, collectionName, id))
+    if (!snap.exists()) return null
+    return { id: snap.id, ...snap.data() } as unknown as T
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.warn(
+        `[RetailOS] Firestore get skipped for ${collectionName}/${id}`,
+        error
+      )
+    }
+    return null
   }
 }
 

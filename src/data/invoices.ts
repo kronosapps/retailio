@@ -288,6 +288,7 @@ export function toPayableInvoice(sale: RecordedSale) {
     customerName: sale.customerName ?? "Walk-in",
     customerId: sale.customerId ?? null,
     customerPhone: sale.customerPhone ?? null,
+    storeId: sale.storeId ?? null,
     paymentId: sale.paymentId ?? null,
     paymentStatus: sale.paymentStatus ?? null,
     paymentMethod: sale.paymentMethod ?? null,

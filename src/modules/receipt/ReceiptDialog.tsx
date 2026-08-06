@@ -186,7 +186,7 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
       return
     }
     const url = buildWhatsAppReceiptUrl(buildReceiptText(ctx), phone)
-    window.location.href = url
+    window.open(url, "_blank", "noopener,noreferrer")
   }
 
   if (!open) return null

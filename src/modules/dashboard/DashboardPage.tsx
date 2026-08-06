@@ -1,6 +1,7 @@
 import { Suspense, lazy, useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import { NotificationAnalyticsCards } from "@/modules/notifications"
 import {
   RefundDialog,
   type RefundDialogTarget,
@@ -124,6 +125,8 @@ export function DashboardPage() {
       </section>
 
       {data ? <BusinessInsights insights={data.insights} /> : null}
+
+      <NotificationAnalyticsCards />
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold tracking-wide uppercase">

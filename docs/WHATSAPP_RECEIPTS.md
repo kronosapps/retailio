@@ -1,8 +1,10 @@
 # Company WhatsApp receipts
 
-RetailOS can send receipts **from your business WhatsApp number** (not by opening WhatsApp on the POS phone).
+> **Preferred path:** the [Notification Engine](./NOTIFICATION_ENGINE.md) queues receipts after `PAYMENT_RECEIVED` and sends them via **Firebase Cloud Functions → Meta WhatsApp Cloud API**. Credentials never enter the Vite app.
 
-Browsers cannot talk to WhatsApp as a Business account directly. You connect a **webhook** that holds your API credentials server-side.
+RetailOS can also send receipts **manually** from the Receipt dialog (legacy webhook / device WhatsApp fallback).
+
+Browsers cannot talk to WhatsApp as a Business account directly. Cloud Functions (or a webhook) hold API credentials server-side.
 
 ---
 

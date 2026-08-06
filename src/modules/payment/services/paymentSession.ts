@@ -121,6 +121,7 @@ export async function createPaymentSession(options: {
     customerName: options.customerName.trim() || "Walk-in",
     customerId: options.customerId ?? invoice.customerId ?? null,
     customerPhone: options.customerPhone ?? invoice.customerPhone ?? null,
+    storeId: invoice.storeId ?? null,
     attempt,
     upiTxnLast4: null,
     cashReceiptNumber: null,

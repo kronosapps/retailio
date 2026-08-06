@@ -30,13 +30,13 @@ export class PaymentRepository {
       await EventPublisher.publish(
         EventTypes.PAYMENT_RECEIVED,
         toPaymentSyncPayload(saved),
-        null
+        saved.storeId ?? null
       )
     } else if (saved.status === "Failed") {
       await EventPublisher.publish(
         EventTypes.PAYMENT_FAILED,
         toPaymentSyncPayload(saved),
-        null
+        saved.storeId ?? null
       )
     }
 
@@ -58,13 +58,13 @@ export class PaymentRepository {
       await EventPublisher.publish(
         EventTypes.PAYMENT_RECEIVED,
         toPaymentSyncPayload(updated),
-        null
+        updated.storeId ?? null
       )
     } else if (updated.status === "Failed") {
       await EventPublisher.publish(
         EventTypes.PAYMENT_FAILED,
         toPaymentSyncPayload(updated),
-        null
+        updated.storeId ?? null
       )
     }
 
@@ -92,6 +92,7 @@ function toPaymentSyncPayload(payment: Payment) {
     customerName: payment.customerName,
     customerId: payment.customerId,
     customerPhone: payment.customerPhone,
+    storeId: payment.storeId ?? null,
     upiTxnLast4: payment.upiTxnLast4,
     cashReceiptNumber: payment.cashReceiptNumber,
     cashReceiptId: payment.cashReceiptId,
