@@ -1,7 +1,9 @@
 import {
+  collection,
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   setDoc,
   type DocumentData,
 } from "firebase/firestore"
@@ -48,6 +50,31 @@ export async function getDocument<T extends DocumentData>(
     if (import.meta.env.DEV) {
       console.warn(
         `[RetailOS] Firestore get skipped for ${collectionName}/${id}`,
+        error
+      )
+    }
+    return null
+  }
+}
+
+/**
+ * Best-effort collection list.
+ * Returns `null` when Firebase is unset or the read fails (so callers keep
+ * local cache and can retry). Returns `[]` only on a successful empty query.
+ */
+export async function listDocuments<T extends DocumentData>(
+  collectionName: string
+): Promise<T[] | null> {
+  if (!isFirebaseConfigured || !db) return null
+  try {
+    const snap = await getDocs(collection(db, collectionName))
+    return snap.docs.map(
+      (item) => ({ id: item.id, ...item.data() }) as unknown as T
+    )
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.warn(
+        `[RetailOS] Firestore list skipped for ${collectionName}`,
         error
       )
     }

@@ -2,7 +2,9 @@ import {
   createInvoice as createLocalInvoice,
   getRecordedSale,
   listRecordedSales,
+  mergeRemoteSales,
   updateInvoicePayment,
+  upsertRecordedSale,
   type CreateInvoiceInput,
   type RecordedSale,
 } from "@/data/invoices"
@@ -10,15 +12,30 @@ import { paisaToRupees } from "@/lib/money"
 import { EventPublisher } from "@/events/EventPublisher"
 import { EventTypes } from "@/events/EventTypes"
 
-import { upsertDocument } from "./firestoreHelpers"
+import { getDocument, listDocuments, upsertDocument } from "./firestoreHelpers"
 
 const COLLECTION = "invoices"
+const HYDRATE_TTL_MS = 15_000
 
 /**
  * Owns the `invoices` Firestore collection.
  * Business modules call this — never Firestore from React.
  */
 export class InvoiceRepository {
+  private hydratedAt = 0
+
+  /**
+   * Pull Firestore invoices into localStorage so other browsers see the same sales.
+   * No-op when Firebase is unset, offline, or a recent hydrate already ran.
+   */
+  async hydrateFromCloud(force = false): Promise<void> {
+    if (!force && Date.now() - this.hydratedAt < HYDRATE_TTL_MS) return
+    const remote = await listDocuments<RecordedSale>(COLLECTION)
+    if (remote === null) return
+    mergeRemoteSales(remote)
+    this.hydratedAt = Date.now()
+  }
+
   /**
    * Persist a new unpaid invoice (local + Firestore when configured),
    * then publish INVOICE_CREATED for the sync layer.
@@ -89,10 +106,19 @@ export class InvoiceRepository {
   }
 
   async getById(invoiceId: string): Promise<RecordedSale | null> {
-    return getRecordedSale(invoiceId)
+    const local = getRecordedSale(invoiceId)
+    if (local) return local
+
+    const remote = await getDocument<RecordedSale>(COLLECTION, invoiceId)
+    if (!remote) return null
+    return upsertRecordedSale({
+      ...remote,
+      invoiceId: remote.invoiceId || invoiceId,
+    })
   }
 
   async list(): Promise<RecordedSale[]> {
+    await this.hydrateFromCloud()
     return listRecordedSales()
   }
 }

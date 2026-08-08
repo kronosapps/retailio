@@ -473,9 +473,10 @@ export class DashboardAnalyticsService {
       end: input.customEnd ?? new Date(),
     })
 
-    const [invoicesRaw, payments] = await Promise.all([
+    const [invoicesRaw, payments, refundsRaw] = await Promise.all([
       invoiceRepository.list(),
       paymentRepository.list(),
+      refundRepository.list(),
     ])
     const products = productRepository.list().filter(
       (p) => !input.storeId || !p.storeId || p.storeId === input.storeId
@@ -483,7 +484,7 @@ export class DashboardAnalyticsService {
     const inventory = inventoryRepository.list().filter(
       (i) => !input.storeId || !i.storeId || i.storeId === input.storeId
     )
-    const refunds = refundRepository.list().filter(
+    const refunds = refundsRaw.filter(
       (r) => !input.storeId || !r.storeId || r.storeId === input.storeId
     )
 

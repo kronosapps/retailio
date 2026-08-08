@@ -101,6 +101,34 @@ export function listPayments(): Payment[] {
   )
 }
 
+function preferPayment(local: Payment, remote: Payment): Payment {
+  if (local.status === "Paid" && remote.status !== "Paid") return local
+  if (remote.status === "Paid" && local.status !== "Paid") return remote
+  return { ...local, ...remote, paymentId: local.paymentId || remote.paymentId }
+}
+
+/**
+ * Merge Firestore payments into localStorage for cross-device sync.
+ * Keeps local-only rows; protects unsynced local Paid over stale remote.
+ */
+export function mergeRemotePayments(remotePayments: Payment[]): Payment[] {
+  const store = readPayments()
+  const byId = new Map(store.payments.map((p) => [p.paymentId, p]))
+
+  for (const raw of remotePayments) {
+    const remote = normalizePayment(raw as LegacyPayment)
+    if (!remote) continue
+    const local = byId.get(remote.paymentId)
+    byId.set(
+      remote.paymentId,
+      local ? preferPayment(local, remote) : remote
+    )
+  }
+
+  writePayments({ version: 2, payments: [...byId.values()] })
+  return listPayments()
+}
+
 export function listPaymentsForInvoice(invoiceId: string): Payment[] {
   return readPayments()
     .payments.filter((p) => p.invoiceId === invoiceId)

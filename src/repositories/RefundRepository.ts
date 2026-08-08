@@ -3,6 +3,7 @@ import {
   getLocalRefund,
   getLocalRefundByInvoice,
   listLocalRefunds,
+  mergeRemoteRefunds,
   upsertLocalRefund,
   type RefundRecord,
 } from "@/data/refunds"
@@ -11,9 +12,10 @@ import { EventTypes } from "@/events/EventTypes"
 import { paisaToRupees } from "@/lib/money"
 import { createId } from "@/utils/id"
 
-import { upsertDocument } from "./firestoreHelpers"
+import { getDocument, listDocuments, upsertDocument } from "./firestoreHelpers"
 
 const COLLECTION = "refunds"
+const HYDRATE_TTL_MS = 15_000
 
 export type { RefundRecord }
 
@@ -29,15 +31,32 @@ export type CreateRefundInput = Omit<
  * Local store is primary; Firestore + events are best-effort.
  */
 export class RefundRepository {
-  list(): RefundRecord[] {
+  private hydratedAt = 0
+
+  async hydrateFromCloud(force = false): Promise<void> {
+    if (!force && Date.now() - this.hydratedAt < HYDRATE_TTL_MS) return
+    const remote = await listDocuments<RefundRecord>(COLLECTION)
+    if (remote === null) return
+    mergeRemoteRefunds(remote)
+    this.hydratedAt = Date.now()
+  }
+
+  async list(): Promise<RefundRecord[]> {
+    await this.hydrateFromCloud()
     return listLocalRefunds()
   }
 
-  getById(id: string): RefundRecord | null {
-    return getLocalRefund(id)
+  async getById(id: string): Promise<RefundRecord | null> {
+    const local = getLocalRefund(id)
+    if (local) return local
+
+    const remote = await getDocument<RefundRecord>(COLLECTION, id)
+    if (!remote) return null
+    return upsertLocalRefund({ ...remote, id: remote.id || id })
   }
 
-  getByInvoiceId(invoiceId: string): RefundRecord | null {
+  async getByInvoiceId(invoiceId: string): Promise<RefundRecord | null> {
+    await this.hydrateFromCloud()
     return getLocalRefundByInvoice(invoiceId)
   }
 

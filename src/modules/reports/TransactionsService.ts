@@ -58,7 +58,7 @@ export class TransactionsService {
     const [invoices, payments, refunds] = await Promise.all([
       invoiceRepository.list(),
       paymentRepository.list(),
-      Promise.resolve(refundRepository.list()),
+      refundRepository.list(),
     ])
 
     const sales = filterStoreSales(invoices, storeId)

@@ -222,7 +222,7 @@ export class EndOfDayService {
     const [invoices, payments, refunds, customers] = await Promise.all([
       invoiceRepository.list(),
       paymentRepository.list(),
-      Promise.resolve(refundRepository.list()),
+      refundRepository.list(),
       Promise.resolve(customerRepository.list()),
     ])
 

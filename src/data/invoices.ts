@@ -185,6 +185,61 @@ export function getRecordedSale(invoiceId: string) {
   return readStore().sales.find((sale) => sale.invoiceId === invoiceId) ?? null
 }
 
+function preferSale(local: RecordedSale, remote: RecordedSale): RecordedSale {
+  // Protect unsynced local payments; otherwise prefer cloud as SoT.
+  if (local.paymentStatus === "Paid" && remote.paymentStatus !== "Paid") {
+    return normalizeSale(local)
+  }
+  if (remote.paymentStatus === "Paid" && local.paymentStatus !== "Paid") {
+    return normalizeSale(remote)
+  }
+  return normalizeSale({
+    ...local,
+    ...remote,
+    invoiceId: local.invoiceId || remote.invoiceId,
+    lines: Array.isArray(remote.lines) ? remote.lines : local.lines,
+    totals: remote.totals ?? local.totals,
+  })
+}
+
+/** Upsert a sale into the local cache (used when hydrating from Firestore). */
+export function upsertRecordedSale(sale: RecordedSale): RecordedSale {
+  const normalized = normalizeSale(sale)
+  const store = readStore()
+  const index = store.sales.findIndex(
+    (item) => item.invoiceId === normalized.invoiceId
+  )
+  const sales = [...store.sales]
+  if (index >= 0) sales[index] = preferSale(sales[index], normalized)
+  else sales.push(normalized)
+
+  const sequencesByDate = { ...store.sequencesByDate }
+  if (normalized.dateKey && normalized.dateKey !== "legacy") {
+    const current = sequencesByDate[normalized.dateKey] ?? 0
+    sequencesByDate[normalized.dateKey] = Math.max(
+      current,
+      normalized.sequence ?? 0
+    )
+  }
+
+  writeStore({ version: 2, sequencesByDate, sales })
+  return (
+    sales.find((item) => item.invoiceId === normalized.invoiceId) ?? normalized
+  )
+}
+
+/**
+ * Merge Firestore invoices into localStorage.
+ * Keeps local-only rows (offline writes) and prefers Paid local over stale remote.
+ */
+export function mergeRemoteSales(remoteSales: RecordedSale[]): RecordedSale[] {
+  for (const sale of remoteSales) {
+    if (!sale?.invoiceId) continue
+    upsertRecordedSale(sale)
+  }
+  return listRecordedSales()
+}
+
 export type CreateInvoiceInput = Omit<
   RecordedSale,
   | "invoiceId"

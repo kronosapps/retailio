@@ -44,11 +44,11 @@ export class RefundError extends Error {
  * Never talks to Firestore or Sheets directly.
  */
 export class RefundService {
-  static list(): RefundRecord[] {
+  static list(): Promise<RefundRecord[]> {
     return refundRepository.list()
   }
 
-  static getByInvoiceId(invoiceId: string): RefundRecord | null {
+  static getByInvoiceId(invoiceId: string): Promise<RefundRecord | null> {
     return refundRepository.getByInvoiceId(invoiceId)
   }
 
@@ -72,7 +72,7 @@ export class RefundService {
       )
     }
 
-    const existing = refundRepository.getByInvoiceId(sale.invoiceId)
+    const existing = await refundRepository.getByInvoiceId(sale.invoiceId)
     if (existing) {
       throw new RefundError(
         "ALREADY_REFUNDED",

@@ -113,6 +113,31 @@ export function upsertLocalRefund(record: RefundRecord): RefundRecord {
   return record
 }
 
+function preferRefund(local: RefundRecord, remote: RefundRecord): RefundRecord {
+  const localTs = local.updatedAt || local.createdAt || ""
+  const remoteTs = remote.updatedAt || remote.createdAt || ""
+  return remoteTs.localeCompare(localTs) >= 0 ? remote : local
+}
+
+/** Merge Firestore refunds into localStorage for cross-device sync. */
+export function mergeRemoteRefunds(remoteRefunds: RefundRecord[]): RefundRecord[] {
+  const store = readStore()
+  const byId = new Map(store.items.map((item) => [item.id, item]))
+
+  for (const remote of remoteRefunds) {
+    if (!remote?.id) continue
+    const local = byId.get(remote.id)
+    byId.set(remote.id, local ? preferRefund(local, remote) : remote)
+  }
+
+  writeStore({
+    version: 1,
+    sequencesByDate: store.sequencesByDate,
+    items: [...byId.values()],
+  })
+  return listLocalRefunds()
+}
+
 export type CreateRefundLocalInput = Omit<
   RefundRecord,
   "id" | "refundId" | "createdAt" | "updatedAt" | "status"
