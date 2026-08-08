@@ -194,6 +194,7 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
   return (
     <Dialog
       open={open}
+      disablePointerDismissal
       onOpenChange={(next) => {
         if (!next) onClose()
       }}

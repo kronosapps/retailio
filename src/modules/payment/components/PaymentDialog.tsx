@@ -106,6 +106,7 @@ export function PaymentDialog() {
     <>
       <Dialog
         open={open}
+        disablePointerDismissal
         onOpenChange={(next) => {
           if (!next) {
             if (payment?.status === "Paid") closePayment()
@@ -446,6 +447,7 @@ export function PaymentDialog() {
 
       <Dialog
         open={confirmOpen}
+        disablePointerDismissal
         onOpenChange={(next) => {
           if (!next) closeConfirm()
         }}
