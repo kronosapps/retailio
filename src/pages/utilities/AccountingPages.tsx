@@ -10,9 +10,11 @@ import {
   type TrialBalanceResult,
 } from "@/modules/accounting"
 import { formatReportMoney } from "@/modules/reporting"
+import { UtilitiesExportService } from "@/modules/utilities/UtilitiesExportService"
 import { invoiceRepository } from "@/repositories/InvoiceRepository"
 import { paymentRepository } from "@/repositories/PaymentRepository"
 import { refundRepository } from "@/repositories/RefundRepository"
+import { useAuth } from "@/providers/AuthProvider"
 import { cn } from "@/lib/utils"
 
 function money(p: number) {
@@ -20,6 +22,7 @@ function money(p: number) {
 }
 
 export function DaybookPage() {
+  const { profile } = useAuth()
   const [rows, setRows] = useState<DaybookRow[]>([])
   useEffect(() => {
     void AccountingService.getDaybook().then(setRows)
@@ -27,7 +30,7 @@ export function DaybookPage() {
   return (
     <AccountingTable
       title="Daybook"
-      note="Projected chronological journal activity for the active financial year."
+      note="Hybrid posted GL with projection backfill for the active financial year."
       columns={["Date", "Time", "Type", "Description", "Debit", "Credit", "Operator"]}
       rows={rows.map((r) => [
         r.date,
@@ -38,11 +41,15 @@ export function DaybookPage() {
         money(r.creditPaisa),
         r.operator,
       ])}
+      onExport={() =>
+        void UtilitiesExportService.exportDaybook(profile?.storeId)
+      }
     />
   )
 }
 
 export function AllTransactionsPage() {
+  const { profile } = useAuth()
   const [rows, setRows] = useState<string[][]>([])
   useEffect(() => {
     void (async () => {
@@ -107,11 +114,15 @@ export function AllTransactionsPage() {
         "Status",
       ]}
       rows={rows}
+      onExport={() =>
+        void UtilitiesExportService.exportAllTransactions(profile?.storeId)
+      }
     />
   )
 }
 
 export function TrialBalancePage() {
+  const { profile } = useAuth()
   const [data, setData] = useState<TrialBalanceResult | null>(null)
   useEffect(() => {
     void AccountingService.getTrialBalance().then(setData)
@@ -123,6 +134,9 @@ export function TrialBalancePage() {
         title="Trial Balance"
         subtitle={data.periodLabel}
         note={data.projectionNote}
+        onExport={() =>
+          void UtilitiesExportService.exportTrialBalance(profile?.storeId)
+        }
       />
       {!data.isBalanced && (
         <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -152,6 +166,7 @@ export function TrialBalancePage() {
 }
 
 export function BalanceSheetPage() {
+  const { profile } = useAuth()
   const [data, setData] = useState<BalanceSheetResult | null>(null)
   useEffect(() => {
     void AccountingService.getBalanceSheet().then(setData)
@@ -159,7 +174,13 @@ export function BalanceSheetPage() {
   if (!data) return <p className="text-sm text-muted-foreground">Loading…</p>
   return (
     <div className="space-y-4">
-      <Header title="Balance Sheet" subtitle={`As of ${data.periodLabel}`} />
+      <Header
+        title="Balance Sheet"
+        subtitle={`As of ${data.periodLabel}`}
+        onExport={() =>
+          void UtilitiesExportService.exportBalanceSheet(profile?.storeId)
+        }
+      />
       {data.notes.map((n) => (
         <p key={n} className="text-xs text-muted-foreground">
           {n}
@@ -198,6 +219,7 @@ export function BalanceSheetPage() {
 }
 
 export function CashFlowPage() {
+  const { profile } = useAuth()
   const [data, setData] = useState<CashFlowResult | null>(null)
   useEffect(() => {
     void AccountingService.getCashFlow().then(setData)
@@ -205,7 +227,13 @@ export function CashFlowPage() {
   if (!data) return <p className="text-sm text-muted-foreground">Loading…</p>
   return (
     <div className="space-y-4">
-      <Header title="Cash Flow" subtitle={data.periodLabel} />
+      <Header
+        title="Cash Flow"
+        subtitle={data.periodLabel}
+        onExport={() =>
+          void UtilitiesExportService.exportCashFlow(profile?.storeId)
+        }
+      />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Metric label="Opening cash" value={money(data.openingCashPaisa)} />
         <Metric label="Opening UPI" value={money(data.openingUpiPaisa)} />
@@ -226,6 +254,7 @@ export function CashFlowPage() {
 }
 
 export function AccountStatementPage() {
+  const { profile } = useAuth()
   const accounts = AccountingService.listAccounts()
   const [code, setCode] = useState(accounts[0]?.code || "1000")
   const [data, setData] = useState<AccountStatementResult | null>(null)
@@ -236,7 +265,16 @@ export function AccountStatementPage() {
 
   return (
     <div className="space-y-4">
-      <Header title="Account Statement" subtitle={data?.periodLabel} />
+      <Header
+        title="Account Statement"
+        subtitle={data?.periodLabel}
+        onExport={() =>
+          void UtilitiesExportService.exportAccountStatement(
+            code,
+            profile?.storeId
+          )
+        }
+      />
       <select
         className={cn(
           "h-9 rounded-md border border-input bg-transparent px-2.5 text-sm"
@@ -275,18 +313,43 @@ function Header({
   title,
   subtitle,
   note,
+  onExport,
 }: {
   title: string
   subtitle?: string
   note?: string
+  onExport?: () => void
 }) {
   return (
-    <div>
-      <h2 className="text-lg font-semibold">{title}</h2>
-      {subtitle && (
-        <p className="text-sm text-muted-foreground">{subtitle}</p>
-      )}
-      {note && <p className="mt-1 text-xs text-muted-foreground">{note}</p>}
+    <div className="flex flex-wrap items-start justify-between gap-2">
+      <div>
+        <h2 className="text-lg font-semibold">{title}</h2>
+        {subtitle && (
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
+        )}
+        {note && <p className="mt-1 text-xs text-muted-foreground">{note}</p>}
+      </div>
+      <Toolbar onExport={onExport} />
+    </div>
+  )
+}
+
+function Toolbar({ onExport }: { onExport?: () => void }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {onExport ? (
+        <Button type="button" variant="outline" size="sm" onClick={onExport}>
+          Export Excel
+        </Button>
+      ) : null}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => window.print()}
+      >
+        Print
+      </Button>
     </div>
   )
 }
@@ -331,15 +394,19 @@ function AccountingTable({
   note,
   columns,
   rows,
+  onExport,
 }: {
   title?: string
   note?: string
   columns: string[]
   rows: string[][]
+  onExport?: () => void
 }) {
   return (
     <div className="space-y-3">
-      {title && <Header title={title} note={note} />}
+      {title ? (
+        <Header title={title} note={note} onExport={onExport} />
+      ) : null}
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full min-w-[640px] text-left text-sm">
           <thead className="border-b bg-muted/40 text-muted-foreground">
@@ -374,16 +441,6 @@ function AccountingTable({
           </tbody>
         </table>
       </div>
-      {title && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => window.print()}
-        >
-          Print
-        </Button>
-      )}
     </div>
   )
 }

@@ -12,6 +12,8 @@ import { isInRange } from "@/modules/reporting/utils/report-periods"
 import { ExpenseService } from "@/modules/expense/ExpenseService"
 import type { ExpenseRecord } from "@/repositories/ExpenseRepository"
 import { ProductService } from "@/modules/products"
+import { StatutoryService } from "@/modules/statutory"
+import type { GstSummary } from "@/modules/statutory"
 
 export type OperatorReportRow = {
   operatorId: string
@@ -41,16 +43,7 @@ export type ExpenseReportSummary = {
   byCategory: { category: string; amountPaisa: number; count: number }[]
 }
 
-export type GstReportSummary = {
-  taxablePaisa: number
-  cgstPaisa: number
-  sgstPaisa: number
-  gstPaisa: number
-  invoiceCount: number
-  byRate: { rate: number; taxablePaisa: number; gstPaisa: number }[]
-  statutoryReady: false
-  limitations: string[]
-}
+export type GstReportSummary = GstSummary
 
 /**
  * Analysis helpers used by Utilities — read-only, reuse domain sources.
@@ -186,47 +179,8 @@ export class UtilitiesAnalysisService {
     }
   }
 
-  static async gstReport(): Promise<GstReportSummary> {
-    const fy = FinancialYearService.getActive()
-    const { start, end } = FinancialYearService.getRange(fy)
-    const invoices = (await invoiceRepository.list()).filter(
-      (s) =>
-        (s.paymentStatus === "Paid" || s.paymentStatus === "Refunded") &&
-        isInRange(s.createdAt, start, end)
-    )
-    let taxablePaisa = 0
-    let cgstPaisa = 0
-    let sgstPaisa = 0
-    let gstPaisa = 0
-    const byRate = new Map<number, { taxablePaisa: number; gstPaisa: number }>()
-
-    for (const sale of invoices) {
-      taxablePaisa += sale.totals.taxableAmount || 0
-      cgstPaisa += sale.totals.cgstAmount || 0
-      sgstPaisa += sale.totals.sgstAmount || 0
-      gstPaisa += sale.totals.gstAmount || 0
-      const rate = sale.totals.gstPercent || 0
-      const cur = byRate.get(rate) || { taxablePaisa: 0, gstPaisa: 0 }
-      cur.taxablePaisa += sale.totals.taxableAmount || 0
-      cur.gstPaisa += sale.totals.gstAmount || 0
-      byRate.set(rate, cur)
-    }
-
-    return {
-      taxablePaisa,
-      cgstPaisa,
-      sgstPaisa,
-      gstPaisa,
-      invoiceCount: invoices.length,
-      byRate: [...byRate.entries()].map(([rate, v]) => ({ rate, ...v })),
-      statutoryReady: false,
-      limitations: [
-        "No place-of-supply / IGST split captured on invoices.",
-        "No B2B vs B2C customer GSTIN classification.",
-        "No credit-note document model beyond refunds.",
-        "Operational summary only — not GSTR filing-ready.",
-      ],
-    }
+  static async gstReport(storeId?: string | null): Promise<GstReportSummary> {
+    return StatutoryService.getGstSummary(storeId)
   }
 
   static inactiveProducts() {

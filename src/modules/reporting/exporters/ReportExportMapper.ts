@@ -269,6 +269,8 @@ function titleFor(type: ReportExportPayload["reportType"]): string {
       return "Item Report"
     case "dashboard":
       return "Dashboard Report"
+    case "utility":
+      return "Utilities Report"
   }
 }
 

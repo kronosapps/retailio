@@ -22,6 +22,7 @@ export type UtilityToolId =
   | "report-operator"
   | "report-role"
   | "report-expense"
+  | "expense-create"
   | "gst"
   | "tcs"
   | "form-27eq"
@@ -157,6 +158,14 @@ export const UTILITY_TOOLS: UtilityTool[] = [
     title: "Expense Reports",
     description: "Expenses by category and period",
     path: "/utilities/report-expense",
+    roles: ["admin", "manager"],
+  },
+  {
+    id: "expense-create",
+    group: "daily",
+    title: "Add Expense",
+    description: "Record a store expense (Cash / UPI)",
+    path: "/utilities/expenses",
     roles: ["admin", "manager"],
   },
   {

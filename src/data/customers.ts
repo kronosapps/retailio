@@ -9,6 +9,8 @@ export type CustomerRecord = {
   phone?: string
   email?: string
   notes?: string
+  /** Optional GSTIN for B2B classification (statutory scaffold). */
+  gstin?: string
   storeId: string | null
   createdAt: string
   updatedAt: string
@@ -66,6 +68,7 @@ function normalizeCustomer(raw: CustomerRecord): CustomerRecord {
     phone: raw.phone?.trim() || undefined,
     email: raw.email?.trim() || undefined,
     notes: raw.notes?.trim() || undefined,
+    gstin: raw.gstin?.trim().toUpperCase() || undefined,
     storeId: raw.storeId ?? null,
     createdBy: raw.createdBy ?? null,
     updatedBy: raw.updatedBy ?? null,

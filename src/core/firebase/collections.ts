@@ -14,6 +14,7 @@ export const COLLECTIONS = {
   INVENTORY_MOVEMENTS: "inventory_movements",
   CATEGORIES: "categories",
   EXPENSES: "expenses",
+  JOURNAL_ENTRIES: "journal_entries",
   USERS: "users",
   SETTINGS: "settings",
   SYNC_EVENTS: "sync_events",

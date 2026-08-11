@@ -131,11 +131,14 @@ export type CreateProductInput = {
   sku: string
   barcode?: string | null
   category: string
+  brand?: string | null
   unitSize?: number
   unit?: string
   costPrice?: number | null
   sellingPrice: number
+  mrp?: number | null
   gstRate?: number
+  hsnCode?: string | null
   reorderLevel?: number
   active?: boolean
   storeId?: string | null

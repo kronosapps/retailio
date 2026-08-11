@@ -98,6 +98,12 @@ export class ProductService {
         ? null
         : input.costPrice
 
+    const mrp =
+      input.mrp == null || !Number.isFinite(input.mrp) ? null : input.mrp
+    if (mrp != null && mrp < 0) {
+      throw new ProductError("VALIDATION", "MRP cannot be negative.")
+    }
+
     const record: ProductRecord = {
       id: sku,
       productId: sku,
@@ -105,20 +111,20 @@ export class ProductService {
       barcode,
       name,
       category: input.category.trim() || "Uncategorized",
-      brand: null,
+      brand: input.brand?.trim() || null,
       unitSize,
       unit: input.unit?.trim() || String(unitSize),
       gstRate,
       cgst: gstRate / 2,
       sgst: gstRate / 2,
-      hsnCode: null,
+      hsnCode: input.hsnCode?.trim() || null,
       purchasePricePaisa:
         purchasePrice === null ? null : rupeesToPaisa(purchasePrice),
       sellingPricePaisa: rupeesToPaisa(input.sellingPrice),
-      mrpPaisa: null,
+      mrpPaisa: mrp === null ? null : rupeesToPaisa(mrp),
       purchasePrice,
       sellingPrice: input.sellingPrice,
-      mrp: null,
+      mrp,
       reorderLevel,
       storeId: input.storeId ?? null,
       active: input.active ?? true,

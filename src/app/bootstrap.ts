@@ -1,3 +1,4 @@
+import { accountingEngine } from "@/modules/accounting"
 import { env } from "@/core/config/env"
 import { bankingEngine } from "@/modules/banking"
 import { inventoryEngine } from "@/modules/inventory"
@@ -14,6 +15,7 @@ export function bootstrapApp() {
   notificationEngine.start()
   bankingEngine.start()
   inventoryEngine.start()
+  accountingEngine.start()
 
   void ProductService.ensureCatalogSeeded(env.storeId || null, "system").catch(
     (error) => {

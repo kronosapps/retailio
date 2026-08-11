@@ -1,5 +1,8 @@
 import { FinancialYearService } from "@/modules/financialYear"
 import type { FinancialYear } from "@/modules/financialYear"
+import { BankingService } from "@/modules/banking"
+import { formatPeriodLabel } from "@/modules/reporting/utils/report-periods"
+import { journalRepository } from "@/repositories/JournalRepository"
 
 import { AccountingProjectionService } from "./AccountingProjectionService"
 import { CHART_OF_ACCOUNTS, getAccount } from "./chartOfAccounts"
@@ -8,10 +11,9 @@ import type {
   BalanceSheetResult,
   CashFlowResult,
   DaybookRow,
+  JournalEntry,
   TrialBalanceResult,
 } from "./types"
-import { BankingService } from "@/modules/banking"
-import { formatPeriodLabel } from "@/modules/reporting/utils/report-periods"
 
 function periodFromFy(fy?: FinancialYear | null) {
   const year = fy || FinancialYearService.getActive()
@@ -24,15 +26,47 @@ function periodFromFy(fy?: FinancialYear | null) {
   }
 }
 
+const HYBRID_NOTE =
+  "Posted GL with projection backfill — not audited books. Posted entries win over projected for the same reference."
+
+/**
+ * Hybrid ledger: posted journals preferred; projection fills historical gaps.
+ */
 export class AccountingService {
+  static async getMergedEntries(range: {
+    start: Date
+    end: Date
+  }): Promise<JournalEntry[]> {
+    const [postedAll, projected] = await Promise.all([
+      Promise.resolve(journalRepository.list()),
+      AccountingProjectionService.projectEntries(range),
+    ])
+
+    const posted = postedAll.filter((e) =>
+      inRange(e.createdAt, range.start, range.end)
+    )
+
+    const map = new Map<string, JournalEntry>()
+    for (const e of projected) {
+      map.set(`${e.referenceType}:${e.referenceId}`, e)
+    }
+    for (const e of posted) {
+      map.set(`${e.referenceType}:${e.referenceId}`, {
+        ...e,
+        source: "posted",
+      })
+    }
+
+    return [...map.values()].sort((a, b) =>
+      a.createdAt.localeCompare(b.createdAt)
+    )
+  }
+
   static async getTrialBalance(
     fy?: FinancialYear | null
   ): Promise<TrialBalanceResult> {
     const { start, end, label } = periodFromFy(fy)
-    const entries = await AccountingProjectionService.projectEntries({
-      start,
-      end,
-    })
+    const entries = await this.getMergedEntries({ start, end })
 
     const map = new Map<string, { debit: number; credit: number }>()
     for (const account of CHART_OF_ACCOUNTS) {
@@ -50,7 +84,6 @@ export class AccountingService {
     const rows = [...map.entries()]
       .map(([code, bal]) => {
         const account = getAccount(code)!
-        // Net into normal side
         let debit = 0
         let credit = 0
         const net = bal.debit - bal.credit
@@ -83,8 +116,7 @@ export class AccountingService {
       totalCreditPaisa,
       isBalanced: totalDebitPaisa === totalCreditPaisa,
       imbalancePaisa: totalDebitPaisa - totalCreditPaisa,
-      projectionNote:
-        "Trial balance is projected from sales, refunds, expenses, banking openings, and inventory cost snapshot — not a posted GL.",
+      projectionNote: HYBRID_NOTE,
     }
   }
 
@@ -152,7 +184,7 @@ export class AccountingService {
       isBalanced:
         totalAssetsPaisa === totalLiabilitiesPaisa + totalEquityPaisa,
       notes: [
-        "Balance sheet is derived from the projected trial balance.",
+        HYBRID_NOTE,
         "Owner Capital may include balancing amounts from openings/inventory snapshot.",
         "Not a formally audited statutory balance sheet.",
       ],
@@ -191,10 +223,7 @@ export class AccountingService {
     const account = getAccount(accountCode)
     if (!account) throw new Error("Unknown account.")
 
-    const entries = await AccountingProjectionService.projectEntries({
-      start,
-      end,
-    })
+    const entries = await this.getMergedEntries({ start, end })
 
     let balance = 0
     const lines = []
@@ -229,10 +258,7 @@ export class AccountingService {
 
   static async getDaybook(fy?: FinancialYear | null): Promise<DaybookRow[]> {
     const { start, end } = periodFromFy(fy)
-    const entries = await AccountingProjectionService.projectEntries({
-      start,
-      end,
-    })
+    const entries = await this.getMergedEntries({ start, end })
     return entries.map((e) => {
       const debit = e.lines.reduce((s, l) => s + l.debitPaisa, 0)
       const credit = e.lines.reduce((s, l) => s + l.creditPaisa, 0)
@@ -259,4 +285,9 @@ export class AccountingService {
   static listAccounts() {
     return CHART_OF_ACCOUNTS
   }
+}
+
+function inRange(iso: string, start: Date, end: Date) {
+  const t = new Date(iso).getTime()
+  return t >= start.getTime() && t <= end.getTime()
 }

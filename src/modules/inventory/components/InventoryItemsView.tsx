@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react"
+import { Link } from "react-router-dom"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Pencil, Plus, Search } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -302,6 +303,12 @@ export function InventoryItemsView() {
             <Plus className="size-4" />
             Add item
           </Button>
+          <Link
+            to="/inventory/import"
+            className={buttonVariants({ variant: "outline" })}
+          >
+            Import from Excel
+          </Link>
         </div>
       </div>
 

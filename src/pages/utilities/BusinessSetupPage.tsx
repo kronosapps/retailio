@@ -63,16 +63,36 @@ export function BusinessSetupPage() {
             onChange={(e) => set("businessName", e.target.value)}
           />
         </Field>
+        <Field label="Trade name (DBA)">
+          <Input
+            value={form.tradeName || ""}
+            onChange={(e) => set("tradeName", e.target.value)}
+          />
+        </Field>
         <Field label="Legal name">
           <Input
             value={form.legalName || ""}
             onChange={(e) => set("legalName", e.target.value)}
           />
         </Field>
+        <Field label="Business type">
+          <Input
+            value={form.businessType || ""}
+            onChange={(e) => set("businessType", e.target.value)}
+            placeholder="e.g. Proprietorship"
+          />
+        </Field>
         <Field label="GSTIN">
           <Input
             value={form.storeGst || ""}
             onChange={(e) => set("storeGst", e.target.value)}
+          />
+        </Field>
+        <Field label="GST registration type">
+          <Input
+            value={form.gstRegistrationType || ""}
+            onChange={(e) => set("gstRegistrationType", e.target.value)}
+            placeholder="e.g. Regular / Composition"
           />
         </Field>
         <Field label="PAN">
@@ -97,6 +117,19 @@ export function BusinessSetupPage() {
           <Input
             value={form.email || ""}
             onChange={(e) => set("email", e.target.value)}
+          />
+        </Field>
+        <Field label="Website">
+          <Input
+            value={form.website || ""}
+            onChange={(e) => set("website", e.target.value)}
+          />
+        </Field>
+        <Field label="Country">
+          <Input
+            value={form.country || ""}
+            onChange={(e) => set("country", e.target.value)}
+            placeholder="India"
           />
         </Field>
         <Field label="City">
@@ -139,6 +172,14 @@ export function BusinessSetupPage() {
             onChange={(e) => set("invoicePrefix", e.target.value)}
           />
         </Field>
+        <label className="flex items-center gap-2 text-sm sm:col-span-2">
+          <input
+            type="checkbox"
+            checked={Boolean(form.tcsApplicable)}
+            onChange={(e) => set("tcsApplicable", e.target.checked)}
+          />
+          TCS applicable (scaffold flag for statutory tools)
+        </label>
       </div>
       <Separator />
       <Button type="button" disabled={busy} onClick={() => void save()}>

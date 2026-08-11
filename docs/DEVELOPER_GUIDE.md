@@ -26,8 +26,16 @@
 2. Stock changes → `InventoryService.addStock` / `adjustStock` / `recordMovement` (always creates a movement).
 3. POS must not call inventory from React — `InventoryEngine` listens to `PAYMENT_RECEIVED`.
 4. Refund restock → `InventoryService.restockForRefund` from `RefundService`.
-5. Future CSV/Excel: call `InventoryService.export*Data()` — do not add Excel libs to UI yet.
-6. Routes: `/inventory/items`, `/inventory/stock`, `/inventory/movements`, `/inventory/categories`.
+5. Tabular export helpers: `InventoryService.export*Data()`; Excel catalog import/export: `ProductImportService` (`/inventory/import`).
+6. Routes: `/inventory/items`, `/inventory/import`, `/inventory/stock`, `/inventory/movements`, `/inventory/categories`.
+
+### Bulk product import
+
+1. Download template / export via `ProductImportService.downloadTemplate()` / `downloadExport()`.
+2. Parse + validate via `parseAndValidate(file)` — **no persistence**.
+3. Push only after confirmation: `pushToFirestore(preview, { storeId, actorId, onProgress })` → `ProductService.create` in batches.
+4. Do not call Firestore or `ProductRepository` from the import page.
+5. Template version lives on the Meta sheet; unsupported versions are rejected.
 
 ## Reporting / Excel / Sheets export
 
@@ -41,10 +49,13 @@
 ## Utilities
 
 1. Landing + tools catalog: `src/modules/utilities/catalog.ts` (RBAC per tool).
-2. Accounting projections: `AccountingService` / `AccountingProjectionService`.
-3. Financial year: `FinancialYearService.getActive()` for period scoping.
-4. Do not delete paid invoices from Recycle Bin — restore masters only.
-5. Statutory pages must not claim compliance without required domain data.
+2. Hybrid accounting: `AccountingEngine` posts via `AccountingRules` → `JournalRepository`; `AccountingService.getMergedEntries` prefers posted over projection.
+3. Expense create: UI → `ExpenseService.save` → `EXPENSE_CREATED` → AccountingEngine.
+4. Financial year: `FinancialYearService.getActive()` for period scoping.
+5. Excel on utility tables: `UtilitiesExportService` → `ExcelReportExporter` (reuse reporting exporter).
+6. Statutory: `StatutoryService` — always `filingReady: false` until full tax data models exist.
+7. Routes under `/utilities` are lazy-loaded (`App.tsx` + `UtilitiesLayout` Suspense).
+8. Do not delete paid invoices from Recycle Bin — restore masters only.
 
 ## Local vs cloud
 
