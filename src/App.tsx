@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react"
 import { Navigate, Route, Routes } from "react-router-dom"
 
 import { RequireAuth } from "@/components/RequireAuth"
@@ -22,29 +23,115 @@ import { PosPage } from "@/pages/PosPage"
 import { ReportsPage } from "@/pages/ReportsPage"
 import { StaffPage } from "@/pages/StaffPage"
 import { TransactionsPage } from "@/pages/TransactionsPage"
-import { UtilitiesLayout } from "@/pages/utilities/UtilitiesLayout"
-import { UtilitiesHomePage } from "@/pages/utilities/UtilitiesHomePage"
-import { BusinessSetupPage } from "@/pages/utilities/BusinessSetupPage"
-import { FinancialYearPage } from "@/pages/utilities/FinancialYearPage"
-import { BarcodeGeneratorPage } from "@/pages/utilities/BarcodeGeneratorPage"
-import { RecycleBinPage } from "@/pages/utilities/RecycleBinPage"
-import {
-  AccountStatementPage,
-  AllTransactionsPage,
-  BalanceSheetPage,
-  CashFlowPage,
-  DaybookPage,
-  TrialBalancePage,
-} from "@/pages/utilities/AccountingPages"
-import {
-  ExpenseReportPage,
-  Form27EqPage,
-  GstReportsPage,
-  OperatorReportPage,
-  RoleReportPage,
-  TcsReportsPage,
-  UtilityItemReportPage,
-} from "@/pages/utilities/AnalysisPages"
+
+const UtilitiesLayout = lazy(() =>
+  import("@/pages/utilities/UtilitiesLayout").then((m) => ({
+    default: m.UtilitiesLayout,
+  }))
+)
+const UtilitiesHomePage = lazy(() =>
+  import("@/pages/utilities/UtilitiesHomePage").then((m) => ({
+    default: m.UtilitiesHomePage,
+  }))
+)
+const BusinessSetupPage = lazy(() =>
+  import("@/pages/utilities/BusinessSetupPage").then((m) => ({
+    default: m.BusinessSetupPage,
+  }))
+)
+const FinancialYearPage = lazy(() =>
+  import("@/pages/utilities/FinancialYearPage").then((m) => ({
+    default: m.FinancialYearPage,
+  }))
+)
+const BarcodeGeneratorPage = lazy(() =>
+  import("@/pages/utilities/BarcodeGeneratorPage").then((m) => ({
+    default: m.BarcodeGeneratorPage,
+  }))
+)
+const RecycleBinPage = lazy(() =>
+  import("@/pages/utilities/RecycleBinPage").then((m) => ({
+    default: m.RecycleBinPage,
+  }))
+)
+const ExpenseCreatePage = lazy(() =>
+  import("@/pages/utilities/ExpenseCreatePage").then((m) => ({
+    default: m.ExpenseCreatePage,
+  }))
+)
+
+const DaybookPage = lazy(() =>
+  import("@/pages/utilities/AccountingPages").then((m) => ({
+    default: m.DaybookPage,
+  }))
+)
+const AllTransactionsPage = lazy(() =>
+  import("@/pages/utilities/AccountingPages").then((m) => ({
+    default: m.AllTransactionsPage,
+  }))
+)
+const TrialBalancePage = lazy(() =>
+  import("@/pages/utilities/AccountingPages").then((m) => ({
+    default: m.TrialBalancePage,
+  }))
+)
+const BalanceSheetPage = lazy(() =>
+  import("@/pages/utilities/AccountingPages").then((m) => ({
+    default: m.BalanceSheetPage,
+  }))
+)
+const CashFlowPage = lazy(() =>
+  import("@/pages/utilities/AccountingPages").then((m) => ({
+    default: m.CashFlowPage,
+  }))
+)
+const AccountStatementPage = lazy(() =>
+  import("@/pages/utilities/AccountingPages").then((m) => ({
+    default: m.AccountStatementPage,
+  }))
+)
+
+const UtilityItemReportPage = lazy(() =>
+  import("@/pages/utilities/AnalysisPages").then((m) => ({
+    default: m.UtilityItemReportPage,
+  }))
+)
+const OperatorReportPage = lazy(() =>
+  import("@/pages/utilities/AnalysisPages").then((m) => ({
+    default: m.OperatorReportPage,
+  }))
+)
+const RoleReportPage = lazy(() =>
+  import("@/pages/utilities/AnalysisPages").then((m) => ({
+    default: m.RoleReportPage,
+  }))
+)
+const ExpenseReportPage = lazy(() =>
+  import("@/pages/utilities/AnalysisPages").then((m) => ({
+    default: m.ExpenseReportPage,
+  }))
+)
+const GstReportsPage = lazy(() =>
+  import("@/pages/utilities/AnalysisPages").then((m) => ({
+    default: m.GstReportsPage,
+  }))
+)
+const TcsReportsPage = lazy(() =>
+  import("@/pages/utilities/AnalysisPages").then((m) => ({
+    default: m.TcsReportsPage,
+  }))
+)
+const Form27EqPage = lazy(() =>
+  import("@/pages/utilities/AnalysisPages").then((m) => ({
+    default: m.Form27EqPage,
+  }))
+)
+
+function UtilitiesFallback() {
+  return (
+    <div className="p-6 text-sm text-muted-foreground">Loading utilities…</div>
+  )
+}
 
 export default function App() {
   return (
@@ -72,7 +159,14 @@ export default function App() {
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/transactions" element={<TransactionsPage />} />
             <Route path="/reports" element={<ReportsPage />} />
-            <Route path="/utilities" element={<UtilitiesLayout />}>
+            <Route
+              path="/utilities"
+              element={
+                <Suspense fallback={<UtilitiesFallback />}>
+                  <UtilitiesLayout />
+                </Suspense>
+              }
+            >
               <Route index element={<UtilitiesHomePage />} />
               <Route path="business-setup" element={<BusinessSetupPage />} />
               <Route path="financial-year" element={<FinancialYearPage />} />
@@ -94,6 +188,7 @@ export default function App() {
               <Route path="report-operator" element={<OperatorReportPage />} />
               <Route path="report-role" element={<RoleReportPage />} />
               <Route path="report-expense" element={<ExpenseReportPage />} />
+              <Route path="expenses" element={<ExpenseCreatePage />} />
               <Route path="gst" element={<GstReportsPage />} />
               <Route path="tcs" element={<TcsReportsPage />} />
               <Route path="form-27eq" element={<Form27EqPage />} />

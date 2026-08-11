@@ -49,10 +49,13 @@
 ## Utilities
 
 1. Landing + tools catalog: `src/modules/utilities/catalog.ts` (RBAC per tool).
-2. Accounting projections: `AccountingService` / `AccountingProjectionService`.
-3. Financial year: `FinancialYearService.getActive()` for period scoping.
-4. Do not delete paid invoices from Recycle Bin — restore masters only.
-5. Statutory pages must not claim compliance without required domain data.
+2. Hybrid accounting: `AccountingEngine` posts via `AccountingRules` → `JournalRepository`; `AccountingService.getMergedEntries` prefers posted over projection.
+3. Expense create: UI → `ExpenseService.save` → `EXPENSE_CREATED` → AccountingEngine.
+4. Financial year: `FinancialYearService.getActive()` for period scoping.
+5. Excel on utility tables: `UtilitiesExportService` → `ExcelReportExporter` (reuse reporting exporter).
+6. Statutory: `StatutoryService` — always `filingReady: false` until full tax data models exist.
+7. Routes under `/utilities` are lazy-loaded (`App.tsx` + `UtilitiesLayout` Suspense).
+8. Do not delete paid invoices from Recycle Bin — restore masters only.
 
 ## Local vs cloud
 

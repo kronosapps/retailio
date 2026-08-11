@@ -28,7 +28,7 @@ No layer may skip another layer.
 
 | Path | Responsibility |
 |------|----------------|
-| `src/app/` | `bootstrapApp` starts SyncManager, NotificationEngine, BankingEngine, InventoryEngine |
+| `src/app/` | `bootstrapApp` starts SyncManager, NotificationEngine, BankingEngine, InventoryEngine, AccountingEngine |
 | `src/components/` | Shared UI primitives / shells |
 | `src/pages/` | Route-level screens (UI orchestration only) |
 | `src/modules/` | Business modules (Invoice, Payment, Inventory, …) |
@@ -119,19 +119,23 @@ Excel (.xlsx)   Google Sheets (via existing SyncProvider.syncBatch)
 
 ## Utilities & Accounting
 
-Administrative workspace at `/utilities` (`src/modules/utilities`, `src/modules/accounting`, `src/modules/financialYear`).
+Administrative workspace at `/utilities` (`src/modules/utilities`, `src/modules/accounting`, `src/modules/financialYear`, `src/modules/statutory`). Routes are **React.lazy** code-split.
 
 ```text
-Business data (invoices, payments, refunds, expenses, banking, inventory)
+Domain events (PAYMENT_RECEIVED / REFUND_* / EXPENSE_CREATED)
         ↓
-AccountingProjectionService → projected journal
+AccountingRules → JournalRepository (posted GL)
+        ↓
+AccountingService merges posted + AccountingProjectionService backfill
         ↓
 Trial Balance / Balance Sheet / Daybook / Account Statement
 ```
 
+- **Hybrid GL:** posted journals win per `referenceType+referenceId`; projection fills historical gaps (openings/inventory snapshot). Not audited books.
+- **Expense create:** `/utilities/expenses` → `ExpenseService.save` only (never Firestore from UI).
+- **Excel:** `UtilitiesExportService` → shared `ExcelReportExporter` (no second Excel stack).
 - **FinancialYearService** — Indian FY (Apr–Mar), shared by accounting & statutory views.
-- **Utilities** consumes Reporting for item reports; does not create a second reporting architecture.
-- GST / TCS / Form 27EQ screens explicitly mark **not statutory-ready** when source data is incomplete.
+- **Statutory scaffold** (`StatutoryService`): GST operational summary + B2B/B2C when `customer.gstin` exists; TCS / Form 27EQ typed empty tables with `filingReady: false` + missing-field lists — never claim government compliance.
 - Recycle Bin restores soft-deactivated products only — not paid financial transactions.
 
 ---

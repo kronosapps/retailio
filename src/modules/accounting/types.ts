@@ -22,6 +22,8 @@ export type JournalLine = {
   creditPaisa: number
 }
 
+export type JournalEntrySource = "posted" | "projected"
+
 export type JournalEntry = {
   id: string
   date: string
@@ -39,6 +41,11 @@ export type JournalEntry = {
   operatorName: string | null
   paymentMethod: string | null
   lines: JournalLine[]
+  /** Posted = durable GL; projected = on-read backfill. */
+  source: JournalEntrySource
+  /** Domain event id when posted from EventBus. */
+  eventId?: string | null
+  storeId?: string | null
 }
 
 export type TrialBalanceRow = {

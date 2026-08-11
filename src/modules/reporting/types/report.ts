@@ -8,6 +8,7 @@ export const REPORT_TYPES = [
   "stock",
   "items",
   "dashboard",
+  "utility",
 ] as const
 
 export type ReportType = (typeof REPORT_TYPES)[number]

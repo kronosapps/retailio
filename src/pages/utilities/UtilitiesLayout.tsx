@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom"
-import { useMemo } from "react"
+import { Suspense, useMemo } from "react"
 
 import { FinancialYearService } from "@/modules/financialYear"
 import { utilityToolsForRole } from "@/modules/utilities"
@@ -17,7 +17,7 @@ export function UtilitiesLayout() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Utilities</h1>
           <p className="text-sm text-muted-foreground">
-            Setup, accounting projections, analysis & statutory views.
+            Setup, hybrid accounting, analysis & statutory scaffolds.
           </p>
         </div>
         <p className="rounded-md border bg-muted/40 px-3 py-1.5 text-xs">
@@ -54,7 +54,13 @@ export function UtilitiesLayout() {
         ))}
       </nav>
 
-      <Outlet />
+      <Suspense
+        fallback={
+          <p className="text-sm text-muted-foreground">Loading tool…</p>
+        }
+      >
+        <Outlet />
+      </Suspense>
     </div>
   )
 }

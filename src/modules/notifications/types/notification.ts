@@ -125,6 +125,8 @@ export type StoreSettingsRecord = {
   storeGst: string
   pan?: string
   tan?: string
+  /** Whether the store is liable to collect TCS (scaffold flag). */
+  tcsApplicable?: boolean
   gstRegistrationType?: string
   invoicePrefix?: string
   createdAt: string

@@ -1,3 +1,4 @@
+export { UtilitiesExportService } from "./UtilitiesExportService"
 export {
   UTILITY_TOOLS,
   UTILITY_GROUPS,
