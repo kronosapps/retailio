@@ -4,6 +4,7 @@ import {
   type CustomerRecord,
   type UpsertCheckoutCustomerInput,
 } from "@/repositories/CustomerRepository"
+import { searchLocalCustomers } from "@/data/customers"
 
 /**
  * Customer business module.
@@ -20,6 +21,15 @@ export class CustomerService {
 
   static findByPhone(phone: string, storeId?: string | null) {
     return customerRepository.findByPhone(phone, storeId)
+  }
+
+  static findByName(name: string, storeId?: string | null) {
+    return customerRepository.findByName(name, storeId)
+  }
+
+  /** Autocomplete for payment checkout (name or phone). */
+  static search(query: string, storeId?: string | null, limit = 8) {
+    return searchLocalCustomers(query, storeId, limit)
   }
 
   static create(input: CreateCustomerInput, actorId: string | null = null) {

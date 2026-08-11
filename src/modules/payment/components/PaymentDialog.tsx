@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { Copy, RefreshCw, Settings2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -13,8 +13,18 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { formatMoney } from "@/lib/money"
+import { isWalkInName } from "@/data/customers"
+import {
+  cashDueRupees,
+  formatMoney,
+  formatRupeesWhole,
+} from "@/lib/money"
 import { cn } from "@/lib/utils"
+import {
+  CustomerService,
+  type CustomerRecord,
+} from "@/modules/customer"
+import { useAuth } from "@/providers/AuthProvider"
 
 import { useCashCounter } from "../hooks/useCashCounter"
 import { usePayment } from "../hooks/usePayment"
@@ -29,11 +39,32 @@ import { PaymentQRCode } from "./PaymentQRCode"
 import { PaymentStatus } from "./PaymentStatus"
 
 const METHODS: PaymentMethod[] = ["UPI", "Cash"]
+const KEYPAD = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "00", "0", "⌫"] as const
 
 export function PaymentDialog() {
+  const paymentHook = usePayment()
+  const { open, invoice } = paymentHook
+  if (!open || !invoice) return null
+  return (
+    <PaymentDialogSession
+      key={invoice.invoiceId}
+      invoice={invoice}
+      paymentHook={paymentHook}
+    />
+  )
+}
+
+type PaymentHook = ReturnType<typeof usePayment>
+
+function PaymentDialogSession({
+  invoice,
+  paymentHook,
+}: {
+  invoice: NonNullable<PaymentHook["invoice"]>
+  paymentHook: PaymentHook
+}) {
+  const { profile } = useAuth()
   const {
-    open,
-    invoice,
     payment,
     method,
     setMethod,
@@ -54,29 +85,104 @@ export function PaymentDialog() {
     cancelPayment,
     closePayment,
     canMarkPaid,
-  } = usePayment()
+  } = paymentHook
 
-  // Must stay above early return — live cash slip # (increments without refresh)
   const nextCash = useCashCounter()
+  const storeId = profile?.storeId ?? null
 
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [cashTenderOpen, setCashTenderOpen] = useState(false)
   const [upiLast4, setUpiLast4] = useState("")
   const [confirmError, setConfirmError] = useState<string | null>(null)
+  const [cashReceivedDigits, setCashReceivedDigits] = useState("")
+  const [nameSuggestions, setNameSuggestions] = useState<CustomerRecord[]>([])
+  const [phoneSuggestions, setPhoneSuggestions] = useState<CustomerRecord[]>([])
+  const [showNameSuggestions, setShowNameSuggestions] = useState(false)
+  const [showPhoneSuggestions, setShowPhoneSuggestions] = useState(false)
+  const suggestBlurTimer = useRef<number | null>(null)
 
-  useEffect(() => {
-    if (!open) {
-      setConfirmOpen(false)
-      setUpiLast4("")
-      setConfirmError(null)
+  const dueRupees = useMemo(
+    () => cashDueRupees(invoice.amountPaisa),
+    [invoice.amountPaisa]
+  )
+
+  const cashReceived = useMemo(() => {
+    if (!cashReceivedDigits) return 0
+    const n = Number.parseInt(cashReceivedDigits, 10)
+    return Number.isFinite(n) ? n : 0
+  }, [cashReceivedDigits])
+
+  const cashChange = cashReceived - dueRupees
+  const canCompleteCash = cashReceived >= dueRupees && dueRupees > 0
+
+  function clearSuggestBlur() {
+    if (suggestBlurTimer.current != null) {
+      window.clearTimeout(suggestBlurTimer.current)
+      suggestBlurTimer.current = null
     }
-  }, [open])
+  }
 
-  if (!open || !invoice) return null
+  function scheduleHideSuggestions() {
+    clearSuggestBlur()
+    suggestBlurTimer.current = window.setTimeout(() => {
+      setShowNameSuggestions(false)
+      setShowPhoneSuggestions(false)
+    }, 150)
+  }
 
-  function openConfirm() {
+  function applyCustomer(customer: CustomerRecord) {
+    setCustomerName(customer.name)
+    setCustomerPhone(customer.phone || "")
+    setNameSuggestions([])
+    setPhoneSuggestions([])
+    setShowNameSuggestions(false)
+    setShowPhoneSuggestions(false)
+  }
+
+  function onCustomerNameChange(value: string) {
+    setCustomerName(value)
+    if (isWalkInName(value) || value.trim().length < 1) {
+      setNameSuggestions([])
+      setShowNameSuggestions(false)
+      return
+    }
+    const hits = CustomerService.search(value, storeId)
+    setNameSuggestions(hits)
+    setShowNameSuggestions(hits.length > 0)
+  }
+
+  function onCustomerPhoneChange(value: string) {
+    const cleaned = value.replace(/[^\d+\s-]/g, "").slice(0, 16)
+    setCustomerPhone(cleaned)
+    const digits = cleaned.replace(/\D/g, "")
+    if (digits.length < 3) {
+      setPhoneSuggestions([])
+      setShowPhoneSuggestions(false)
+      return
+    }
+    const hits = CustomerService.search(digits, storeId)
+    setPhoneSuggestions(hits)
+    setShowPhoneSuggestions(hits.length > 0)
+
+    // Exact phone match → autofill name immediately
+    const exact = CustomerService.findByPhone(digits, storeId)
+    if (exact && digits.length >= 10) {
+      setCustomerName(exact.name)
+      setCustomerPhone(exact.phone || cleaned)
+      setShowPhoneSuggestions(false)
+    }
+  }
+
+  function openUpiConfirm() {
     setUpiLast4("")
     setConfirmError(null)
     setConfirmOpen(true)
+  }
+
+  function openCashTender() {
+    setCashReceivedDigits("")
+    setConfirmError(null)
+    setCashTenderOpen(true)
   }
 
   function closeConfirm() {
@@ -86,26 +192,56 @@ export function PaymentDialog() {
     setConfirmError(null)
   }
 
-  async function submitConfirm() {
+  function closeCashTender() {
+    if (busy) return
+    setCashTenderOpen(false)
+    setCashReceivedDigits("")
     setConfirmError(null)
-    if (method === "UPI") {
-      const last4 = normalizeUpiTxnLast4(upiLast4)
-      if (!last4) {
-        setConfirmError("Enter exactly 4 digits from the UPI transaction ID.")
-        return
-      }
-      await markPaid({ method: "UPI", upiTxnLast4: last4 })
-    } else {
-      await markPaid({ method: "Cash" })
+  }
+
+  function pressKeypad(key: (typeof KEYPAD)[number]) {
+    if (key === "⌫") {
+      setCashReceivedDigits((prev) => prev.slice(0, -1))
+      return
     }
+    setCashReceivedDigits((prev) => {
+      const next = `${prev}${key}`.replace(/^0+(?=\d)/, "")
+      return next.slice(0, 8)
+    })
+  }
+
+  async function submitUpiConfirm() {
+    setConfirmError(null)
+    const last4 = normalizeUpiTxnLast4(upiLast4)
+    if (!last4) {
+      setConfirmError("Enter exactly 4 digits from the UPI transaction ID.")
+      return
+    }
+    await markPaid({ method: "UPI", upiTxnLast4: last4 })
     setConfirmOpen(false)
     setUpiLast4("")
+  }
+
+  async function submitCashPaid() {
+    setConfirmError(null)
+    if (!canCompleteCash) {
+      setConfirmError("Cash received must cover the amount due.")
+      return
+    }
+    await markPaid({ method: "Cash" })
+    setCashTenderOpen(false)
+    setCashReceivedDigits("")
+  }
+
+  function onPrimaryAction() {
+    if (method === "Cash") openCashTender()
+    else openUpiConfirm()
   }
 
   return (
     <>
       <Dialog
-        open={open}
+        open
         disablePointerDismissal
         onOpenChange={(next) => {
           if (!next) {
@@ -131,29 +267,48 @@ export function PaymentDialog() {
           </DialogHeader>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-1.5">
+            <div className="relative space-y-1.5">
               <Label htmlFor="pay-customer">Customer name</Label>
               <Input
                 id="pay-customer"
                 value={customerName}
-                onChange={(event) => setCustomerName(event.target.value)}
+                onChange={(event) => onCustomerNameChange(event.target.value)}
+                onFocus={() => {
+                  clearSuggestBlur()
+                  if (nameSuggestions.length > 0) setShowNameSuggestions(true)
+                }}
+                onBlur={scheduleHideSuggestions}
                 placeholder="Walk-in"
+                autoComplete="off"
               />
+              {showNameSuggestions && nameSuggestions.length > 0 ? (
+                <SuggestionList
+                  items={nameSuggestions}
+                  onSelect={applyCustomer}
+                />
+              ) : null}
             </div>
-            <div className="space-y-1.5">
+            <div className="relative space-y-1.5">
               <Label htmlFor="pay-phone">Mobile (optional)</Label>
               <Input
                 id="pay-phone"
                 inputMode="tel"
                 autoComplete="tel"
                 value={customerPhone}
-                onChange={(event) =>
-                  setCustomerPhone(
-                    event.target.value.replace(/[^\d+\s-]/g, "").slice(0, 16)
-                  )
-                }
+                onChange={(event) => onCustomerPhoneChange(event.target.value)}
+                onFocus={() => {
+                  clearSuggestBlur()
+                  if (phoneSuggestions.length > 0) setShowPhoneSuggestions(true)
+                }}
+                onBlur={scheduleHideSuggestions}
                 placeholder="10-digit mobile"
               />
+              {showPhoneSuggestions && phoneSuggestions.length > 0 ? (
+                <SuggestionList
+                  items={phoneSuggestions}
+                  onSelect={applyCustomer}
+                />
+              ) : null}
             </div>
             <div className="space-y-1.5">
               <Label>Invoice amount</Label>
@@ -292,9 +447,9 @@ export function PaymentDialog() {
               <p>
                 Collect cash for{" "}
                 <span className="font-semibold text-foreground">
-                  {formatMoney(invoice.amountPaisa)}
-                </span>
-                , then mark as paid.
+                  {formatRupeesWhole(dueRupees)}
+                </span>{" "}
+                (rounded), then enter amount received.
               </p>
               <p className="text-xs">
                 Next cash slip today:{" "}
@@ -400,9 +555,7 @@ export function PaymentDialog() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="wa-webhook">
-                    WhatsApp send webhook
-                  </Label>
+                  <Label htmlFor="wa-webhook">WhatsApp send webhook</Label>
                   <Input
                     id="wa-webhook"
                     value={settings.whatsappWebhookUrl}
@@ -437,14 +590,15 @@ export function PaymentDialog() {
               size="lg"
               className="min-w-40"
               disabled={!canMarkPaid || busy}
-              onClick={openConfirm}
+              onClick={onPrimaryAction}
             >
-              Mark as Paid
+              {method === "Cash" ? "Collect Cash" : "Mark as Paid"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* UPI confirm */}
       <Dialog
         open={confirmOpen}
         disablePointerDismissal
@@ -454,55 +608,37 @@ export function PaymentDialog() {
       >
         <DialogContent className="sm:max-w-md" showCloseButton={!busy}>
           <DialogHeader>
-            <DialogTitle>
-              {method === "UPI" ? "Confirm UPI payment" : "Confirm cash payment"}
-            </DialogTitle>
+            <DialogTitle>Confirm UPI payment</DialogTitle>
             <DialogDescription>
-              {method === "UPI"
-                ? "Ask the customer for the last 4 digits of the UPI transaction ID on their phone."
-                : `Record cash slip #${nextCash.sequence} for today, then complete the sale.`}
+              Ask the customer for the last 4 digits of the UPI transaction ID
+              on their phone.
             </DialogDescription>
           </DialogHeader>
 
-          {method === "UPI" ? (
-            <div className="space-y-1.5">
-              <Label htmlFor="upi-last4">Last 4 digits of transaction ID</Label>
-              <Input
-                id="upi-last4"
-                inputMode="numeric"
-                autoComplete="off"
-                autoFocus
-                maxLength={4}
-                placeholder="e.g. 4821"
-                value={upiLast4}
-                onChange={(event) =>
-                  setUpiLast4(event.target.value.replace(/\D/g, "").slice(0, 4))
+          <div className="space-y-1.5">
+            <Label htmlFor="upi-last4">Last 4 digits of transaction ID</Label>
+            <Input
+              id="upi-last4"
+              inputMode="numeric"
+              autoComplete="off"
+              autoFocus
+              maxLength={4}
+              placeholder="e.g. 4821"
+              value={upiLast4}
+              onChange={(event) =>
+                setUpiLast4(event.target.value.replace(/\D/g, "").slice(0, 4))
+              }
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault()
+                  void submitUpiConfirm()
                 }
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault()
-                    void submitConfirm()
-                  }
-                }}
-              />
-              <p className="text-xs text-muted-foreground">
-                Used later to tally UPI settlements. Exactly 4 digits.
-              </p>
-            </div>
-          ) : (
-            <div className="rounded-lg border border-border bg-muted/40 px-3 py-3 text-sm">
-              <p className="text-muted-foreground">Cash slip for today</p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums">
-                #{nextCash.sequence}
-              </p>
-              <p className="mt-1 font-mono text-xs text-muted-foreground">
-                {nextCash.cashReceiptId}
-              </p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Counter resets tomorrow.
-              </p>
-            </div>
-          )}
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Used later to tally UPI settlements. Exactly 4 digits.
+            </p>
+          </div>
 
           {confirmError ? (
             <p className="text-sm text-destructive">{confirmError}</p>
@@ -519,14 +655,147 @@ export function PaymentDialog() {
             </Button>
             <Button
               type="button"
-              disabled={busy || (method === "UPI" && upiLast4.length !== 4)}
-              onClick={() => void submitConfirm()}
+              disabled={busy || upiLast4.length !== 4}
+              onClick={() => void submitUpiConfirm()}
             >
               {busy ? "Saving…" : "Confirm & complete"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Cash tender + change */}
+      <Dialog
+        open={cashTenderOpen}
+        disablePointerDismissal
+        onOpenChange={(next) => {
+          if (!next) closeCashTender()
+        }}
+      >
+        <DialogContent className="sm:max-w-md" showCloseButton={!busy}>
+          <DialogHeader>
+            <DialogTitle>Collect cash</DialogTitle>
+            <DialogDescription>
+              Cash slip #{nextCash.sequence} · enter amount received (whole
+              rupees only).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="rounded-lg border border-border bg-muted/40 px-3 py-3">
+              <p className="text-xs text-muted-foreground">Amount due</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums">
+                {formatRupeesWhole(dueRupees)}
+              </p>
+            </div>
+            <div className="rounded-lg border border-border bg-muted/40 px-3 py-3">
+              <p className="text-xs text-muted-foreground">Cash received</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums">
+                {formatRupeesWhole(cashReceived)}
+              </p>
+            </div>
+          </div>
+
+          <div
+            className={cn(
+              "rounded-lg border px-3 py-3 text-center",
+              canCompleteCash
+                ? "border-border bg-muted/30"
+                : "border-destructive/40 bg-destructive/5"
+            )}
+          >
+            <p className="text-xs text-muted-foreground">Cash to return</p>
+            <p
+              className={cn(
+                "mt-1 text-2xl font-semibold tabular-nums",
+                cashChange < 0 ? "text-destructive" : "text-foreground"
+              )}
+            >
+              {formatRupeesWhole(Math.max(0, cashChange))}
+            </p>
+            {cashChange < 0 ? (
+              <p className="mt-1 text-xs text-destructive">
+                Short by {formatRupeesWhole(-cashChange)}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {KEYPAD.map((key) => (
+              <Button
+                key={key}
+                type="button"
+                variant={key === "⌫" ? "outline" : "secondary"}
+                className="h-12 text-lg font-semibold tabular-nums"
+                disabled={busy}
+                onClick={() => pressKeypad(key)}
+              >
+                {key}
+              </Button>
+            ))}
+          </div>
+
+          {confirmError ? (
+            <p className="text-sm text-destructive">{confirmError}</p>
+          ) : null}
+
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={closeCashTender}
+            >
+              Back
+            </Button>
+            {canCompleteCash ? (
+              <Button
+                type="button"
+                size="lg"
+                className="min-w-40"
+                disabled={busy}
+                onClick={() => void submitCashPaid()}
+              >
+                {busy ? "Saving…" : "Mark as Paid"}
+              </Button>
+            ) : (
+              <p className="text-xs text-muted-foreground sm:text-right">
+                Enter cash received to unlock Mark as Paid
+              </p>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
+  )
+}
+
+function SuggestionList({
+  items,
+  onSelect,
+}: {
+  items: CustomerRecord[]
+  onSelect: (customer: CustomerRecord) => void
+}) {
+  return (
+    <ul className="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-md border border-border bg-popover py-1 text-sm shadow-md">
+      {items.map((customer) => (
+        <li key={customer.id}>
+          <button
+            type="button"
+            className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-muted"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => onSelect(customer)}
+          >
+            <span className="font-medium">{customer.name}</span>
+            {customer.phone ? (
+              <span className="text-xs text-muted-foreground">
+                {customer.phone}
+              </span>
+            ) : null}
+          </button>
+        </li>
+      ))}
+    </ul>
   )
 }

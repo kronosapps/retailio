@@ -51,9 +51,14 @@ export function buildReceiptText(ctx: ReceiptContext): string {
   lines.push(`*${merchantName}*`)
   if (merchantMobile) lines.push(`Ph: ${merchantMobile}`)
   lines.push("------------------------------")
+  const customerLabel =
+    sale.customerName?.trim() &&
+    sale.customerName.trim().toLowerCase() !== "walk-in"
+      ? sale.customerName.trim()
+      : "Customer"
+  lines.push(`Hi ${customerLabel}`)
   lines.push(`Invoice: ${sale.invoiceId}`)
   lines.push(`Date: ${new Date(sale.createdAt).toLocaleString("en-IN")}`)
-  if (sale.customerName) lines.push(`Customer: ${sale.customerName}`)
   if (sale.cashierName) lines.push(`Cashier: ${sale.cashierName}`)
   lines.push("------------------------------")
 

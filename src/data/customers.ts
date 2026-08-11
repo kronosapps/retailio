@@ -132,6 +132,35 @@ export function findLocalCustomerByName(
   )
 }
 
+/** Prefix / contains search for POS checkout autofill (name or phone digits). */
+export function searchLocalCustomers(
+  query: string,
+  storeId?: string | null,
+  limit = 8
+): CustomerRecord[] {
+  const raw = query.trim()
+  if (!raw || isWalkInName(raw)) return []
+
+  const digits = raw.replace(/\D/g, "")
+  const nameKey = raw.toLowerCase()
+
+  const matches = readStore().items.filter((item) => {
+    if (storeId && item.storeId && item.storeId !== storeId) return false
+    if (digits.length >= 3) {
+      const phone = normalizeCustomerPhone(item.phone) || ""
+      const phoneRaw = (item.phone || "").replace(/\D/g, "")
+      if (phone.includes(digits) || phoneRaw.includes(digits)) return true
+    }
+    return item.name.toLowerCase().includes(nameKey)
+  })
+
+  return matches
+    .sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+    )
+    .slice(0, limit)
+}
+
 export function upsertLocalCustomer(record: CustomerRecord): CustomerRecord {
   const store = readStore()
   const next = normalizeCustomer(record)

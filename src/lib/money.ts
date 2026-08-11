@@ -40,3 +40,19 @@ export function formatMoney(paisa: Paisa) {
     maximumFractionDigits: 2,
   }).format(paisaToRupees(paisa))
 }
+
+/** Whole-rupee cash amounts (no paise / decimals). */
+export function formatRupeesWhole(rupees: number) {
+  if (!Number.isFinite(rupees)) rupees = 0
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(Math.round(rupees))
+}
+
+/** Round invoice paisa to whole rupees for cash tender. */
+export function cashDueRupees(amountPaisa: Paisa): number {
+  return Math.round(paisaToRupees(amountPaisa))
+}
