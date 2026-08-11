@@ -75,6 +75,28 @@ Admin UI: `/inventory/items|stock|movements|categories` (admin/manager).
 
 ---
 
+## Reporting module
+
+Read-only analytical layer under `src/modules/reporting/`.
+
+```text
+Repositories / domain services
+        ↓
+ReportingService (Sales / Inventory / Stock / Items / Dashboard)
+        ↓
+Normalized ReportResult + ReportExportPayload
+        ↓
+   ┌────┴────┐
+Excel (.xlsx)   Google Sheets (via existing SyncProvider.syncBatch)
+```
+
+- **UI** (`/reports`) calls only `ReportingService` + `ReportExportService` — never Firestore, Sheets, or fetch.
+- **Excel** and **Sheets** sit side-by-side; neither depends on the other.
+- Money stays in **paisa** until display/export formatting.
+- Existing `src/modules/reports/` (Transactions / End of Day) remains for day ops; reporting is historical/exportable.
+
+---
+
 ## Event system
 
 Supported types (`src/events/EventTypes.ts`):

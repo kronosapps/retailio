@@ -29,6 +29,15 @@
 5. Future CSV/Excel: call `InventoryService.export*Data()` — do not add Excel libs to UI yet.
 6. Routes: `/inventory/items`, `/inventory/stock`, `/inventory/movements`, `/inventory/categories`.
 
+## Reporting / Excel / Sheets export
+
+1. Generate reports via `ReportingService.getSalesReport` (etc.) — read-only.
+2. Convert with `ReportExportService.toPayload(report)`.
+3. Excel: `ReportExportService.exportExcel(report)` → `ExcelReportExporter` (exceljs).
+4. Sheets: `ReportExportService.exportGoogleSheets(report)` → `GoogleSheetsReportExporter` → existing `syncBatch`.
+5. Do not call Firestore or Apps Script from `ReportsPage`.
+6. Route: `/reports` (admin/manager).
+
 ## Local vs cloud
 
 | Mode | Behavior |

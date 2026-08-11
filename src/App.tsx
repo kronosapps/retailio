@@ -18,6 +18,7 @@ import { InvoiceDetailsPage } from "@/pages/InvoiceDetailsPage"
 import { LoginPage } from "@/pages/LoginPage"
 import { OptionsPage } from "@/pages/OptionsPage"
 import { PosPage } from "@/pages/PosPage"
+import { ReportsPage } from "@/pages/ReportsPage"
 import { StaffPage } from "@/pages/StaffPage"
 import { TransactionsPage } from "@/pages/TransactionsPage"
 
@@ -45,6 +46,7 @@ export default function App() {
             </Route>
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/transactions" element={<TransactionsPage />} />
+            <Route path="/reports" element={<ReportsPage />} />
             <Route
               path="/invoices/:invoiceId"
               element={<InvoiceDetailsPage />}

@@ -17,6 +17,7 @@ export {
   movementTypeLabel,
   stockStatusLabel,
   resolveStockStatus,
+  signedMovementQty,
   type InventoryMovementType,
   type CategoryRecord,
   type ExportRow,
