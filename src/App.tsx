@@ -5,6 +5,7 @@ import { RequireGuest } from "@/components/RequireGuest"
 import { RequirePermission } from "@/components/RequirePermission"
 import { AppLayout } from "@/layouts/AppLayout"
 import { PosLayout } from "@/layouts/PosLayout"
+import { BankingPage } from "@/pages/BankingPage"
 import { CustomersPage } from "@/pages/CustomersPage"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { InventoryPage } from "@/pages/InventoryPage"
@@ -38,6 +39,7 @@ export default function App() {
               element={<InvoiceDetailsPage />}
             />
             <Route path="/options" element={<OptionsPage />} />
+            <Route path="/banking" element={<BankingPage />} />
             <Route path="/staff" element={<StaffPage />} />
           </Route>
         </Route>

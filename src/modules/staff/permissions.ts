@@ -13,6 +13,7 @@ export const STAFF_NAV_ITEMS: StaffNavItem[] = [
   { to: "/inventory", label: "Inventory", roles: ["admin", "manager"] },
   { to: "/customers", label: "Customers", roles: ["admin", "manager"] },
   { to: "/transactions", label: "Transactions", roles: ["admin", "manager"] },
+  { to: "/banking", label: "Banking", roles: ["admin"] },
   { to: "/options", label: "Admin Options", roles: ["admin"] },
   { to: "/staff", label: "Staff", roles: ["admin"] },
 ]

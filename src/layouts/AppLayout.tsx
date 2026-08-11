@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom"
 import {
   LayoutDashboard,
+  Landmark,
   Package,
   Receipt,
   Settings2,
@@ -23,6 +24,7 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   "/inventory": Package,
   "/customers": Users,
   "/transactions": Receipt,
+  "/banking": Landmark,
   "/options": Settings2,
   "/staff": UserCog,
 }

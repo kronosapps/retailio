@@ -50,6 +50,39 @@ export const env = {
     managerPasscode: read("VITE_MANAGER_PASSCODE") || "mgr123",
     managerName: read("VITE_MANAGER_NAME") || "Store Manager",
   },
+
+  /**
+   * Banking / GST display + edit unlock (from env — never hardcode in UI).
+   * Opening balances are seed defaults when the local banking store is empty.
+   */
+  banking: {
+    passcode:
+      read("VITE_BANKING_PASSCODE") ||
+      read("VITE_ADMIN_PASSCODE") ||
+      "admin123",
+    accountName: read("VITE_BANK_ACCOUNT_NAME") || "RetailOS Store Current A/C",
+    accountNumber: read("VITE_BANK_ACCOUNT_NUMBER") || "50200012345678",
+    ifsc: read("VITE_BANK_IFSC") || "HDFC0001234",
+    branch: read("VITE_BANK_BRANCH") || "Main Road Branch",
+    bankName: read("VITE_BANK_NAME") || "HDFC Bank",
+    upiId: read("VITE_BANK_UPI_ID") || "store@hdfcbank",
+    gstin: read("VITE_GSTIN") || "36AAAAA0000A1Z5",
+    gstLegalName: read("VITE_GST_LEGAL_NAME") || "RetailOS Traders Pvt Ltd",
+    gstTradeName: read("VITE_GST_TRADE_NAME") || "RetailOS Store",
+    gstAddress:
+      read("VITE_GST_ADDRESS") ||
+      "Shop 12, Market Road, Hyderabad, Telangana 500001",
+    openingCashRupees: Number.isFinite(
+      Number(read("VITE_BANKING_OPENING_CASH_RUPEES") || "5000")
+    )
+      ? Number(read("VITE_BANKING_OPENING_CASH_RUPEES") || "5000")
+      : 5000,
+    openingUpiRupees: Number.isFinite(
+      Number(read("VITE_BANKING_OPENING_UPI_RUPEES") || "10000")
+    )
+      ? Number(read("VITE_BANKING_OPENING_UPI_RUPEES") || "10000")
+      : 10000,
+  },
 } as const
 
 export const FIREBASE_REQUIRED_ENV_KEYS = [
