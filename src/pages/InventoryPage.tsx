@@ -8,6 +8,7 @@ import { useAuth } from "@/providers/AuthProvider"
 
 const TABS = [
   { to: "/inventory/items", label: "Items", end: false },
+  { to: "/inventory/import", label: "Import", end: false },
   { to: "/inventory/stock", label: "Stock", end: false },
   { to: "/inventory/movements", label: "Movements", end: false },
   { to: "/inventory/categories", label: "Categories", end: false },

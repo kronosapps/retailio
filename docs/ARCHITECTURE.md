@@ -71,7 +71,27 @@ Refund with restock → `InventoryService.restockForRefund` (RETURN movements).
 
 Export readiness: `InventoryService.exportProductsData` / `exportCurrentStockData` / `exportInventoryMovementsData` return tabular rows for future CSV/Excel/Sheets without Excel deps in UI.
 
-Admin UI: `/inventory/items|stock|movements|categories` (admin/manager).
+Admin UI: `/inventory/items|import|stock|movements|categories` (admin/manager).
+
+### Bulk product import (Excel)
+
+```text
+Excel (.xlsx)
+  → ExcelProductParser
+  → ProductImportValidator
+  → Preview (UI)
+  → User confirms “Push to Firestore”
+  → ProductImportService
+  → ProductService.create
+  → ProductRepository
+  → Firestore / localStorage + PRODUCT_CREATED → EventBus → SyncManager
+```
+
+- Module: `src/modules/productImport/` (template v1.0).
+- Mode: **Add New only** — existing SKUs are `DUPLICATE` and skipped (no overwrite).
+- Does **not** create inventory stock or movements.
+- UI never writes Firestore; upload/validate are read-only until Push.
+- Reuses `exceljs` (same as reporting). Extension point: same parser/template pattern for customers/suppliers later.
 
 ---
 

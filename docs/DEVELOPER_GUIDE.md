@@ -26,8 +26,16 @@
 2. Stock changes → `InventoryService.addStock` / `adjustStock` / `recordMovement` (always creates a movement).
 3. POS must not call inventory from React — `InventoryEngine` listens to `PAYMENT_RECEIVED`.
 4. Refund restock → `InventoryService.restockForRefund` from `RefundService`.
-5. Future CSV/Excel: call `InventoryService.export*Data()` — do not add Excel libs to UI yet.
-6. Routes: `/inventory/items`, `/inventory/stock`, `/inventory/movements`, `/inventory/categories`.
+5. Tabular export helpers: `InventoryService.export*Data()`; Excel catalog import/export: `ProductImportService` (`/inventory/import`).
+6. Routes: `/inventory/items`, `/inventory/import`, `/inventory/stock`, `/inventory/movements`, `/inventory/categories`.
+
+### Bulk product import
+
+1. Download template / export via `ProductImportService.downloadTemplate()` / `downloadExport()`.
+2. Parse + validate via `parseAndValidate(file)` — **no persistence**.
+3. Push only after confirmation: `pushToFirestore(preview, { storeId, actorId, onProgress })` → `ProductService.create` in batches.
+4. Do not call Firestore or `ProductRepository` from the import page.
+5. Template version lives on the Meta sheet; unsupported versions are rejected.
 
 ## Reporting / Excel / Sheets export
 

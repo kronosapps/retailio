@@ -14,6 +14,7 @@ import { InventoryItemsPage } from "@/pages/inventory/InventoryItemsPage"
 import { InventoryStockPage } from "@/pages/inventory/InventoryStockPage"
 import { InventoryMovementsPage } from "@/pages/inventory/InventoryMovementsPage"
 import { InventoryCategoriesPage } from "@/pages/inventory/InventoryCategoriesPage"
+import { BulkProductImportPage } from "@/pages/inventory/BulkProductImportPage"
 import { InvoiceDetailsPage } from "@/pages/InvoiceDetailsPage"
 import { LoginPage } from "@/pages/LoginPage"
 import { OptionsPage } from "@/pages/OptionsPage"
@@ -63,6 +64,7 @@ export default function App() {
             <Route path="/inventory" element={<InventoryPage />}>
               <Route index element={<InventoryIndexRedirect />} />
               <Route path="items" element={<InventoryItemsPage />} />
+              <Route path="import" element={<BulkProductImportPage />} />
               <Route path="stock" element={<InventoryStockPage />} />
               <Route path="movements" element={<InventoryMovementsPage />} />
               <Route path="categories" element={<InventoryCategoriesPage />} />
