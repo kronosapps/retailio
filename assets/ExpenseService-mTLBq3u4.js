@@ -1,0 +1,1 @@
+import{O as e}from"./index-CZ9bUrDU.js";var t=class{static list(){return e.list()}static async hydrate(){return e.hydrate()}static save(t){return e.save(t)}};export{t};
