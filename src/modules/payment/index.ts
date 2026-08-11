@@ -2,7 +2,12 @@
  * Payment Module public API.
  * Billing should only use these exports — never UPI/QR internals.
  */
-export { openPayment, closePayment } from "./session"
+export {
+  openPayment,
+  closePayment,
+  getPaymentSession,
+  subscribePaymentSession,
+} from "./session"
 export { PaymentDialog } from "./components/PaymentDialog"
 export { usePayment } from "./hooks/usePayment"
 export { useCashCounter } from "./hooks/useCashCounter"
