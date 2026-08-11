@@ -46,6 +46,14 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
+    match /inventory_movements/{id} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /categories/{id} {
+      allow read, write: if isSignedIn();
+    }
+
     match /invoices/{id} {
       allow read, write: if isSignedIn();
     }

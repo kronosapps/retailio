@@ -76,8 +76,16 @@ export class GoogleSheetsSyncProvider implements SyncProvider {
     return this.send("Inventory", data)
   }
 
+  syncInventoryMovement(data: unknown) {
+    return this.send("InventoryMovements", data)
+  }
+
   syncProduct(data: unknown) {
     return this.send("Products", data)
+  }
+
+  syncCategory(data: unknown) {
+    return this.send("Categories", data)
   }
 
   syncCustomer(data: unknown) {

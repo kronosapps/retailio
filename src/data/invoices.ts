@@ -7,6 +7,8 @@ const DAILY_PAD = 5
 
 export type RecordedSaleLine = {
   itemId: string
+  /** Catalog SKU when available (preferred for stock matching). */
+  sku?: string | null
   name: string
   weight: string
   qty: number

@@ -2,6 +2,8 @@ import {
   buildInventoryRecord,
   buildSampleRecords,
   deleteLocalInventory,
+  findLocalInventoryByProductId,
+  findLocalInventoryBySku,
   getLocalInventory,
   isInventorySeeded,
   listLocalInventory,
@@ -29,6 +31,7 @@ export type InventorySyncPayload = InventoryRecord & {
 /**
  * Owns the `inventory` collection.
  * Local store is primary for the admin UI; Firestore + events are best-effort.
+ * Current quantity is a cached on-hand value; movements explain changes.
  */
 export class InventoryRepository {
   list(): InventoryRecord[] {
@@ -37,6 +40,14 @@ export class InventoryRepository {
 
   getById(id: string): InventoryRecord | null {
     return getLocalInventory(id)
+  }
+
+  findBySku(sku: string): InventoryRecord | null {
+    return findLocalInventoryBySku(sku)
+  }
+
+  findByProductId(productId: string): InventoryRecord | null {
+    return findLocalInventoryByProductId(productId)
   }
 
   async create(
@@ -77,6 +88,35 @@ export class InventoryRepository {
       },
       "updated"
     )
+  }
+
+  /**
+   * Upsert stock row keyed by SKU (preferred) so Add Stock merges instead of duplicating.
+   */
+  async upsertBySku(
+    input: CreateInventoryInput & { sku: string },
+    actorId: string | null = null
+  ): Promise<InventoryRecord> {
+    const sku = input.sku.trim()
+    const existing = findLocalInventoryBySku(sku)
+    if (existing) {
+      return this.save(
+        {
+          ...existing,
+          name: input.name.trim() || existing.name,
+          productId: input.productId?.trim() || existing.productId,
+          category: input.category?.trim() || existing.category,
+          unit: input.unit?.trim() || existing.unit,
+          notes: input.notes?.trim() || existing.notes,
+          quantity: Number.isFinite(input.quantity)
+            ? input.quantity
+            : existing.quantity,
+          updatedBy: actorId,
+        },
+        "updated"
+      )
+    }
+    return this.create({ ...input, sku }, actorId)
   }
 
   async delete(id: string): Promise<InventoryRecord | null> {

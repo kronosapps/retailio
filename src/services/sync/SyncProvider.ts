@@ -9,7 +9,9 @@ export interface SyncProvider {
   syncInvoice(data: unknown): Promise<void>
   syncPayment(data: unknown): Promise<void>
   syncInventory(data: unknown): Promise<void>
+  syncInventoryMovement?(data: unknown): Promise<void>
   syncProduct(data: unknown): Promise<void>
+  syncCategory?(data: unknown): Promise<void>
   syncCustomer(data: unknown): Promise<void>
   syncRefund(data: unknown): Promise<void>
   syncSupplier(data: unknown): Promise<void>

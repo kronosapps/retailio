@@ -119,6 +119,28 @@ export function getLocalInventory(id: string): InventoryRecord | null {
   return readStore().items.find((item) => item.id === id) ?? null
 }
 
+export function findLocalInventoryBySku(sku: string): InventoryRecord | null {
+  const needle = sku.trim().toLowerCase()
+  if (!needle) return null
+  return (
+    readStore().items.find(
+      (item) => (item.sku || "").trim().toLowerCase() === needle
+    ) ?? null
+  )
+}
+
+export function findLocalInventoryByProductId(
+  productId: string
+): InventoryRecord | null {
+  const needle = productId.trim().toLowerCase()
+  if (!needle) return null
+  return (
+    readStore().items.find(
+      (item) => item.productId.trim().toLowerCase() === needle
+    ) ?? null
+  )
+}
+
 export function isInventorySeeded(): boolean {
   return readStore().seeded || readStore().items.length > 0
 }

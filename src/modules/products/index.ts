@@ -1,1 +1,5 @@
-export { ProductService, type ProductRecord } from "./ProductService"
+export {
+  ProductService,
+  ProductError,
+  type ProductRecord,
+} from "./ProductService"

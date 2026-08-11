@@ -52,6 +52,10 @@ export function canAccessPath(
     return isManagerOrAbove(role)
   }
 
+  if (path === "/inventory" || path.startsWith("/inventory/")) {
+    return isManagerOrAbove(role)
+  }
+
   return navItemsForRole(role).some((item) => item.to === path)
 }
 

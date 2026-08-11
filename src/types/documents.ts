@@ -145,6 +145,7 @@ export interface Product extends BaseDocument {
   purchasePrice: number | null
   sellingPrice: number
   mrp: number | null
+  reorderLevel?: number
   storeId: string | null
   active: boolean
 }

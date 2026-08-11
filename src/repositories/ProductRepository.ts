@@ -123,6 +123,7 @@ function toSheetsPayload(product: ProductRecord) {
     purchasePrice: product.purchasePrice,
     sellingPrice: product.sellingPrice,
     mrp: product.mrp,
+    reorderLevel: product.reorderLevel,
     storeId: product.storeId,
     active: product.active,
     updatedAt: product.updatedAt,

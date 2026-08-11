@@ -9,6 +9,11 @@ import { BankingPage } from "@/pages/BankingPage"
 import { CustomersPage } from "@/pages/CustomersPage"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { InventoryPage } from "@/pages/InventoryPage"
+import { InventoryIndexRedirect } from "@/pages/inventory/InventoryItemsPage"
+import { InventoryItemsPage } from "@/pages/inventory/InventoryItemsPage"
+import { InventoryStockPage } from "@/pages/inventory/InventoryStockPage"
+import { InventoryMovementsPage } from "@/pages/inventory/InventoryMovementsPage"
+import { InventoryCategoriesPage } from "@/pages/inventory/InventoryCategoriesPage"
 import { InvoiceDetailsPage } from "@/pages/InvoiceDetailsPage"
 import { LoginPage } from "@/pages/LoginPage"
 import { OptionsPage } from "@/pages/OptionsPage"
@@ -31,7 +36,13 @@ export default function App() {
 
           <Route element={<AppLayout />}>
             <Route path="/" element={<DashboardPage />} />
-            <Route path="/inventory" element={<InventoryPage />} />
+            <Route path="/inventory" element={<InventoryPage />}>
+              <Route index element={<InventoryIndexRedirect />} />
+              <Route path="items" element={<InventoryItemsPage />} />
+              <Route path="stock" element={<InventoryStockPage />} />
+              <Route path="movements" element={<InventoryMovementsPage />} />
+              <Route path="categories" element={<InventoryCategoriesPage />} />
+            </Route>
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/transactions" element={<TransactionsPage />} />
             <Route

@@ -393,6 +393,7 @@ export function PosPage() {
         customerName: "Walk-in",
         lines: cart.map((line) => ({
           itemId: line.item.itemId,
+          sku: line.item.sku || line.item.id,
           name: line.item.name,
           weight: line.item.weight,
           qty: line.qty,

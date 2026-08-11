@@ -1,10 +1,9 @@
-import type { RecordedSale } from "@/data/invoices"
 import { EventPublisher } from "@/events/EventPublisher"
 import { EventTypes } from "@/events/EventTypes"
 import { paisaToRupees } from "@/lib/money"
+import { InventoryService } from "@/modules/inventory"
 import { manualUpiProvider } from "@/modules/payment/providers/ManualUPIProvider"
 import type { PaymentMethod } from "@/modules/payment/types"
-import { inventoryRepository } from "@/repositories/InventoryRepository"
 import { invoiceRepository } from "@/repositories/InvoiceRepository"
 import { paymentRepository } from "@/repositories/PaymentRepository"
 import {
@@ -102,7 +101,11 @@ export class RefundService {
 
     let restockedSkuCount = 0
     if (input.restock !== false) {
-      restockedSkuCount = await restockSaleLines(sale, input.actorId ?? null)
+      restockedSkuCount = await InventoryService.restockForRefund(
+        sale,
+        input.actorId ?? null,
+        null
+      )
     }
 
     const refund = await refundRepository.create({
@@ -158,34 +161,4 @@ export class RefundService {
   static formatAmount(refund: RefundRecord): number {
     return refund.amount || paisaToRupees(refund.amountPaisa)
   }
-}
-
-async function restockSaleLines(
-  sale: RecordedSale,
-  actorId: string | null
-): Promise<number> {
-  const inventory = inventoryRepository.list()
-  let count = 0
-
-  for (const line of sale.lines) {
-    if (line.isLoyaltyReward || line.qty <= 0) continue
-
-    const match = inventory.find(
-      (item) =>
-        item.productId === line.itemId ||
-        item.sku === line.itemId ||
-        item.name.trim().toLowerCase() === line.name.trim().toLowerCase()
-    )
-    if (!match) continue
-
-    await inventoryRepository.updateQuantity(
-      match.id,
-      match.quantity + line.qty,
-      actorId
-    )
-    match.quantity += line.qty
-    count += 1
-  }
-
-  return count
 }
