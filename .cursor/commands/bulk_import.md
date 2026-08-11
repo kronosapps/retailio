@@ -1,0 +1,1604 @@
+# RetailOS — Bulk Product Import from Excel / Firestore
+
+Implement a production-ready **Bulk Product Import** feature for RetailOS.
+
+The purpose of this feature is to allow store administrators/managers to maintain product/item information in Excel and import large numbers of products into RetailOS.
+
+The system must provide:
+
+1. A standardized Excel template generated from the RetailOS product schema.
+2. A sample template containing correctly formatted example products.
+3. An Excel upload interface.
+4. Excel parsing and validation.
+5. A preview of products before importing.
+6. Duplicate detection.
+7. Validation/error reporting.
+8. An explicit **Push to Firestore** confirmation step.
+9. Import through the existing ProductService/ProductRepository architecture.
+10. Firestore persistence using the existing RetailOS architecture.
+11. A downloadable error report for invalid rows.
+12. A reusable import architecture that can later support other entities such as customers, suppliers, inventory, etc.
+
+---
+
+# 1. IMPORTANT ARCHITECTURAL PRINCIPLE
+
+RetailOS already follows:
+
+```text
+React UI
+   ↓
+Business Module / Service
+   ↓
+Repository
+   ↓
+Firestore + localStorage fallback
+   ↓
+Domain Events
+   ↓
+EventBus
+   ↓
+SyncManager
+   ↓
+SyncProvider
+```
+
+The Excel importer must follow this architecture.
+
+The UI must NEVER:
+
+```text
+React
+ ↓
+Firestore
+```
+
+The UI must NEVER directly write imported products to Firestore.
+
+Correct flow:
+
+```text
+Excel Upload
+     ↓
+Excel Parser
+     ↓
+Normalized Import Rows
+     ↓
+Validation
+     ↓
+Preview
+     ↓
+Product Import Service
+     ↓
+ProductService
+     ↓
+ProductRepository
+     ↓
+Firestore
+```
+
+Firestore remains the source of truth.
+
+Excel is an input/import format.
+
+Excel must NOT become the source of truth.
+
+---
+
+# 2. FIRST TASK — AUDIT THE EXISTING PRODUCT SYSTEM
+
+Before implementing anything, inspect the existing repository.
+
+Specifically inspect:
+
+```text
+src/modules/products/
+src/modules/inventory/
+src/repositories/
+src/types/
+src/data/products.json
+src/events/
+src/services/
+src/core/firebase/
+src/core/config/
+```
+
+Identify:
+
+* Existing Product type
+* Existing ProductRepository
+* Existing ProductService
+* Existing product creation/update methods
+* Existing product validation
+* Existing product seed format
+* Existing SKU handling
+* Existing barcode handling
+* Existing category handling
+* Existing pricing fields
+* Existing GST fields
+* Existing inventory relationship
+* Existing product events
+* Existing localStorage persistence
+* Existing Firestore persistence
+
+DO NOT create a duplicate Product model.
+
+The Excel import schema must be based on the actual existing Product domain model.
+
+---
+
+# 3. PRODUCT IMPORT LOCATION
+
+Prefer placing the feature under:
+
+```text
+Inventory
+    ↓
+Items
+    ↓
+Bulk Import
+```
+
+Alternatively, if the existing Utilities architecture is more appropriate:
+
+```text
+Utilities
+    ↓
+Data Import
+    ↓
+Products
+```
+
+Inspect the existing application and choose the location that best fits the current navigation.
+
+Do not create a new top-level navigation item if an existing section is appropriate.
+
+---
+
+# 4. IMPORT UX
+
+Create a dedicated Bulk Product Import screen.
+
+Recommended UI:
+
+```text
+Bulk Product Import
+
+Import products into RetailOS from Excel.
+
+────────────────────────────────────────
+
+Step 1
+Download Template
+
+[Download Excel Template]
+
+────────────────────────────────────────
+
+Step 2
+Fill Excel Sheet
+
+Use the provided column structure.
+Do not rename required columns.
+
+────────────────────────────────────────
+
+Step 3
+Upload Excel
+
+[ Choose Excel File ]
+
+Supported:
+.xlsx
+
+────────────────────────────────────────
+
+Step 4
+Validate
+
+[Validate File]
+
+────────────────────────────────────────
+
+Import Preview
+
+Valid Rows:       245
+Invalid Rows:       7
+Duplicates:        12
+New Products:     233
+Updates:           0
+
+────────────────────────────────────────
+
+[Download Errors]
+
+[Push 233 Products to Firestore]
+```
+
+The Push button must remain disabled until:
+
+* File has been parsed.
+* Validation has completed.
+* There are no blocking errors for rows being imported.
+* User explicitly confirms the import.
+
+---
+
+# 5. EXCEL TEMPLATE
+
+The system must provide a downloadable Excel template.
+
+The template should be generated based on the actual current Product model.
+
+Do NOT manually hardcode a schema that can drift away from the Product model.
+
+The template should contain:
+
+### Sheet 1 — Products
+
+Example structure:
+
+```text
+SKU
+Barcode
+Name
+Category
+Unit
+Cost Price
+Selling Price
+GST Rate
+Reorder Level
+Active
+```
+
+BUT:
+
+The exact columns MUST be determined from the existing Product type and product creation requirements.
+
+If the current Product model has additional required fields, include them.
+
+If fields are system-generated, do NOT ask users to provide them.
+
+For example:
+
+```text
+id
+createdAt
+updatedAt
+```
+
+should generally be generated by RetailOS.
+
+---
+
+# 6. TEMPLATE DESIGN
+
+The Excel template should contain:
+
+## Row 1
+
+Human-readable column headers.
+
+## Row 2+
+
+Sample products.
+
+Use existing product data to create realistic examples.
+
+Do not invent arbitrary fields.
+
+Example:
+
+```text
+SKU      Barcode       Name          Category      Cost    Price
+DM001    890XXXXXX     Dairy Milk    Chocolate     42      50
+```
+
+Use actual existing products where possible.
+
+The template should make it immediately obvious how a user should fill the file.
+
+---
+
+# 7. TEMPLATE INSTRUCTIONS SHEET
+
+Add a second worksheet:
+
+```text
+Instructions
+```
+
+It should explain:
+
+```text
+1. Do not rename column headers.
+2. One product per row.
+3. SKU must be unique.
+4. Barcode must be unique where required.
+5. Prices must be entered in rupees.
+6. GST rate must be numeric.
+7. Category must match an existing category or follow the supported import behavior.
+8. Leave system-generated fields blank.
+9. Save the file as .xlsx.
+10. Upload the completed file to RetailOS.
+```
+
+The exact instructions must reflect the actual implementation.
+
+---
+
+# 8. DATA DICTIONARY SHEET
+
+Also consider adding:
+
+```text
+Data Dictionary
+```
+
+to the generated template.
+
+Example:
+
+| Column        | Required | Type   | Description               |
+| ------------- | -------- | ------ | ------------------------- |
+| SKU           | Yes      | Text   | Unique product identifier |
+| Barcode       | No       | Text   | Product barcode           |
+| Name          | Yes      | Text   | Product name              |
+| Category      | Yes      | Text   | Product category          |
+| Cost Price    | Yes      | Number | Purchase/cost price       |
+| Selling Price | Yes      | Number | Retail selling price      |
+| GST Rate      | Yes      | Number | GST percentage            |
+
+Only include fields that actually exist in the current Product model.
+
+This makes the template self-documenting.
+
+---
+
+# 9. EXCEL PARSER
+
+Create a dedicated Excel import/parser layer.
+
+Recommended conceptual architecture:
+
+```text
+src/modules/product-import/
+│
+├── types/
+│   ├── product-import.ts
+│   └── product-import-result.ts
+│
+├── parser/
+│   └── ExcelProductParser.ts
+│
+├── validation/
+│   ├── ProductImportValidator.ts
+│   └── ProductImportRules.ts
+│
+├── services/
+│   └── ProductImportService.ts
+│
+├── template/
+│   └── ProductTemplateGenerator.ts
+│
+└── ui/
+    └── BulkProductImportPage.tsx
+```
+
+Adapt this to the repository's established conventions.
+
+Do not create unnecessary abstractions.
+
+---
+
+# 10. EXCEL LIBRARY
+
+Inspect `package.json` first.
+
+If an Excel library already exists, reuse it.
+
+If not, select a mature browser-compatible `.xlsx` library appropriate for the existing Vite/React application.
+
+Do not introduce multiple Excel libraries.
+
+The library should support:
+
+* Reading `.xlsx`
+* Creating `.xlsx`
+* Multiple worksheets
+* Cell values
+* Basic formatting
+* Downloading generated files
+
+Do not add a server dependency just to parse Excel if browser-side parsing is sufficient.
+
+---
+
+# 11. NORMALIZATION
+
+After parsing Excel, normalize every row into an import model.
+
+Example:
+
+```ts
+type ProductImportRow = {
+  rowNumber: number;
+  sku: string;
+  barcode?: string;
+  name: string;
+  category?: string;
+  unit?: string;
+  costPrice?: number;
+  sellingPrice: number;
+  gstRate?: number;
+  reorderLevel?: number;
+  active?: boolean;
+};
+```
+
+Adapt this to the actual Product model.
+
+Normalization should handle reasonable Excel variations such as:
+
+```text
+"  Dairy Milk "
+```
+
+→
+
+```text
+"Dairy Milk"
+```
+
+Trim whitespace.
+
+Do not silently modify meaningful product data.
+
+---
+
+# 12. MONEY HANDLING
+
+RetailOS internally uses **paisa**.
+
+Excel users should normally enter prices in rupees.
+
+Example:
+
+```text
+Excel:
+50.50
+
+RetailOS:
+5050 paisa
+```
+
+Convert only during normalization/import.
+
+Do not use floating-point money calculations unnecessarily.
+
+Validate that:
+
+* Price is numeric.
+* Price is not negative.
+* Values have sensible decimal precision.
+
+Follow the existing RetailOS money utilities if available.
+
+---
+
+# 13. VALIDATION
+
+Every uploaded row must be validated before it can be imported.
+
+Validation categories:
+
+## Required fields
+
+Examples:
+
+```text
+Name
+SKU
+Selling Price
+```
+
+depending on the actual Product model.
+
+## Data types
+
+Validate:
+
+* Number fields
+* Boolean fields
+* Dates if present
+* Text fields
+
+## Business rules
+
+Examples:
+
+* SKU must not be empty.
+* SKU must be unique.
+* Selling price cannot be negative.
+* Cost price cannot be negative.
+* GST rate must be valid according to the application's configured rules.
+* Reorder level cannot be negative.
+* Barcode must follow supported format if validation exists.
+
+Use the existing Product validation schema wherever possible.
+
+Do not create a completely separate validation rule set that can diverge from normal product creation.
+
+---
+
+# 14. DUPLICATE DETECTION
+
+Duplicate detection is critical.
+
+Check duplicates at two levels.
+
+## Within the Excel file
+
+Example:
+
+```text
+Row 2 → SKU ABC001
+Row 10 → SKU ABC001
+```
+
+This should be reported before import.
+
+## Against existing Firestore products
+
+Example:
+
+```text
+Excel:
+SKU ABC001
+
+Firestore:
+SKU ABC001 already exists
+```
+
+The UI should clearly identify this.
+
+Possible statuses:
+
+```text
+NEW
+DUPLICATE
+INVALID
+UPDATE
+```
+
+Do not overwrite existing products automatically.
+
+---
+
+# 15. IMPORT MODE
+
+Support a safe initial import mode:
+
+```text
+Add New Products
+```
+
+If an uploaded SKU already exists:
+
+```text
+Do NOT overwrite.
+Mark as duplicate.
+```
+
+Later we can introduce:
+
+```text
+Add New
+Update Existing
+Upsert
+```
+
+Do not implement automatic updates unless explicitly required.
+
+The first implementation should prioritize safety.
+
+---
+
+# 16. CATEGORY HANDLING
+
+Category values in Excel may be:
+
+```text
+Chocolate
+Beverages
+Biscuits
+```
+
+Determine whether these categories exist.
+
+If the existing architecture requires category IDs:
+
+```text
+Excel category name
+        ↓
+Category lookup
+        ↓
+categoryId
+```
+
+Do not store category names where the domain expects IDs.
+
+For missing categories, choose one clear policy based on existing product architecture:
+
+Option A:
+
+```text
+Invalid row:
+Category does not exist.
+```
+
+OR, if the existing system supports it:
+
+Option B:
+
+```text
+Create missing category
+```
+
+Do not silently create categories unless this behavior is explicitly designed and communicated to the user.
+
+---
+
+# 17. IMPORT PREVIEW
+
+After uploading and validating the Excel file, show a preview.
+
+Summary:
+
+```text
+Import Preview
+
+Total Rows:        250
+Valid Rows:        233
+Invalid Rows:        7
+Duplicates:         10
+New Products:      233
+```
+
+Table:
+
+```text
+Row
+SKU
+Name
+Category
+Price
+GST
+Status
+Message
+```
+
+Example:
+
+```text
+2   DM001   Dairy Milk   Chocolate   ₹50   Valid
+3   DM002   KitKat       Chocolate   ₹50   Valid
+4   DM002   KitKat       Chocolate   ₹50   Duplicate SKU
+5   DM003   Coke         Beverage    -40   Invalid price
+```
+
+Use clear status indicators.
+
+---
+
+# 18. ERROR REPORT
+
+Provide:
+
+```text
+[Download Error Report]
+```
+
+Generate an Excel file containing invalid rows.
+
+Include:
+
+```text
+Original Row
+SKU
+Name
+Error Type
+Error Message
+```
+
+Example:
+
+```text
+Row 5
+SKU DM003
+Invalid Price
+Selling price cannot be negative.
+```
+
+This allows the user to correct the original Excel sheet efficiently.
+
+---
+
+# 19. FIRESTORE IMPORT
+
+This is the critical step.
+
+The UI must NOT directly write to Firestore.
+
+Correct flow:
+
+```text
+BulkProductImportPage
+        ↓
+ProductImportService
+        ↓
+ProductService
+        ↓
+ProductRepository
+        ↓
+Firestore
+```
+
+Use the existing ProductRepository.
+
+Do not create:
+
+```text
+ExcelProductRepository
+```
+
+The imported products are normal RetailOS products once imported.
+
+---
+
+# 20. BATCH IMPORT
+
+For large product files, do not blindly issue hundreds/thousands of independent writes from the UI.
+
+Use an appropriate batching strategy.
+
+Example:
+
+```text
+Validated Products
+        ↓
+Import Service
+        ↓
+Batch 1
+Batch 2
+Batch 3
+...
+        ↓
+ProductRepository
+        ↓
+Firestore
+```
+
+Respect Firestore batch/write limitations.
+
+The exact implementation should follow the Firebase SDK already used by the project.
+
+Do not create a second Firebase client.
+
+---
+
+# 21. IMPORT PROGRESS
+
+For large files, show progress:
+
+```text
+Importing Products
+
+████████████████░░░░ 80%
+
+200 / 250 products
+```
+
+Show:
+
+```text
+Imported
+Skipped
+Failed
+Remaining
+```
+
+Do not freeze the UI during a large import.
+
+---
+
+# 22. IMPORT TRANSACTION SAFETY
+
+The import should be as safe as practical.
+
+Do not mark the entire import successful if some rows failed.
+
+Final result:
+
+```text
+Import Complete
+
+Successfully Added: 233
+Skipped:             10
+Failed:               7
+```
+
+Allow the user to download failed rows.
+
+If a batch partially fails, clearly report which products were successfully created and which were not.
+
+Do not silently retry forever.
+
+---
+
+# 23. DOMAIN EVENTS
+
+Imported products must behave exactly like normally created products.
+
+After successful creation, use existing product events.
+
+For example:
+
+```text
+PRODUCT_CREATED
+```
+
+or the equivalent existing event.
+
+Do not create a completely separate event ecosystem for imports unless necessary.
+
+If an import-specific event is useful:
+
+```text
+PRODUCT_BULK_IMPORTED
+```
+
+it may be added, but individual successful product creations should still follow existing ProductRepository event behavior.
+
+---
+
+# 24. INVENTORY
+
+Do NOT automatically create stock unless the Excel import explicitly contains an inventory/initial-stock field and the architecture supports it.
+
+For the first implementation:
+
+```text
+Product import
+=
+Product master data
+```
+
+not:
+
+```text
+Product import
++
+Stock purchase
++
+Inventory movement
+```
+
+If initial stock is later supported, it should be explicitly designed as a separate import field/workflow.
+
+Do not accidentally inflate inventory when importing products.
+
+---
+
+# 25. FIRESTORE DATA
+
+The imported records must be normal Product documents.
+
+Example conceptual structure:
+
+```text
+products/{productId}
+
+{
+  sku,
+  barcode,
+  name,
+  categoryId,
+  unit,
+  costPrice,
+  sellingPrice,
+  gstRate,
+  reorderLevel,
+  active,
+  createdAt,
+  updatedAt
+}
+```
+
+Use the actual existing Product schema.
+
+Do not introduce an `excelImportedProducts` collection.
+
+Do not store the Excel file as the primary product record.
+
+---
+
+# 26. LOCAL FALLBACK
+
+RetailOS supports localStorage fallback.
+
+The import should respect the existing repository behavior.
+
+When Firebase is unavailable:
+
+```text
+Excel
+ ↓
+ProductImportService
+ ↓
+ProductRepository
+ ↓
+localStorage
+```
+
+When Firebase is available:
+
+```text
+Excel
+ ↓
+ProductImportService
+ ↓
+ProductRepository
+ ↓
+Firestore
+```
+
+Do not bypass the repository to force Firestore writes.
+
+---
+
+# 27. SYNC
+
+Imported products should participate in the existing event/sync system.
+
+Architecture:
+
+```text
+ProductRepository
+        ↓
+PRODUCT_CREATED
+        ↓
+EventBus
+        ↓
+SyncManager
+        ↓
+Google Sheets
+```
+
+Do not implement a second synchronization mechanism for imported products.
+
+---
+
+# 28. TEMPLATE GENERATED FROM CURRENT PRODUCT DATA
+
+The system should be able to analyze the current product schema and existing products to generate the template.
+
+The template should use:
+
+1. Existing Product type/schema.
+2. Existing product validation rules.
+3. Existing product data.
+4. Existing categories.
+5. Existing configuration.
+
+For sample rows, use a small number of actual existing products.
+
+For example:
+
+```text
+Existing Products
+       ↓
+Take representative examples
+       ↓
+Generate Template
+```
+
+Do not expose sensitive internal IDs unnecessarily.
+
+---
+
+# 29. TEMPLATE VERSION
+
+Add a template version.
+
+Example:
+
+```text
+Template Version: 1.0
+```
+
+Store it in the Instructions sheet or metadata.
+
+This allows future changes.
+
+The importer should be able to detect unsupported template versions and display:
+
+```text
+This template version is not supported.
+Please download the latest template.
+```
+
+Do not silently attempt to import an incompatible schema.
+
+---
+
+# 30. COLUMN VALIDATION
+
+The importer must validate column headers.
+
+Example:
+
+```text
+Expected:
+SKU
+Name
+Selling Price
+Category
+
+Received:
+SKU
+Product Name
+Price
+Category
+```
+
+If column names do not match the supported template:
+
+```text
+Import cannot continue.
+
+Unexpected or missing columns detected.
+Please download the latest RetailOS Product Import Template.
+```
+
+Do not silently guess mappings.
+
+However, design the parser so future explicit column mapping can be added.
+
+---
+
+# 31. OPTIONAL COLUMN SUPPORT
+
+Clearly distinguish:
+
+```text
+Required
+Optional
+System Generated
+```
+
+Example:
+
+```text
+Required:
+SKU
+Name
+Selling Price
+
+Optional:
+Barcode
+Cost Price
+GST Rate
+Reorder Level
+
+System Generated:
+ID
+Created At
+Updated At
+```
+
+Use the actual Product schema to determine these.
+
+---
+
+# 32. PREVIEW BEFORE FIRESTORE
+
+This is mandatory.
+
+The sequence MUST be:
+
+```text
+Upload Excel
+      ↓
+Parse
+      ↓
+Normalize
+      ↓
+Validate
+      ↓
+Check duplicates
+      ↓
+Preview
+      ↓
+User clicks:
+"Push to Firestore"
+      ↓
+Import
+```
+
+Never:
+
+```text
+Upload
+ ↓
+Immediately create Firestore records
+```
+
+The user must have an explicit confirmation action.
+
+---
+
+# 33. CONFIRMATION DIALOG
+
+Before pushing:
+
+```text
+Push Products to Firestore?
+
+You are about to add:
+
+233 new products
+
+10 duplicate rows will be skipped.
+7 invalid rows will not be imported.
+
+This action will create product records in RetailOS.
+
+[Cancel]
+[Push to Firestore]
+```
+
+Make the destructive/important action visually clear.
+
+---
+
+# 34. SUCCESS SCREEN
+
+After import:
+
+```text
+Import Complete
+
+233 products successfully added.
+
+10 rows skipped.
+7 rows failed.
+
+[View Products]
+[Download Error Report]
+[Import Another File]
+```
+
+Do not leave the user on a confusing loading state.
+
+---
+
+# 35. AUDIT LOG
+
+If RetailOS already has audit/event infrastructure, preserve import information.
+
+At minimum, successful product records should retain:
+
+```text
+createdAt
+createdBy
+```
+
+where supported by the existing Product model.
+
+If an import audit record is useful, create:
+
+```text
+ProductImport
+```
+
+or an appropriate domain event.
+
+Do not create unnecessary persistence.
+
+---
+
+# 36. RBAC
+
+Bulk product imports can significantly affect store data.
+
+Use existing permissions.
+
+Recommended:
+
+```text
+Admin:
+Full access
+
+Manager:
+Import products if existing Inventory permission allows product management
+
+Cashier:
+No bulk product import
+```
+
+Do not create a new authorization mechanism.
+
+Use:
+
+```text
+RequireAuth
+RequirePermission
+```
+
+and existing staff permissions.
+
+---
+
+# 37. UI LOCATION
+
+If the Inventory module has:
+
+```text
+Items
+Stock
+Movements
+Categories
+```
+
+add:
+
+```text
+Items
+├── Add Item
+├── Import from Excel
+└── Export
+```
+
+Alternatively:
+
+```text
+Items
+   ↓
+[Import Products]
+```
+
+Keep the feature discoverable but don't clutter the primary POS workflow.
+
+---
+
+# 38. EXPORT CURRENT PRODUCTS
+
+Also add:
+
+```text
+[Export Products]
+```
+
+if an existing reporting/export mechanism can support it.
+
+This creates a useful round-trip workflow:
+
+```text
+RetailOS
+   ↓
+Export Products
+   ↓
+Excel
+   ↓
+Modify/Add Products
+   ↓
+Upload
+   ↓
+Validate
+   ↓
+Push to Firestore
+```
+
+However, do NOT automatically treat exported data as an import-ready file unless it matches the official template.
+
+Clearly distinguish:
+
+```text
+Product Export
+```
+
+from:
+
+```text
+Product Import Template
+```
+
+unless the schemas are intentionally identical.
+
+---
+
+# 39. TESTING
+
+Add tests for:
+
+## Template
+
+* Template generated successfully.
+* Required columns present.
+* Optional columns present.
+* Instructions sheet present.
+* Data Dictionary sheet present.
+* Sample products present.
+* Template version present.
+
+## Parser
+
+* Valid workbook parsed.
+* Missing sheet handled.
+* Missing column handled.
+* Unexpected column handled.
+* Empty rows handled.
+* Whitespace handled.
+
+## Validation
+
+* Missing SKU.
+* Missing name.
+* Invalid price.
+* Negative price.
+* Invalid GST.
+* Invalid reorder level.
+* Duplicate SKU inside Excel.
+* Existing SKU in Firestore.
+
+## Import
+
+* Valid products imported.
+* Invalid rows skipped.
+* Duplicate rows skipped.
+* ProductRepository used.
+* Product events emitted.
+* Firestore records have correct schema.
+
+## Safety
+
+* Upload alone does not write to Firestore.
+* Preview does not write to Firestore.
+* Only Push to Firestore initiates persistence.
+
+## Large files
+
+* Large import does not freeze UI.
+* Progress is displayed.
+* Partial failures are reported.
+
+---
+
+# 40. SECURITY
+
+Never trust Excel data.
+
+Treat uploaded files as untrusted input.
+
+Validate:
+
+* File extension
+* Workbook structure
+* Cell values
+* String lengths
+* Numeric ranges
+
+Do not allow Excel formulas to be interpreted as application commands.
+
+When exporting error reports/templates, avoid formula injection risks in cells containing user-controlled strings.
+
+Do not expose:
+
+* Firebase credentials
+* service account keys
+* API secrets
+
+in the generated workbook.
+
+---
+
+# 41. PERFORMANCE
+
+The importer must handle reasonably large retail catalogs.
+
+Do not:
+
+```text
+Parse 10,000 rows
+→ render all 10,000 rows into DOM
+```
+
+Instead:
+
+* Paginate preview.
+* Virtualize if necessary.
+* Process in chunks.
+* Batch Firestore writes.
+* Provide progress.
+
+The exact limits should be based on the existing application and Firestore constraints.
+
+---
+
+# 42. DOCUMENTATION
+
+Update existing documentation where appropriate:
+
+```text
+docs/ARCHITECTURE.md
+docs/DEVELOPER_GUIDE.md
+```
+
+Document:
+
+* Product import architecture.
+* Excel template format.
+* Import validation.
+* Duplicate behavior.
+* Firestore import flow.
+* Template versioning.
+* Future extension points.
+
+Do not create unnecessary documentation files.
+
+---
+
+# 43. IMPLEMENTATION ORDER
+
+Work incrementally.
+
+Recommended order:
+
+```text
+1. Audit existing Product architecture
+2. Audit existing Excel/export dependencies
+3. Define ProductImportRow
+4. Define import validation rules
+5. Build template generator
+6. Build sample/template workbook
+7. Build Excel parser
+8. Build normalization layer
+9. Build validation layer
+10. Build duplicate detection
+11. Build preview UI
+12. Build error report
+13. Build ProductImportService
+14. Integrate ProductRepository
+15. Integrate Firestore
+16. Integrate Product events
+17. Add progress tracking
+18. Add RBAC
+19. Add tests
+20. Update documentation
+21. Full validation
+```
+
+Do not implement this as a giant rewrite.
+
+---
+
+# 44. IMPORTANT — DO NOT DUPLICATE PRODUCT CREATION
+
+The normal flow is:
+
+```text
+Add Product UI
+      ↓
+ProductService
+      ↓
+ProductRepository
+```
+
+The bulk flow should be:
+
+```text
+Excel
+ ↓
+Parser
+ ↓
+Validator
+ ↓
+ProductImportService
+ ↓
+ProductService
+ ↓
+ProductRepository
+```
+
+Both flows must ultimately use the same business rules and persistence layer.
+
+Do not create a separate "Excel product creation" implementation.
+
+---
+
+# 45. FINAL VALIDATION
+
+Run the actual scripts in `package.json`.
+
+At minimum:
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
+
+Then manually verify:
+
+### Template
+
+* Download template.
+* Open in Excel.
+* Instructions are understandable.
+* Sample data is present.
+* Column structure is correct.
+
+### Import
+
+* Upload valid Excel.
+* Preview appears.
+* No Firestore writes happen yet.
+
+### Validation
+
+* Invalid row is identified.
+* Duplicate is identified.
+* Error message is understandable.
+
+### Push
+
+* Click Push to Firestore.
+* Products are created through ProductRepository.
+* Firestore records are correct.
+* Product events are emitted.
+
+### Existing functionality
+
+Verify:
+
+* POS
+* Inventory
+* Product listing
+* Product editing
+* Search
+* Categories
+* Stock
+* Reports
+* Google Sheets sync
+
+continue working.
+
+---
+
+# 46. FINAL CURSOR RESPONSE
+
+At completion, provide:
+
+1. Existing Product architecture discovered.
+2. Product import architecture.
+3. Excel template structure.
+4. Columns supported.
+5. Validation rules.
+6. Duplicate handling.
+7. Firestore import implementation.
+8. Event/sync integration.
+9. Files created.
+10. Files modified.
+11. Tests added.
+12. Validation results.
+13. Any limitations.
+14. Maximum tested/imported row count.
+15. Future extension points.
+
+Do not claim Firestore import works unless it has actually been tested.
+
+The final implementation must preserve this principle:
+
+> **Excel is an input format. ProductService/ProductRepository owns product creation. Firestore remains the source of truth. Uploading a file never automatically writes data. Only explicit user confirmation through "Push to Firestore" initiates the import.**
