@@ -6,8 +6,12 @@ import { EventTypes, type EventType } from "@/events/EventTypes"
  */
 export const LIVE_SHEET_EVENTS = new Set<EventType>([
   EventTypes.INVENTORY_CHANGED,
+  EventTypes.INVENTORY_MOVEMENT_CREATED,
+  EventTypes.STOCK_ADJUSTED,
   EventTypes.PRODUCT_CREATED,
   EventTypes.PRODUCT_UPDATED,
+  EventTypes.CATEGORY_CREATED,
+  EventTypes.CATEGORY_UPDATED,
   EventTypes.SUPPLIER_CREATED,
   EventTypes.EXPENSE_CREATED,
 ])

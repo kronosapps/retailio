@@ -257,10 +257,16 @@ function hourlySales(sales: RecordedSale[]): SeriesPoint[] {
   }))
 }
 
-function stockTables(inventory: InventoryRecord[]): {
+function stockTables(
+  inventory: InventoryRecord[],
+  products: ProductRecord[]
+): {
   low: StockRow[]
   out: StockRow[]
 } {
+  const reorderBySku = new Map(
+    products.map((p) => [p.sku.trim().toLowerCase(), p.reorderLevel ?? LOW_STOCK_THRESHOLD])
+  )
   const toRow = (item: InventoryRecord): StockRow => ({
     id: item.id,
     name: item.name,
@@ -269,12 +275,16 @@ function stockTables(inventory: InventoryRecord[]): {
     unit: item.unit,
     category: item.category ?? null,
   })
+  const reorderFor = (item: InventoryRecord) =>
+    (item.sku && reorderBySku.get(item.sku.trim().toLowerCase())) ||
+    LOW_STOCK_THRESHOLD
+
   const out = inventory
     .filter((i) => i.quantity <= 0)
     .map(toRow)
     .sort((a, b) => a.name.localeCompare(b.name))
   const low = inventory
-    .filter((i) => i.quantity > 0 && i.quantity <= LOW_STOCK_THRESHOLD)
+    .filter((i) => i.quantity > 0 && i.quantity <= reorderFor(i))
     .map(toRow)
     .sort((a, b) => a.quantity - b.quantity)
   return { low, out }
@@ -287,6 +297,9 @@ function inventoryAnalytics(
   const priceBySku = new Map(
     products.map((p) => [p.sku, p.sellingPricePaisa] as const)
   )
+  const reorderBySku = new Map(
+    products.map((p) => [p.sku.trim().toLowerCase(), p.reorderLevel ?? LOW_STOCK_THRESHOLD])
+  )
   let inventoryValuePaisa = 0
   for (const item of inventory) {
     const unit =
@@ -295,11 +308,14 @@ function inventoryAnalytics(
       0
     inventoryValuePaisa += Math.max(0, item.quantity) * unit
   }
+  const reorderFor = (item: InventoryRecord) =>
+    (item.sku && reorderBySku.get(item.sku.trim().toLowerCase())) ||
+    LOW_STOCK_THRESHOLD
   return {
     totalProducts: products.filter((p) => p.active).length,
     inventoryValuePaisa,
     lowStockCount: inventory.filter(
-      (i) => i.quantity > 0 && i.quantity <= LOW_STOCK_THRESHOLD
+      (i) => i.quantity > 0 && i.quantity <= reorderFor(i)
     ).length,
     outOfStockCount: inventory.filter((i) => i.quantity <= 0).length,
     inactiveProducts: products.filter((p) => !p.active).length,
@@ -556,7 +572,7 @@ export class DashboardAnalyticsService {
             methods.reduce((s, m) => s + m.value, 0)) *
           100
 
-    const stock = stockTables(inventory)
+    const stock = stockTables(inventory, products)
     const customersBlock = customerAnalytics(periodSales, invoices, range)
 
     const todayRange = resolveDashboardRange("today")

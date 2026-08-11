@@ -6,6 +6,7 @@
 
 import { rupeesToPaisa, type Paisa } from "@/lib/money"
 import { env } from "@/core/config/env"
+import { DEFAULT_REORDER_LEVEL } from "@/modules/inventory/types"
 
 import catalogSeed from "./products.json"
 
@@ -60,6 +61,8 @@ export type ProductRecord = {
   purchasePrice: number | null
   sellingPrice: number
   mrp: number | null
+  /** Units at/below this qty are low stock. Defaults applied when missing (legacy). */
+  reorderLevel: number
   storeId: string | null
   active: boolean
   createdAt: string
@@ -154,6 +157,7 @@ export function seedRowToRecord(
     purchasePrice,
     sellingPrice,
     mrp,
+    reorderLevel: DEFAULT_REORDER_LEVEL,
     storeId: meta.storeId,
     active: true,
     createdAt: now,
@@ -161,6 +165,21 @@ export function seedRowToRecord(
     createdBy: meta.createdBy,
     updatedBy: meta.createdBy,
   }
+}
+
+/** Normalize legacy local/Firestore rows that predate reorderLevel. */
+export function normalizeProductRecord(
+  record: ProductRecord | (Omit<ProductRecord, "reorderLevel"> & {
+    reorderLevel?: number
+  })
+): ProductRecord {
+  const reorder =
+    typeof record.reorderLevel === "number" &&
+    Number.isFinite(record.reorderLevel) &&
+    record.reorderLevel >= 0
+      ? record.reorderLevel
+      : DEFAULT_REORDER_LEVEL
+  return { ...record, reorderLevel: reorder }
 }
 
 export function getCatalogSeedRows(): ProductSeedRow[] {
@@ -178,25 +197,27 @@ export function buildCatalogRecords(
 }
 
 export function listLocalProducts(): ProductRecord[] {
-  return [...readStore().items].sort((a, b) => {
-    const byCategory = a.category.localeCompare(b.category, undefined, {
-      sensitivity: "base",
+  return [...readStore().items]
+    .map(normalizeProductRecord)
+    .sort((a, b) => {
+      const byCategory = a.category.localeCompare(b.category, undefined, {
+        sensitivity: "base",
+      })
+      if (byCategory !== 0) return byCategory
+      const byName = a.name.localeCompare(b.name, undefined, {
+        sensitivity: "base",
+      })
+      if (byName !== 0) return byName
+      return a.unitSize - b.unitSize
     })
-    if (byCategory !== 0) return byCategory
-    const byName = a.name.localeCompare(b.name, undefined, {
-      sensitivity: "base",
-    })
-    if (byName !== 0) return byName
-    return a.unitSize - b.unitSize
-  })
 }
 
 export function getLocalProduct(idOrSku: string): ProductRecord | null {
-  return (
+  const found =
     readStore().items.find(
       (item) => item.id === idOrSku || item.sku === idOrSku
     ) ?? null
-  )
+  return found ? normalizeProductRecord(found) : null
 }
 
 export function isProductCatalogSeeded(): boolean {

@@ -11,6 +11,8 @@ export const COLLECTIONS = {
   REFUNDS: "refunds",
   NOTIFICATIONS: "notifications",
   INVENTORY: "inventory",
+  INVENTORY_MOVEMENTS: "inventory_movements",
+  CATEGORIES: "categories",
   EXPENSES: "expenses",
   USERS: "users",
   SETTINGS: "settings",

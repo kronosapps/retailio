@@ -67,6 +67,32 @@ const ROUTES: Partial<Record<string, SheetRoute>> = {
     sheet: "Products",
     sync: (p, data) => p.syncProduct(data),
   },
+  [EventTypes.INVENTORY_MOVEMENT_CREATED]: {
+    sheet: "InventoryMovements",
+    sync: async (p, data) => {
+      if (typeof p.syncInventoryMovement === "function") {
+        await p.syncInventoryMovement(data)
+      } else {
+        await p.syncInventory(data)
+      }
+    },
+  },
+  [EventTypes.CATEGORY_CREATED]: {
+    sheet: "Categories",
+    sync: async (p, data) => {
+      if (typeof p.syncCategory === "function") {
+        await p.syncCategory(data)
+      }
+    },
+  },
+  [EventTypes.CATEGORY_UPDATED]: {
+    sheet: "Categories",
+    sync: async (p, data) => {
+      if (typeof p.syncCategory === "function") {
+        await p.syncCategory(data)
+      }
+    },
+  },
 }
 
 /**

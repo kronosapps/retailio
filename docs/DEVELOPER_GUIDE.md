@@ -20,6 +20,15 @@
 2. Swap provider inside the payment module hook/service.
 3. Still persist via `PaymentRepository.save/update` so events/sync keep working.
 
+## Inventory / stock
+
+1. Item CRUD → `ProductService` → `ProductRepository` (never mutate stock here).
+2. Stock changes → `InventoryService.addStock` / `adjustStock` / `recordMovement` (always creates a movement).
+3. POS must not call inventory from React — `InventoryEngine` listens to `PAYMENT_RECEIVED`.
+4. Refund restock → `InventoryService.restockForRefund` from `RefundService`.
+5. Future CSV/Excel: call `InventoryService.export*Data()` — do not add Excel libs to UI yet.
+6. Routes: `/inventory/items`, `/inventory/stock`, `/inventory/movements`, `/inventory/categories`.
+
 ## Local vs cloud
 
 | Mode | Behavior |

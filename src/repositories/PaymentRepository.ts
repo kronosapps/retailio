@@ -104,6 +104,7 @@ export class PaymentRepository {
 
 function toPaymentSyncPayload(payment: Payment) {
   return {
+    invoiceId: payment.invoiceId,
     invoiceNumber: payment.invoiceNumber,
     transactionReference: payment.transactionReference,
     paymentId: payment.paymentId,

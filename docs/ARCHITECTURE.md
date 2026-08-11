@@ -28,7 +28,7 @@ No layer may skip another layer.
 
 | Path | Responsibility |
 |------|----------------|
-| `src/app/` | App bootstrap (`bootstrapApp` starts SyncManager) |
+| `src/app/` | `bootstrapApp` starts SyncManager, NotificationEngine, BankingEngine, InventoryEngine |
 | `src/components/` | Shared UI primitives / shells |
 | `src/pages/` | Route-level screens (UI orchestration only) |
 | `src/modules/` | Business modules (Invoice, Payment, Inventory, …) |
@@ -51,9 +51,27 @@ No layer may skip another layer.
 
 ## Firestore collections
 
-`products` · `customers` · `suppliers` · `inventory` · `invoices` · `payments` · `expenses` · `users` · `settings` · `sync_events`
+`products` · `customers` · `suppliers` · `inventory` · `inventory_movements` · `categories` · `invoices` · `payments` · `refunds` · `expenses` · `users` · `settings` · `sync_events`
 
 Repositories own exactly one collection each (see `src/repositories/`).
+
+---
+
+## Inventory model
+
+- **Product / Item** (`products`): sellable definition (SKU, barcode, category name, prices, GST, `reorderLevel`, `active`).
+- **Stock** (`inventory`): cached on-hand quantity per SKU (derived/updated by movements).
+- **Movements** (`inventory_movements`): append-only ledger (`OPENING_STOCK`, `PURCHASE`, `SALE`, `RETURN`, `DAMAGE`, `WASTAGE`, `ADJUSTMENT_IN`, `ADJUSTMENT_OUT`).
+- **Categories** (`categories`): first-class names with active flag; products still store category as a string for POS/Sheets compat.
+
+Stock status: Out ≤ 0 · Low ≤ reorderLevel · else In Stock.
+
+POS paid sale → `PAYMENT_RECEIVED` → `InventoryEngine` → `InventoryService.deductForSale` (SALE movements).  
+Refund with restock → `InventoryService.restockForRefund` (RETURN movements).
+
+Export readiness: `InventoryService.exportProductsData` / `exportCurrentStockData` / `exportInventoryMovementsData` return tabular rows for future CSV/Excel/Sheets without Excel deps in UI.
+
+Admin UI: `/inventory/items|stock|movements|categories` (admin/manager).
 
 ---
 
@@ -64,8 +82,10 @@ Supported types (`src/events/EventTypes.ts`):
 - `INVOICE_CREATED` / `INVOICE_UPDATED`
 - `PAYMENT_RECEIVED` / `PAYMENT_FAILED`
 - `PRODUCT_CREATED` / `PRODUCT_UPDATED`
-- `INVENTORY_CHANGED`
+- `INVENTORY_CHANGED` / `INVENTORY_MOVEMENT_CREATED` / `STOCK_ADJUSTED`
+- `CATEGORY_CREATED` / `CATEGORY_UPDATED`
 - `CUSTOMER_CREATED` / `CUSTOMER_UPDATED`
+- `REFUND_CREATED` / `REFUND_UPDATED` / `PAYMENT_REFUNDED`
 - `SUPPLIER_CREATED`
 - `EXPENSE_CREATED`
 
