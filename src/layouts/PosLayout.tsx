@@ -3,10 +3,12 @@ import { LogOut } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { navItemsForRole, roleLabel } from "@/modules/staff"
 import { useAuth } from "@/providers/AuthProvider"
 
 export function PosLayout() {
   const { profile, role, signOut } = useAuth()
+  const nav = navItemsForRole(role).filter((item) => item.to !== "/pos")
 
   return (
     <div className="flex h-svh min-h-0 flex-col overflow-hidden bg-background">
@@ -21,22 +23,8 @@ export function PosLayout() {
             </span>
           </div>
 
-          {role === "admin" ? (
+          {nav.length > 0 ? (
             <nav className="hidden items-center gap-1 sm:flex">
-              <NavLink
-                to="/"
-                end
-                className={({ isActive }) =>
-                  cn(
-                    "rounded-md px-2.5 py-1.5 text-sm transition-colors",
-                    isActive
-                      ? "bg-muted font-medium text-foreground"
-                      : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-                  )
-                }
-              >
-                Dashboard
-              </NavLink>
               <NavLink
                 to="/pos"
                 className={({ isActive }) =>
@@ -50,58 +38,23 @@ export function PosLayout() {
               >
                 POS
               </NavLink>
-              <NavLink
-                to="/inventory"
-                className={({ isActive }) =>
-                  cn(
-                    "rounded-md px-2.5 py-1.5 text-sm transition-colors",
-                    isActive
-                      ? "bg-muted font-medium text-foreground"
-                      : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-                  )
-                }
-              >
-                Inventory
-              </NavLink>
-              <NavLink
-                to="/customers"
-                className={({ isActive }) =>
-                  cn(
-                    "rounded-md px-2.5 py-1.5 text-sm transition-colors",
-                    isActive
-                      ? "bg-muted font-medium text-foreground"
-                      : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-                  )
-                }
-              >
-                Customers
-              </NavLink>
-              <NavLink
-                to="/transactions"
-                className={({ isActive }) =>
-                  cn(
-                    "rounded-md px-2.5 py-1.5 text-sm transition-colors",
-                    isActive
-                      ? "bg-muted font-medium text-foreground"
-                      : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-                  )
-                }
-              >
-                Transactions
-              </NavLink>
-              <NavLink
-                to="/options"
-                className={({ isActive }) =>
-                  cn(
-                    "rounded-md px-2.5 py-1.5 text-sm transition-colors",
-                    isActive
-                      ? "bg-muted font-medium text-foreground"
-                      : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-                  )
-                }
-              >
-                Options
-              </NavLink>
+              {nav.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === "/"}
+                  className={({ isActive }) =>
+                    cn(
+                      "rounded-md px-2.5 py-1.5 text-sm transition-colors",
+                      isActive
+                        ? "bg-muted font-medium text-foreground"
+                        : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                    )
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              ))}
             </nav>
           ) : null}
         </div>
@@ -109,10 +62,10 @@ export function PosLayout() {
         <div className="flex min-w-0 items-center gap-3">
           <div className="min-w-0 text-right">
             <p className="truncate text-sm font-medium">
-              {profile?.displayName || profile?.email || "Cashier"}
+              {profile?.displayName || profile?.username || "Staff"}
             </p>
-            <p className="truncate text-xs text-muted-foreground capitalize">
-              {role ?? "staff"}
+            <p className="truncate text-xs text-muted-foreground">
+              {role ? roleLabel(role) : "staff"}
               {profile?.storeId ? ` · ${profile.storeId}` : ""}
             </p>
           </div>

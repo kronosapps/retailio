@@ -17,12 +17,17 @@ import { Label } from "@/components/ui/label"
 import { InvalidLocalCredentialsError } from "@/data/local-users"
 import { MissingStoreProfileError } from "@/lib/user-profile"
 import { AppFirebaseError, getFirebaseErrorMessage } from "@/core/firebase"
+import { homePathForRole } from "@/modules/staff"
 import { useAuth } from "@/providers/AuthProvider"
 import type { UserRole } from "@/types/user"
 
 const loginSchema = z.object({
-  email: z.email("Enter a valid email"),
-  password: z.string().min(1, "Password is required"),
+  username: z
+    .string()
+    .trim()
+    .min(2, "Username is required")
+    .max(32, "Username is too long"),
+  passcode: z.string().min(1, "Passcode is required"),
 })
 
 type LoginValues = z.infer<typeof loginSchema>
@@ -52,20 +57,20 @@ export function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: { username: "", passcode: "" },
   })
 
   function goAfterLogin(role: UserRole | undefined) {
     const from = (location.state as { from?: { pathname?: string } } | null)
       ?.from?.pathname
-    const fallback = role === "cashier" ? "/pos" : "/"
+    const fallback = homePathForRole(role ?? null)
     navigate(from && from !== "/login" ? from : fallback, { replace: true })
   }
 
   async function onSubmit(values: LoginValues) {
     setFormError(null)
     try {
-      const profile = await signIn(values.email, values.password)
+      const profile = await signIn(values.username, values.passcode)
       goAfterLogin(profile.role)
     } catch (error) {
       setFormError(authErrorMessage(error))
@@ -78,39 +83,41 @@ export function LoginPage() {
         <CardHeader>
           <CardTitle className="text-xl">RetailOS</CardTitle>
           <CardDescription>
-            {usingFirebaseAuth
-              ? "Sign in with your Firebase staff account"
-              : "Sign in to your store account"}
+            Sign in with your staff username and passcode
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="username">Username</Label>
               <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                aria-invalid={!!errors.email}
-                {...register("email")}
+                id="username"
+                type="text"
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                aria-invalid={!!errors.username}
+                {...register("username")}
               />
-              {errors.email ? (
-                <p className="text-xs text-destructive">{errors.email.message}</p>
+              {errors.username ? (
+                <p className="text-xs text-destructive">
+                  {errors.username.message}
+                </p>
               ) : null}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="passcode">Passcode</Label>
               <Input
-                id="password"
+                id="passcode"
                 type="password"
                 autoComplete="current-password"
-                aria-invalid={!!errors.password}
-                {...register("password")}
+                aria-invalid={!!errors.passcode}
+                {...register("passcode")}
               />
-              {errors.password ? (
+              {errors.passcode ? (
                 <p className="text-xs text-destructive">
-                  {errors.password.message}
+                  {errors.passcode.message}
                 </p>
               ) : null}
             </div>
@@ -123,13 +130,14 @@ export function LoginPage() {
               {isSubmitting ? "Signing in…" : "Sign in"}
             </Button>
 
-            {usingFirebaseAuth ? (
+            {!usingFirebaseAuth ? (
               <p className="text-[11px] leading-relaxed text-muted-foreground">
-                Create the user in Firebase Authentication, then add a matching
-                Firestore document at{" "}
-                <code className="text-[10px]">users/&#123;uid&#125;</code> with{" "}
-                <code className="text-[10px]">role</code> and{" "}
-                <code className="text-[10px]">storeId</code>.
+                Demo: <code className="text-[10px]">admin</code> /{" "}
+                <code className="text-[10px]">admin123</code>,{" "}
+                <code className="text-[10px]">manager</code> /{" "}
+                <code className="text-[10px]">mgr123</code>,{" "}
+                <code className="text-[10px]">cashier</code> /{" "}
+                <code className="text-[10px]">cash123</code>
               </p>
             ) : null}
           </form>

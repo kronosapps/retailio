@@ -15,6 +15,7 @@ export {
   getFirebaseApp,
   getFirestoreDb,
   getFirebaseAuth,
+  getFirebaseFunctions,
   firebaseApp,
   db,
   auth as firebaseAuthNullable,
@@ -49,3 +50,4 @@ export {
 } from "./errors"
 
 export { fetchUserProfile } from "./userProfile"
+export { createFirebaseStaffUser } from "./createStaffUser"

@@ -3,7 +3,7 @@
  * Every persisted entity extends BaseDocument.
  */
 
-export type UserRole = "admin" | "cashier"
+export type UserRole = "admin" | "manager" | "cashier"
 
 /** Shared fields required on every Firestore document. */
 export interface BaseDocument {
@@ -117,6 +117,7 @@ export interface Expense extends BaseDocument {
 
 export interface User extends BaseDocument {
   email: string
+  username: string
   displayName: string
   role: UserRole
   storeId: string

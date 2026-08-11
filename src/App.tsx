@@ -1,8 +1,8 @@
 import { Navigate, Route, Routes } from "react-router-dom"
 
-import { RequireAdmin } from "@/components/RequireAdmin"
 import { RequireAuth } from "@/components/RequireAuth"
 import { RequireGuest } from "@/components/RequireGuest"
+import { RequirePermission } from "@/components/RequirePermission"
 import { AppLayout } from "@/layouts/AppLayout"
 import { PosLayout } from "@/layouts/PosLayout"
 import { CustomersPage } from "@/pages/CustomersPage"
@@ -12,6 +12,7 @@ import { InvoiceDetailsPage } from "@/pages/InvoiceDetailsPage"
 import { LoginPage } from "@/pages/LoginPage"
 import { OptionsPage } from "@/pages/OptionsPage"
 import { PosPage } from "@/pages/PosPage"
+import { StaffPage } from "@/pages/StaffPage"
 import { TransactionsPage } from "@/pages/TransactionsPage"
 
 export default function App() {
@@ -22,18 +23,22 @@ export default function App() {
       </Route>
 
       <Route element={<RequireAuth />}>
-        <Route element={<PosLayout />}>
-          <Route path="/pos" element={<PosPage />} />
-        </Route>
+        <Route element={<RequirePermission />}>
+          <Route element={<PosLayout />}>
+            <Route path="/pos" element={<PosPage />} />
+          </Route>
 
-        <Route element={<AppLayout />}>
-          <Route element={<RequireAdmin />}>
+          <Route element={<AppLayout />}>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/inventory" element={<InventoryPage />} />
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/transactions" element={<TransactionsPage />} />
-            <Route path="/invoices/:invoiceId" element={<InvoiceDetailsPage />} />
+            <Route
+              path="/invoices/:invoiceId"
+              element={<InvoiceDetailsPage />}
+            />
             <Route path="/options" element={<OptionsPage />} />
+            <Route path="/staff" element={<StaffPage />} />
           </Route>
         </Route>
       </Route>

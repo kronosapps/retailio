@@ -21,6 +21,11 @@ import {
   logout as firebaseLogout,
   subscribeToAuthChanges,
 } from "@/core/firebase"
+import {
+  normalizePasscode,
+  normalizeUsername,
+  usernameToAuthEmail,
+} from "@/modules/staff"
 import type { UserProfile, UserRole } from "@/types/user"
 
 const LOCAL_SESSION_KEY = "retailos.auth.local"
@@ -33,7 +38,7 @@ type AuthContextValue = {
   isAuthenticated: boolean
   /** True when Firebase Auth is the active provider. */
   usingFirebaseAuth: boolean
-  signIn: (email: string, password: string) => Promise<UserProfile>
+  signIn: (username: string, passcode: string) => Promise<UserProfile>
   signOut: () => Promise<void>
 }
 
@@ -79,12 +84,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!usingFirebaseAuth) {
-      setLoading(false)
       return
     }
 
     let active = true
-    setLoading(true)
 
     const unsubscribe = subscribeToAuthChanges((user) => {
       void (async () => {
@@ -122,9 +125,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [usingFirebaseAuth])
 
-  async function signIn(email: string, password: string): Promise<UserProfile> {
+  async function signIn(
+    username: string,
+    passcode: string
+  ): Promise<UserProfile> {
+    const normalizedUser = normalizeUsername(username)
+    const normalizedPass = normalizePasscode(passcode)
+
     if (usingFirebaseAuth) {
-      const user = await firebaseLogin({ email, password })
+      const user = await firebaseLogin({
+        email: usernameToAuthEmail(normalizedUser),
+        password: normalizedPass,
+      })
       try {
         const nextProfile = await fetchUserProfile(user.uid)
         setUserId(user.uid)
@@ -143,7 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    const localUser = findLocalUser(email, password)
+    const localUser = findLocalUser(normalizedUser, normalizedPass)
     if (!localUser) {
       throw new InvalidLocalCredentialsError()
     }

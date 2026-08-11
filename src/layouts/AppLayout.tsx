@@ -5,40 +5,31 @@ import {
   Receipt,
   Settings2,
   ShoppingCart,
+  UserCog,
   Users,
   LogOut,
+  type LucideIcon,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
+import { navItemsForRole, roleLabel } from "@/modules/staff"
 import { useAuth } from "@/providers/AuthProvider"
 
-const navItems = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, adminOnly: true },
-  { to: "/pos", label: "POS", icon: ShoppingCart, adminOnly: false },
-  { to: "/inventory", label: "Inventory", icon: Package, adminOnly: true },
-  { to: "/customers", label: "Customers", icon: Users, adminOnly: true },
-  {
-    to: "/transactions",
-    label: "Transactions",
-    icon: Receipt,
-    adminOnly: true,
-  },
-  {
-    to: "/options",
-    label: "Admin Options",
-    icon: Settings2,
-    adminOnly: true,
-  },
-] as const
+const NAV_ICONS: Record<string, LucideIcon> = {
+  "/": LayoutDashboard,
+  "/pos": ShoppingCart,
+  "/inventory": Package,
+  "/customers": Users,
+  "/transactions": Receipt,
+  "/options": Settings2,
+  "/staff": UserCog,
+}
 
 export function AppLayout() {
   const { profile, role, signOut } = useAuth()
-
-  const visibleNav = navItems.filter(
-    (item) => !item.adminOnly || role === "admin"
-  )
+  const visibleNav = navItemsForRole(role)
 
   return (
     <div className="flex h-svh min-h-0 overflow-hidden bg-background">
@@ -48,11 +39,12 @@ export function AppLayout() {
             RetailOS
           </p>
           <p className="mt-1 truncate text-sm font-medium">
-            {profile?.displayName || profile?.email || "Store"}
+            {profile?.displayName || profile?.username || "Store"}
           </p>
           {role ? (
-            <p className="mt-0.5 text-xs text-muted-foreground capitalize">
-              {role}
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {roleLabel(role)}
+              {profile?.username ? ` · @${profile.username}` : ""}
             </p>
           ) : null}
         </div>
@@ -60,24 +52,27 @@ export function AppLayout() {
         <Separator />
 
         <nav className="flex flex-1 flex-col gap-1 p-3">
-          {visibleNav.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === "/"}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
-                )
-              }
-            >
-              <Icon className="size-4" />
-              {label}
-            </NavLink>
-          ))}
+          {visibleNav.map(({ to, label }) => {
+            const Icon = NAV_ICONS[to] ?? LayoutDashboard
+            return (
+              <NavLink
+                key={to}
+                to={to}
+                end={to === "/"}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+                  )
+                }
+              >
+                <Icon className="size-4" />
+                {label}
+              </NavLink>
+            )
+          })}
         </nav>
 
         <div className="p-3">

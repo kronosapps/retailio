@@ -29,6 +29,17 @@ firebase login
 firebase use retailio-7586e
 ```
 
+
+### Deploy Functions
+
+Your functions codebase is named retailos in firebase.json, so bare --only functions:createStaff does not match anything.
+
+Use:
+
+`firebase deploy --only functions:retailos:createStaff,functions:retailos:listStaff`
+Or deploy the whole codebase:
+
+`firebase deploy --only functions:retailos`
 ### Run the wipe
 
 From the repo root:

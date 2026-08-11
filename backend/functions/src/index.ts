@@ -12,6 +12,9 @@ import { whatsappConfig } from "./utils/config"
 
 admin.initializeApp()
 
+export { createStaff } from "./staff/createStaff"
+export { listStaff } from "./staff/listStaff"
+
 /**
  * When a payment becomes Paid, queue a WhatsApp receipt notification.
  * Payment Module never calls WhatsApp — this is the Cloud Function trigger.

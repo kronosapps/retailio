@@ -18,6 +18,16 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function callerUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && callerUser().data.role == 'admin'
+        && callerUser().data.active != false;
+    }
+
     // Application collections — authenticated only (dev)
     match /products/{id} {
       allow read, write: if isSignedIn();
@@ -73,10 +83,10 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // Dev: signed-in users can read their own profile; writes via Admin SDK / console
-      allow read: if isSignedIn() && request.auth.uid == userId;
-      allow write: if false;
-      // prod: add admin role checks for listing all users
+      // Self-read for login profile; admins can list/create/update staff (Spark-friendly).
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin();
     }
   }
 }

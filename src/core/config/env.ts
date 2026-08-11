@@ -40,12 +40,15 @@ export const env = {
 
   /** Local-auth fallback credentials (used only when Firebase is unset) */
   localAuth: {
-    adminEmail: read("VITE_ADMIN_EMAIL") || "admin@retailos.local",
-    adminPassword: read("VITE_ADMIN_PASSWORD") || "Admin007",
+    adminUsername: read("VITE_ADMIN_USERNAME") || "admin",
+    adminPasscode: read("VITE_ADMIN_PASSCODE") || "admin123",
     adminName: read("VITE_ADMIN_NAME") || "Store Admin",
-    cashierEmail: read("VITE_CASHIER_EMAIL") || "cashier@retailos.local",
-    cashierPassword: read("VITE_CASHIER_PASSWORD") || "Cashier001",
-    cashierName: read("VITE_CASHIER_NAME") || "Front Cashier",
+    cashierUsername: read("VITE_CASHIER_USERNAME") || "cashier",
+    cashierPasscode: read("VITE_CASHIER_PASSCODE") || "cash123",
+    cashierName: read("VITE_CASHIER_NAME") || "Sales Cashier",
+    managerUsername: read("VITE_MANAGER_USERNAME") || "manager",
+    managerPasscode: read("VITE_MANAGER_PASSCODE") || "mgr123",
+    managerName: read("VITE_MANAGER_NAME") || "Store Manager",
   },
 } as const
 

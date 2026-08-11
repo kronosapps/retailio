@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react"
-import { CloudUpload, Settings2 } from "lucide-react"
+import { Link } from "react-router-dom"
+import { CloudUpload, Settings2, UserCog } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -82,6 +83,26 @@ export function OptionsPage() {
           transaction.
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <UserCog className="size-4" />
+            Staff accounts
+          </CardTitle>
+          <CardDescription>
+            Create cashiers and managers with a username and passcode.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            to="/staff"
+            className={buttonVariants({ variant: "outline" })}
+          >
+            Open Staff
+          </Link>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

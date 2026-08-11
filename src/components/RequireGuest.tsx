@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from "react-router-dom"
 
+import { homePathForRole } from "@/modules/staff"
 import { useAuth } from "@/providers/AuthProvider"
 
 export function RequireGuest() {
@@ -14,7 +15,7 @@ export function RequireGuest() {
   }
 
   if (isAuthenticated) {
-    return <Navigate to={role === "cashier" ? "/pos" : "/"} replace />
+    return <Navigate to={homePathForRole(role)} replace />
   }
 
   return <Outlet />

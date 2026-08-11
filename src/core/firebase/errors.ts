@@ -27,6 +27,18 @@ export function toAppFirebaseError(error: unknown): AppFirebaseError {
       : "firebase/unknown"
 
   switch (code) {
+    case "auth/email-already-exists":
+      return new AppFirebaseError(
+        code,
+        "That username is already taken.",
+        error
+      )
+    case "auth/weak-password":
+      return new AppFirebaseError(
+        code,
+        "Passcode is too weak. Use a longer passcode.",
+        error
+      )
     case "auth/invalid-email":
       return new AppFirebaseError(code, "That email address is not valid.", error)
     case "auth/user-disabled":

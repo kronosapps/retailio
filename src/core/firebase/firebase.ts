@@ -1,6 +1,7 @@
 import { initializeApp, type FirebaseApp } from "firebase/app"
 import { getAuth, type Auth } from "firebase/auth"
 import { getFirestore, type Firestore } from "firebase/firestore"
+import { getFunctions, type Functions } from "firebase/functions"
 
 import {
   env,
@@ -43,6 +44,7 @@ export const isFirebaseConfigured = Boolean(config)
 let app: FirebaseApp | null = null
 let firestoreDb: Firestore | null = null
 let authInstance: Auth | null = null
+let functionsInstance: Functions | null = null
 
 /**
  * Initialize Firebase exactly once.
@@ -52,6 +54,7 @@ export function initializeFirebase(): {
   app: FirebaseApp
   db: Firestore
   auth: Auth
+  functions: Functions
 } {
   if (!config) {
     const missing = getMissingFirebaseEnvKeys()
@@ -65,6 +68,7 @@ export function initializeFirebase(): {
     app = initializeApp(config)
     firestoreDb = getFirestore(app)
     authInstance = getAuth(app)
+    functionsInstance = getFunctions(app)
 
     if (env.dev) {
       console.info(
@@ -77,6 +81,7 @@ export function initializeFirebase(): {
     app,
     db: firestoreDb!,
     auth: authInstance!,
+    functions: functionsInstance!,
   }
 }
 
@@ -109,4 +114,9 @@ export function getFirestoreDb(): Firestore {
 export function getFirebaseAuth(): Auth {
   if (!authInstance) initializeFirebase()
   return authInstance!
+}
+
+export function getFirebaseFunctions(): Functions {
+  if (!functionsInstance) initializeFirebase()
+  return functionsInstance!
 }

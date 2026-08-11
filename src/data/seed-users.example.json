@@ -1,22 +1,40 @@
 {
-  "_comment": "Create Authentication users first, then add a Firestore document at users/{uid} using that Auth UID as the document ID.",
+  "_comment": "Auth email is always {username}@retailos.local. Create Authentication users first (or use createStaff Cloud Function), then ensure users/{uid} matches.",
   "examples": [
     {
       "path": "users/{ADMIN_AUTH_UID}",
+      "login": { "username": "admin", "passcode": "admin123" },
       "document": {
-        "email": "admin@store.com",
+        "email": "admin@retailos.local",
+        "username": "admin",
         "displayName": "Store Admin",
         "role": "admin",
-        "storeId": "store-1"
+        "storeId": "store-1",
+        "active": true
+      }
+    },
+    {
+      "path": "users/{MANAGER_AUTH_UID}",
+      "login": { "username": "manager", "passcode": "mgr123" },
+      "document": {
+        "email": "manager@retailos.local",
+        "username": "manager",
+        "displayName": "Store Manager",
+        "role": "manager",
+        "storeId": "store-1",
+        "active": true
       }
     },
     {
       "path": "users/{CASHIER_AUTH_UID}",
+      "login": { "username": "cashier", "passcode": "cash123" },
       "document": {
-        "email": "cashier@store.com",
-        "displayName": "Front Cashier",
+        "email": "cashier@retailos.local",
+        "username": "cashier",
+        "displayName": "Sales Cashier",
         "role": "cashier",
-        "storeId": "store-1"
+        "storeId": "store-1",
+        "active": true
       }
     }
   ]
