@@ -9,6 +9,8 @@ import {
   UserCog,
   Users,
   LogOut,
+  ChartColumn,
+  Wrench,
   type LucideIcon,
 } from "lucide-react"
 
@@ -24,6 +26,8 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   "/inventory": Package,
   "/customers": Users,
   "/transactions": Receipt,
+  "/reports": ChartColumn,
+  "/utilities": Wrench,
   "/banking": Landmark,
   "/options": Settings2,
   "/staff": UserCog,

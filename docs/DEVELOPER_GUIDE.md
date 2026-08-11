@@ -29,6 +29,23 @@
 5. Future CSV/Excel: call `InventoryService.export*Data()` — do not add Excel libs to UI yet.
 6. Routes: `/inventory/items`, `/inventory/stock`, `/inventory/movements`, `/inventory/categories`.
 
+## Reporting / Excel / Sheets export
+
+1. Generate reports via `ReportingService.getSalesReport` (etc.) — read-only.
+2. Convert with `ReportExportService.toPayload(report)`.
+3. Excel: `ReportExportService.exportExcel(report)` → `ExcelReportExporter` (exceljs).
+4. Sheets: `ReportExportService.exportGoogleSheets(report)` → `GoogleSheetsReportExporter` → existing `syncBatch`.
+5. Do not call Firestore or Apps Script from `ReportsPage`.
+6. Route: `/reports` (admin/manager).
+
+## Utilities
+
+1. Landing + tools catalog: `src/modules/utilities/catalog.ts` (RBAC per tool).
+2. Accounting projections: `AccountingService` / `AccountingProjectionService`.
+3. Financial year: `FinancialYearService.getActive()` for period scoping.
+4. Do not delete paid invoices from Recycle Bin — restore masters only.
+5. Statutory pages must not claim compliance without required domain data.
+
 ## Local vs cloud
 
 | Mode | Behavior |

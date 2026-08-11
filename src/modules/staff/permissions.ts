@@ -1,4 +1,5 @@
 import type { UserRole } from "@/types/user"
+import { canAccessUtilityPath } from "@/modules/utilities/catalog"
 
 export type StaffNavItem = {
   to: string
@@ -13,6 +14,8 @@ export const STAFF_NAV_ITEMS: StaffNavItem[] = [
   { to: "/inventory", label: "Inventory", roles: ["admin", "manager"] },
   { to: "/customers", label: "Customers", roles: ["admin", "manager"] },
   { to: "/transactions", label: "Transactions", roles: ["admin", "manager"] },
+  { to: "/reports", label: "Reports", roles: ["admin", "manager"] },
+  { to: "/utilities", label: "Utilities", roles: ["admin", "manager"] },
   { to: "/banking", label: "Banking", roles: ["admin"] },
   { to: "/options", label: "Admin Options", roles: ["admin"] },
   { to: "/staff", label: "Staff", roles: ["admin"] },
@@ -54,6 +57,10 @@ export function canAccessPath(
 
   if (path === "/inventory" || path.startsWith("/inventory/")) {
     return isManagerOrAbove(role)
+  }
+
+  if (path === "/utilities" || path.startsWith("/utilities/")) {
+    return canAccessUtilityPath(role, path)
   }
 
   return navItemsForRole(role).some((item) => item.to === path)

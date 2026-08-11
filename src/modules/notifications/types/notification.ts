@@ -105,6 +105,10 @@ export type StoreSettingsRecord = {
   id: string
   storeId: string
   businessName: string
+  /** Legal name for invoices / statutory (optional). */
+  legalName?: string
+  tradeName?: string
+  businessType?: string
   whatsappBusinessNumber: string
   /** Public Meta phone number id — token stays in Cloud Functions env only. */
   phoneNumberId: string
@@ -112,7 +116,17 @@ export type StoreSettingsRecord = {
   receiptFooter: string
   supportNumber: string
   businessAddress: string
+  city?: string
+  state?: string
+  pin?: string
+  country?: string
+  email?: string
+  website?: string
   storeGst: string
+  pan?: string
+  tan?: string
+  gstRegistrationType?: string
+  invoicePrefix?: string
   createdAt: string
   updatedAt: string
   createdBy: string | null

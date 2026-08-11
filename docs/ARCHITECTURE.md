@@ -75,6 +75,47 @@ Admin UI: `/inventory/items|stock|movements|categories` (admin/manager).
 
 ---
 
+## Reporting module
+
+Read-only analytical layer under `src/modules/reporting/`.
+
+```text
+Repositories / domain services
+        ↓
+ReportingService (Sales / Inventory / Stock / Items / Dashboard)
+        ↓
+Normalized ReportResult + ReportExportPayload
+        ↓
+   ┌────┴────┐
+Excel (.xlsx)   Google Sheets (via existing SyncProvider.syncBatch)
+```
+
+- **UI** (`/reports`) calls only `ReportingService` + `ReportExportService` — never Firestore, Sheets, or fetch.
+- **Excel** and **Sheets** sit side-by-side; neither depends on the other.
+- Money stays in **paisa** until display/export formatting.
+- Existing `src/modules/reports/` (Transactions / End of Day) remains for day ops; reporting is historical/exportable.
+
+---
+
+## Utilities & Accounting
+
+Administrative workspace at `/utilities` (`src/modules/utilities`, `src/modules/accounting`, `src/modules/financialYear`).
+
+```text
+Business data (invoices, payments, refunds, expenses, banking, inventory)
+        ↓
+AccountingProjectionService → projected journal
+        ↓
+Trial Balance / Balance Sheet / Daybook / Account Statement
+```
+
+- **FinancialYearService** — Indian FY (Apr–Mar), shared by accounting & statutory views.
+- **Utilities** consumes Reporting for item reports; does not create a second reporting architecture.
+- GST / TCS / Form 27EQ screens explicitly mark **not statutory-ready** when source data is incomplete.
+- Recycle Bin restores soft-deactivated products only — not paid financial transactions.
+
+---
+
 ## Event system
 
 Supported types (`src/events/EventTypes.ts`):
