@@ -38,6 +38,14 @@
 5. Do not call Firestore or Apps Script from `ReportsPage`.
 6. Route: `/reports` (admin/manager).
 
+## Utilities
+
+1. Landing + tools catalog: `src/modules/utilities/catalog.ts` (RBAC per tool).
+2. Accounting projections: `AccountingService` / `AccountingProjectionService`.
+3. Financial year: `FinancialYearService.getActive()` for period scoping.
+4. Do not delete paid invoices from Recycle Bin — restore masters only.
+5. Statutory pages must not claim compliance without required domain data.
+
 ## Local vs cloud
 
 | Mode | Behavior |
