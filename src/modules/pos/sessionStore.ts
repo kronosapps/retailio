@@ -31,6 +31,8 @@ export type PosSession = {
   discountTab: string
   menuPanel: PosMenuPanel
   category: MenuCategory
+  /** Punch % reward applied on this order (independent of free item). */
+  loyaltyPercentOn: boolean
   loyaltyMode: PosLoyaltyMode
   selectedLoyaltyRewardId: string | null
   lastInvoiceId: string | null
@@ -59,6 +61,7 @@ export function emptyPosSession(id: PosSessionId): PosSession {
     discountTab: "occasion",
     menuPanel: "menu",
     category: "All",
+    loyaltyPercentOn: false,
     loyaltyMode: "off",
     selectedLoyaltyRewardId: null,
     lastInvoiceId: null,
@@ -91,6 +94,10 @@ export function getPosSessionStore(): PosSessionStoreState {
 
 export function getActivePosSession(): PosSession {
   const s = state.sessions[state.activeSessionId]
+  const loyaltyPercentOn =
+    typeof s.loyaltyPercentOn === "boolean"
+      ? s.loyaltyPercentOn
+      : s.loyaltyMode === "percent"
   return {
     ...s,
     couponCode: s.couponCode ?? "",
@@ -98,6 +105,7 @@ export function getActivePosSession(): PosSession {
     customerName: s.customerName ?? "",
     customerPhone: s.customerPhone ?? "",
     pointsToRedeem: s.pointsToRedeem ?? 0,
+    loyaltyPercentOn,
   }
 }
 

@@ -310,25 +310,55 @@ export class PricingService {
   }
 
   /**
-   * Full cart pricing: promo → coupon → F&F → occasion → loyalty %.
-   * Returns line snapshots + order totals (GST inclusive stack preserved).
+   * Full cart pricing with RetailOS discount stacking rules:
+   * - Product / festival (occasion) / birthday: base campaigns
+   * - F&F XOR Coupon (not together); either may stack with festival
+   * - Loyalty discount = points XOR punch% XOR free-item (one only)
+   * - Loyalty discount only with festival; blocked when F&F or Coupon is on
+   *   (punches/points still earn on Mark Paid)
    */
   static priceOrder(input: PriceOrderInput): PriceOrderResult {
     const at = input.at || new Date()
     const settings = getPromoSettings()
     const orderPromosOn = settings.masters.orderPromotionsEnabled
-    const redeemLoyaltyPercent =
-      settings.masters.punchPercentEnabled &&
-      Boolean(input.redeemLoyaltyPercent)
-    const pointsToRedeem = settings.masters.pointsRedeemEnabled
-      ? input.pointsToRedeem
-      : 0
     const occasion = orderPromosOn ? getActiveOccasionDiscount(at) : null
-    const fnf = clampDiscountPercent(
+    const festivalOn = Boolean(input.applyOccasion && occasion)
+
+    let fnf = clampDiscountPercent(
       input.friendsFamilyPercent || 0,
       settings.friendsAndFamily.maxPercent ||
         discountConfig.friendsAndFamily.maxPercent
     )
+    const couponRequested = Boolean(input.couponCode?.trim())
+    // F&F XOR Coupon — prefer F&F when both somehow set
+    const couponCodeEffective =
+      fnf > 0 ? null : input.couponCode?.trim() || null
+    if (couponCodeEffective) {
+      fnf = 0
+    }
+    const hasFnfOrCoupon = fnf > 0 || Boolean(couponCodeEffective)
+
+    // Loyalty discount only with festival, and never with F&F/Coupon
+    const loyaltyDiscountAllowed = festivalOn && !hasFnfOrCoupon
+
+    const wantsFreeItem =
+      loyaltyDiscountAllowed &&
+      settings.masters.freeItemPromoEnabled &&
+      input.lines.some((l) => l.isLoyaltyReward && l.qty > 0)
+    const wantsPunchPercent =
+      loyaltyDiscountAllowed &&
+      !wantsFreeItem &&
+      settings.masters.punchPercentEnabled &&
+      Boolean(input.redeemLoyaltyPercent)
+    const pointsToRedeem =
+      loyaltyDiscountAllowed &&
+      !wantsFreeItem &&
+      !wantsPunchPercent &&
+      settings.masters.pointsRedeemEnabled
+        ? input.pointsToRedeem
+        : 0
+    const redeemLoyaltyPercent = wantsPunchPercent
+
     const birthdayOk =
       orderPromosOn &&
       isBirthdayInWindow(input.customerBirthday, at, settings.birthday)
@@ -339,7 +369,9 @@ export class PricingService {
     // 1) Line-level promo
     const intermediate = input.lines.map((line) => {
       const isFreeReward =
-        Boolean(line.isLoyaltyReward) && settings.masters.freeItemPromoEnabled
+        Boolean(line.isLoyaltyReward) &&
+        wantsFreeItem &&
+        settings.masters.freeItemPromoEnabled
       if (isFreeReward || line.qty <= 0) {
         const snap: PriceSnapshot = {
           listUnitPaisa: 0,
@@ -400,8 +432,8 @@ export class PricingService {
     // 2) Coupon on promo subtotal (optional segment targeting)
     let coupon: CouponRecord | null = null
     let couponDiscount = 0
-    if (orderPromosOn && input.couponCode?.trim()) {
-      coupon = couponRepository.getByCode(input.couponCode)
+    if (orderPromosOn && couponCodeEffective) {
+      coupon = couponRepository.getByCode(couponCodeEffective)
       const today = dateKey(at)
       const customerSegs = new Set(input.customerSegments || [])
       const segmentOk =

@@ -28,8 +28,9 @@ export type LoyaltyRedeemMapping = {
 
 /**
  * Master switches.
- * Points / punch-% / free-item are mutually exclusive (only one POS offer at a time).
- * Festival / campaign (order promotions) can stack as additional discounts.
+ * Points / punch-% / free-item can each be enabled in settings.
+ * On a single POS ticket only one loyalty discount applies (points XOR punch% XOR free item),
+ * and only together with Festival; F&F/Coupon block loyalty redeem (earn still works).
  */
 export type PromoMasterSwitches = {
   /** Product / SKU line promotions. */
@@ -38,7 +39,7 @@ export type PromoMasterSwitches = {
   orderPromotionsEnabled: boolean
   /** Digital punch card stamping + punch progress on receipt. */
   punchCardEnabled: boolean
-  /** Points redemption at POS (exclusive vs punch % / free item). */
+  /** Points redemption at POS. */
   pointsRedeemEnabled: boolean
   /** Punch-card % reward at POS. */
   punchPercentEnabled: boolean
@@ -104,8 +105,8 @@ function defaults(): PromoSettings {
       orderPromotionsEnabled: true,
       punchCardEnabled: true,
       pointsRedeemEnabled: true,
-      punchPercentEnabled: false,
-      freeItemPromoEnabled: false,
+      punchPercentEnabled: true,
+      freeItemPromoEnabled: true,
     },
     loyaltyRedeem: {
       points: 1000,
@@ -140,12 +141,11 @@ function read(): PromoSettings {
     const parsed = JSON.parse(raw) as Partial<PromoSettings>
     const base = defaults()
     const masters = { ...base.masters, ...parsed.masters }
-    // Enforce exclusivity on load (migrate older stores).
     return {
       ...base,
       ...parsed,
       version: 1,
-      masters: enforceExclusiveLoyaltyOffers(masters),
+      masters,
       loyaltyRedeem: { ...base.loyaltyRedeem, ...parsed.loyaltyRedeem },
       punchRules: { ...base.punchRules, ...parsed.punchRules },
       birthday: { ...base.birthday, ...parsed.birthday },
@@ -164,29 +164,6 @@ function write(settings: PromoSettings) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
 }
 
-/** Only one of points / punch% / free-item may be on. Prefer points → punch% → free item. */
-export function enforceExclusiveLoyaltyOffers(
-  masters: PromoMasterSwitches
-): PromoMasterSwitches {
-  const on = [
-    masters.pointsRedeemEnabled,
-    masters.punchPercentEnabled,
-    masters.freeItemPromoEnabled,
-  ].filter(Boolean).length
-  if (on <= 1) return masters
-  if (masters.pointsRedeemEnabled) {
-    return {
-      ...masters,
-      punchPercentEnabled: false,
-      freeItemPromoEnabled: false,
-    }
-  }
-  if (masters.punchPercentEnabled) {
-    return { ...masters, freeItemPromoEnabled: false }
-  }
-  return masters
-}
-
 export function getPromoSettings(): PromoSettings {
   return read()
 }
@@ -195,8 +172,7 @@ export function savePromoSettings(
   patch: Partial<PromoSettings>
 ): PromoSettings {
   const cur = read()
-  let masters = { ...cur.masters, ...patch.masters }
-  masters = enforceExclusiveLoyaltyOffers(masters)
+  const masters = { ...cur.masters, ...patch.masters }
   const clean: PromoSettings = {
     version: 1,
     masters,
@@ -216,27 +192,6 @@ export function savePromoSettings(
   }
   write(clean)
   return clean
-}
-
-/**
- * Enable one exclusive loyalty offer; disables the other two.
- * Pass which key to turn on (or null to turn all three off).
- */
-export function setExclusiveLoyaltyOffer(
-  offer: "points" | "punch_percent" | "free_item" | null,
-  enabled: boolean
-): PromoSettings {
-  const cur = getPromoSettings()
-  const masters: PromoMasterSwitches = {
-    ...cur.masters,
-    pointsRedeemEnabled: false,
-    punchPercentEnabled: false,
-    freeItemPromoEnabled: false,
-  }
-  if (enabled && offer === "points") masters.pointsRedeemEnabled = true
-  if (enabled && offer === "punch_percent") masters.punchPercentEnabled = true
-  if (enabled && offer === "free_item") masters.freeItemPromoEnabled = true
-  return savePromoSettings({ masters })
 }
 
 /** Paisa off per redeemed point from mapping (1000 pts = ₹10 → 1 paisa/pt). */

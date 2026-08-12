@@ -15,7 +15,6 @@ import {
 import {
   getPromoSettings,
   savePromoSettings,
-  setExclusiveLoyaltyOffer,
   type PromoSettings,
 } from "@/data/promoSettings"
 import { BankingService } from "@/modules/banking/BankingService"
@@ -324,9 +323,9 @@ export function PricingPage() {
         <TabsContent value="masters" className="mt-4 space-y-4">
           <div className="space-y-4 rounded-lg border border-border p-4">
             <p className="text-xs text-muted-foreground">
-              Festival / campaign discounts can stack with the active loyalty
-              offer. Only one of Points, Punch %, or Free item may be on at a
-              time — disabled offers stay hidden on POS.
+              Festival / campaign discounts can stack. Enable any combination of
+              Points, Punch %, and Free item — cashiers pick what to apply on
+              each POS sale. Disabled options stay hidden on POS.
             </p>
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -396,58 +395,81 @@ export function PricingPage() {
           </div>
 
           <div className="space-y-4 rounded-lg border border-border p-4">
-            <p className="text-sm font-medium">Exclusive loyalty offer (POS)</p>
+            <p className="text-sm font-medium">POS loyalty offers</p>
             <p className="text-xs text-muted-foreground">
-              Turning one on turns the others off.
+              Check one or all — each can be selected on a sale when enabled.
             </p>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium">Points redemption</p>
-                <p className="text-xs text-muted-foreground">
-                  Redeem wallet points in step multiples
-                </p>
-              </div>
-              <Switch
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                className="mt-1 size-4 accent-primary"
                 checked={settings.masters.pointsRedeemEnabled}
-                onCheckedChange={(on) => {
+                onChange={(e) => {
                   if (!requireAdminPasscode()) return
-                  setExclusiveLoyaltyOffer("points", on)
+                  savePromoSettings({
+                    masters: {
+                      ...settings.masters,
+                      pointsRedeemEnabled: e.target.checked,
+                    },
+                  })
                   refreshSettings()
                 }}
               />
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium">Punch % promo</p>
-                <p className="text-xs text-muted-foreground">
-                  Full punch card → percent off order
-                </p>
-              </div>
-              <Switch
+              <span>
+                <span className="block text-sm font-medium">
+                  Points redemption
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  Redeem wallet points in step multiples
+                </span>
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                className="mt-1 size-4 accent-primary"
                 checked={settings.masters.punchPercentEnabled}
-                onCheckedChange={(on) => {
+                onChange={(e) => {
                   if (!requireAdminPasscode()) return
-                  setExclusiveLoyaltyOffer("punch_percent", on)
+                  savePromoSettings({
+                    masters: {
+                      ...settings.masters,
+                      punchPercentEnabled: e.target.checked,
+                    },
+                  })
                   refreshSettings()
                 }}
               />
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium">Free item promo</p>
-                <p className="text-xs text-muted-foreground">
-                  Full punch card → choose a free item
-                </p>
-              </div>
-              <Switch
+              <span>
+                <span className="block text-sm font-medium">Punch % promo</span>
+                <span className="text-xs text-muted-foreground">
+                  Full punch card → percent off order
+                </span>
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                className="mt-1 size-4 accent-primary"
                 checked={settings.masters.freeItemPromoEnabled}
-                onCheckedChange={(on) => {
+                onChange={(e) => {
                   if (!requireAdminPasscode()) return
-                  setExclusiveLoyaltyOffer("free_item", on)
+                  savePromoSettings({
+                    masters: {
+                      ...settings.masters,
+                      freeItemPromoEnabled: e.target.checked,
+                    },
+                  })
                   refreshSettings()
                 }}
               />
-            </div>
+              <span>
+                <span className="block text-sm font-medium">Free item promo</span>
+                <span className="text-xs text-muted-foreground">
+                  Full punch card → choose a free item
+                </span>
+              </span>
+            </label>
           </div>
         </TabsContent>
 
