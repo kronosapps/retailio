@@ -48,6 +48,14 @@
 4. UI: `/returns` (admin/manager). Dashboard full-refund dialog posts a full remaining return via the same service.
 5. Do not invent a parallel cash path — refund settlement still emits `REFUND_*` / `PAYMENT_REFUNDED` for Banking/Till/Accounting.
 
+## Pricing / promotions / coupons
+
+1. Resolve cart via `PricingService.priceOrder` (promo → coupon → F&F → occasion → loyalty). Never re-price historical invoices from today’s catalog.
+2. Persist `priceSnapshot` on each sale line; invoice `unitPricePaisa` = list at sale time, `lineTotalPaisa` = net.
+3. Manage promos/coupons and look up “why this price?” at `/utilities/pricing`.
+4. Product sell-price changes → `PricingService.recordPriceChange` (from `ProductService.update`).
+5. POS coupon field lives on the session; redeem count bumps only after payment succeeds.
+
 ### Bulk product import
 
 1. Download template / export via `ProductImportService.downloadTemplate()` / `downloadExport()`.

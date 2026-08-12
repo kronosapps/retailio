@@ -13,11 +13,11 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
-  calculateOrderTotals,
   clampDiscountPercent,
   discountConfig,
   getActiveOccasionDiscount,
 } from "@/data/discounts"
+import { PricingService } from "@/modules/pricing"
 import { peekNextInvoiceId } from "@/data/invoices"
 import {
   buildPosCatalog,
@@ -181,6 +181,7 @@ export function PosPage() {
     cart,
     applyOccasion,
     friendsFamilyPercent,
+    couponCode,
     discountTab,
     menuPanel,
     category,
@@ -220,6 +221,7 @@ export function PosPage() {
     }
 
     void loadCatalog()
+    void PricingService.hydrate()
     return () => {
       cancelled = true
     }
@@ -242,8 +244,6 @@ export function PosPage() {
   const fnfMax = discountConfig.friendsAndFamily.maxPercent
   const fnfPresets = discountConfig.friendsAndFamily.presets
   const selectedLoyaltyReward = getLoyaltyRewardItem(selectedLoyaltyRewardId)
-  const hasActiveDiscount =
-    (applyOccasion && Boolean(activeOccasion)) || friendsFamilyPercent > 0
   const hasActiveLoyaltyPercent = loyaltyMode === "percent"
   const hasActiveLoyaltyItem =
     loyaltyMode === "item" && Boolean(selectedLoyaltyReward)
@@ -262,28 +262,37 @@ export function PosPage() {
     [items]
   )
 
-  const totals = useMemo(
+  const priced = useMemo(
     () =>
-      calculateOrderTotals(
-        cart.map((line) => ({
-          unitPricePaisa: line.item.price,
+      PricingService.priceOrder({
+        lines: cart.map((line) => ({
+          itemId: line.item.itemId,
+          sku: line.item.sku || line.item.id,
+          name: line.item.name,
+          weight: line.item.weight,
           qty: line.qty,
+          listUnitPaisa: line.item.price,
+          isLoyaltyReward: line.isLoyaltyReward,
         })),
-        {
-          applyOccasion,
-          occasion: activeOccasion,
-          friendsFamilyPercent,
-          redeemLoyalty: hasActiveLoyaltyPercent,
-        }
-      ),
+        applyOccasion,
+        friendsFamilyPercent,
+        redeemLoyaltyPercent: hasActiveLoyaltyPercent,
+        couponCode: couponCode || null,
+      }),
     [
       cart,
       applyOccasion,
-      activeOccasion,
       friendsFamilyPercent,
       hasActiveLoyaltyPercent,
+      couponCode,
     ]
   )
+  const totals = priced.totals
+  const hasActiveDiscount =
+    (applyOccasion && Boolean(activeOccasion)) ||
+    friendsFamilyPercent > 0 ||
+    Boolean(couponCode.trim()) ||
+    totals.promotionalDiscount > 0
 
   const itemCount = sessionItemCount(session)
   const nextInvoiceId = useMemo(() => {
@@ -398,15 +407,16 @@ export function PosPage() {
         cashierName: profile?.displayName || profile?.email || null,
         storeId: profile?.storeId ?? null,
         customerName: "Walk-in",
-        lines: cart.map((line) => ({
-          itemId: line.item.itemId,
-          sku: line.item.sku || line.item.id,
-          name: line.item.name,
-          weight: line.item.weight,
+        lines: priced.lines.map((line) => ({
+          itemId: line.itemId,
+          sku: line.sku || line.itemId,
+          name: line.name,
+          weight: line.weight || "",
           qty: line.qty,
-          unitPricePaisa: line.item.price,
-          lineTotalPaisa: line.item.price * line.qty,
+          unitPricePaisa: line.unitPricePaisa,
+          lineTotalPaisa: line.lineTotalPaisa,
           isLoyaltyReward: line.isLoyaltyReward,
+          priceSnapshot: line.priceSnapshot,
         })),
         totals: {
           grossSubtotal: totals.grossSubtotal,
@@ -417,6 +427,8 @@ export function PosPage() {
           occasionName: totals.occasionName,
           loyaltyDiscount: totals.loyaltyDiscount,
           loyaltyLabel: totals.loyaltyLabel,
+          couponDiscount: totals.couponDiscount,
+          couponCode: totals.couponCode,
           taxableAmount: totals.taxableAmount,
           gstAmount: totals.gstAmount,
           gstPercent: totals.gstPercent,
@@ -438,8 +450,12 @@ export function PosPage() {
       updatePosSession(sessionId, { lastInvoiceId: sale.invoiceId })
       setInvoiceTick((tick) => tick + 1)
 
+      const redeemCode = totals.couponCode
       openPayment(InvoiceService.toPayable(sale), {
         onPaid: (invoiceId) => {
+          if (redeemCode) {
+            void PricingService.redeemCoupon(redeemCode)
+          }
           clearPosSession(sessionId)
           updatePosSession(sessionId, {
             lastInvoiceId: invoiceId,
@@ -592,11 +608,12 @@ export function PosPage() {
                     updateActivePosSession({ discountTab: value })
                   }
                 >
-                  <TabsList className="grid w-full grid-cols-2">
+                  <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="occasion">Occasion</TabsTrigger>
                     <TabsTrigger value="friends-family">
                       Friends & Family
                     </TabsTrigger>
+                    <TabsTrigger value="coupon">Coupon</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="occasion" className="mt-3 space-y-3">
@@ -703,6 +720,45 @@ export function PosPage() {
                         {friendsFamilyPercent}% off whole order (−
                         {formatMoney(totals.friendsFamilyDiscount)})
                       </p>
+                    ) : null}
+                  </TabsContent>
+
+                  <TabsContent value="coupon" className="mt-3 space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                      Enter a store coupon code. Applied after promotions, before
+                      Friends & Family / occasion / loyalty.
+                    </p>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="pos-coupon" className="text-xs">
+                        Coupon code
+                      </Label>
+                      <Input
+                        id="pos-coupon"
+                        value={couponCode}
+                        onChange={(event) =>
+                          updateActivePosSession({
+                            couponCode: event.target.value
+                              .trim()
+                              .toUpperCase(),
+                          })
+                        }
+                        placeholder="e.g. SAVE10"
+                        autoCapitalize="characters"
+                        disabled={cart.length === 0}
+                      />
+                    </div>
+                    {couponCode ? (
+                      totals.couponDiscount > 0 ? (
+                        <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
+                          Coupon {totals.couponCode} (−
+                          {formatMoney(totals.couponDiscount)})
+                        </p>
+                      ) : (
+                        <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+                          Code not applied — check validity, dates, or minimum
+                          spend.
+                        </p>
+                      )
                     ) : null}
                   </TabsContent>
                 </Tabs>

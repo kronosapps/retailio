@@ -36,6 +36,11 @@ export const LIVE_SHEET_EVENTS = new Set<EventType>([
   EventTypes.CREDIT_NOTE_ISSUED,
   EventTypes.CREDIT_NOTE_APPLIED,
   EventTypes.SALE_CANCELLED,
+  EventTypes.PROMOTION_CREATED,
+  EventTypes.PROMOTION_UPDATED,
+  EventTypes.COUPON_CREATED,
+  EventTypes.COUPON_UPDATED,
+  EventTypes.PRICE_CHANGED,
 ])
 
 /**

@@ -12,9 +12,16 @@ export type RecordedSaleLine = {
   name: string
   weight: string
   qty: number
+  /** List/catalog unit price at sale time (paisa). */
   unitPricePaisa: Paisa
+  /**
+   * Net line total after discounts (paisa).
+   * Legacy rows may equal unitPricePaisa × qty (pre-pricing-snapshot).
+   */
   lineTotalPaisa: Paisa
   isLoyaltyReward?: boolean
+  /** Frozen price explanation — do not re-resolve from today's catalog. */
+  priceSnapshot?: import("@/modules/pricing/types").PriceSnapshot | null
 }
 
 export type RecordedSale = {
@@ -43,6 +50,9 @@ export type RecordedSale = {
     occasionName: string | null
     loyaltyDiscount: Paisa
     loyaltyLabel: string | null
+    /** Coupon off (paisa); 0 when unused. */
+    couponDiscount?: Paisa
+    couponCode?: string | null
     taxableAmount: Paisa
     gstAmount: Paisa
     gstPercent: number
@@ -109,7 +119,15 @@ function normalizeSaleTotals(
 function normalizeSale(sale: RecordedSale): RecordedSale {
   return {
     ...sale,
-    totals: normalizeSaleTotals(sale.totals),
+    lines: (sale.lines || []).map((line) => ({
+      ...line,
+      priceSnapshot: line.priceSnapshot ?? null,
+    })),
+    totals: normalizeSaleTotals({
+      ...sale.totals,
+      couponDiscount: sale.totals?.couponDiscount ?? 0,
+      couponCode: sale.totals?.couponCode ?? null,
+    }),
   }
 }
 

@@ -72,6 +72,19 @@ export function buildReceiptText(ctx: ReceiptContext): string {
 
   lines.push("------------------------------")
   lines.push(`Subtotal: ${formatMoney(sale.totals.grossSubtotal)}`)
+  const promoOff = sale.lines.reduce((sum, line) => {
+    const snap = line.priceSnapshot
+    if (!snap) return sum
+    return sum + Math.max(0, snap.listLinePaisa - snap.promoLinePaisa)
+  }, 0)
+  if (promoOff > 0) {
+    lines.push(`Promotions: −${formatMoney(promoOff)}`)
+  }
+  if ((sale.totals.couponDiscount ?? 0) > 0) {
+    lines.push(
+      `Coupon ${sale.totals.couponCode ?? ""}: −${formatMoney(sale.totals.couponDiscount ?? 0)}`
+    )
+  }
   if (sale.totals.friendsFamilyDiscount > 0) {
     lines.push(
       `Friends & Family (${sale.totals.friendsFamilyPercent}%): −${formatMoney(sale.totals.friendsFamilyDiscount)}`

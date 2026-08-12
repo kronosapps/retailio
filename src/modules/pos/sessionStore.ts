@@ -20,6 +20,8 @@ export type PosSession = {
   cart: PosCartLine[]
   applyOccasion: boolean
   friendsFamilyPercent: number
+  /** Applied coupon code (uppercase); empty = none. */
+  couponCode: string
   discountTab: string
   menuPanel: PosMenuPanel
   category: MenuCategory
@@ -43,6 +45,7 @@ export function emptyPosSession(id: PosSessionId): PosSession {
     cart: [],
     applyOccasion: false,
     friendsFamilyPercent: 0,
+    couponCode: "",
     discountTab: "occasion",
     menuPanel: "menu",
     category: "All",
@@ -77,7 +80,8 @@ export function getPosSessionStore(): PosSessionStoreState {
 }
 
 export function getActivePosSession(): PosSession {
-  return state.sessions[state.activeSessionId]
+  const s = state.sessions[state.activeSessionId]
+  return { ...s, couponCode: s.couponCode ?? "" }
 }
 
 export function subscribePosSessions(listener: Listener) {
