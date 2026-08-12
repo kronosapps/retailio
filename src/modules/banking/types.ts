@@ -66,6 +66,9 @@ export type SetOpeningBalancesInput = {
   cashRupees: number
   upiRupees: number
   passcode: string
+  actorId?: string | null
+  actorName?: string | null
+  storeId?: string | null
 }
 
 export type ManualAdjustmentInput = {
@@ -75,4 +78,6 @@ export type ManualAdjustmentInput = {
   note: string
   passcode: string
   storeId?: string | null
+  actorId?: string | null
+  actorName?: string | null
 }

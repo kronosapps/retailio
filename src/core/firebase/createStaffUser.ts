@@ -2,7 +2,11 @@ import {
   createUserWithEmailAndPassword,
   deleteUser,
   getAuth,
+  signInWithEmailAndPassword,
   signOut,
+  updateEmail,
+  updatePassword,
+  updateProfile,
 } from "firebase/auth"
 import { doc, setDoc } from "firebase/firestore"
 import { deleteApp, getApp, initializeApp, type FirebaseApp } from "firebase/app"
@@ -18,7 +22,7 @@ import {
   isFirebaseConfigured,
 } from "./firebase"
 
-const SECONDARY_APP_NAME = "retailos-staff-create"
+const SECONDARY_APP_NAME = "retailos-staff-admin"
 
 function getOrInitSecondaryApp(): FirebaseApp {
   try {
@@ -36,6 +40,14 @@ function getOrInitSecondaryApp(): FirebaseApp {
       },
       SECONDARY_APP_NAME
     )
+  }
+}
+
+async function disposeSecondaryApp(app: FirebaseApp) {
+  try {
+    await deleteApp(app)
+  } catch {
+    // ignore
   }
 }
 
@@ -108,10 +120,71 @@ export async function createFirebaseStaffUser(
     }
     throw toAppFirebaseError(error)
   } finally {
-    try {
-      await deleteApp(secondaryApp)
-    } catch {
-      // ignore
+    await disposeSecondaryApp(secondaryApp)
+  }
+}
+
+export type UpdateFirebaseStaffAuthInput = {
+  id: string
+  /** Current login email (from profile). */
+  currentEmail: string
+  /** Required to change username or passcode on Spark (no Admin SDK). */
+  currentPasscode: string
+  username: string
+  email: string
+  displayName: string
+  /** When set, replaces Auth password. */
+  newPasscode?: string | null
+}
+
+/**
+ * Update another staff Auth user on Spark by signing into a secondary app
+ * with their current passcode (no Cloud Functions / Blaze).
+ */
+export async function updateFirebaseStaffAuth(
+  input: UpdateFirebaseStaffAuthInput
+): Promise<void> {
+  if (!isFirebaseConfigured) {
+    throw new AppFirebaseError(
+      "firebase/not-configured",
+      "Firebase is not configured."
+    )
+  }
+
+  const secondaryApp = getOrInitSecondaryApp()
+  const secondaryAuth = getAuth(secondaryApp)
+
+  try {
+    const credential = await signInWithEmailAndPassword(
+      secondaryAuth,
+      input.currentEmail,
+      input.currentPasscode
+    )
+    if (credential.user.uid !== input.id) {
+      await signOut(secondaryAuth)
+      throw new AppFirebaseError(
+        "auth/uid-mismatch",
+        "Current passcode does not match this staff account."
+      )
     }
+
+    await updateProfile(credential.user, { displayName: input.displayName })
+
+    if (input.email !== input.currentEmail) {
+      await updateEmail(credential.user, input.email)
+    }
+
+    if (input.newPasscode) {
+      await updatePassword(credential.user, input.newPasscode)
+    }
+
+    await signOut(secondaryAuth)
+  } catch (error) {
+    if (secondaryAuth.currentUser) {
+      await signOut(secondaryAuth).catch(() => undefined)
+    }
+    throw toAppFirebaseError(error)
+  } finally {
+    await disposeSecondaryApp(secondaryApp)
   }
 }

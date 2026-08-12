@@ -59,6 +59,8 @@ export class InvoiceRepository {
         paymentStatus: sale.paymentStatus,
         createdAt: sale.createdAt,
         storeId: sale.storeId,
+        cashierId: sale.cashierId ?? null,
+        cashierName: sale.cashierName ?? null,
         taxableAmount: paisaToRupees(sale.totals.taxableAmount),
         sgstPercent: sale.totals.sgstPercent,
         sgstAmount: paisaToRupees(sale.totals.sgstAmount),
@@ -68,6 +70,12 @@ export class InvoiceRepository {
         gstAmount: paisaToRupees(sale.totals.gstAmount),
         total: paisaToRupees(sale.totals.total),
         totalPaisa: sale.totals.total,
+        discountPaisa:
+          (sale.totals.friendsFamilyDiscount || 0) +
+          (sale.totals.occasionDiscount || 0) +
+          (sale.totals.loyaltyDiscount || 0) +
+          (sale.totals.couponDiscount || 0) +
+          (sale.totals.pointsDiscount || 0),
       },
       sale.storeId
     )

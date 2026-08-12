@@ -4,8 +4,13 @@ import {
   doc,
   getDoc,
   getDocs,
+  onSnapshot,
+  query,
   setDoc,
+  where,
   type DocumentData,
+  type Unsubscribe,
+  type WhereFilterOp,
 } from "firebase/firestore"
 
 import { db, isFirebaseConfigured } from "@/core/firebase"
@@ -79,6 +84,55 @@ export async function listDocuments<T extends DocumentData>(
       )
     }
     return null
+  }
+}
+
+export type SubscribeWhere = {
+  field: string
+  op: WhereFilterOp
+  value: unknown
+}
+
+/**
+ * Live query subscription. Returns no-op unsubscribe when Firebase is unset.
+ * Errors are logged; callback is not invoked on failure (keep local cache).
+ */
+export function subscribeQueryDocuments<T extends DocumentData>(
+  collectionName: string,
+  filters: SubscribeWhere[],
+  onData: (rows: T[]) => void
+): Unsubscribe {
+  if (!isFirebaseConfigured || !db) return () => undefined
+
+  try {
+    const constraints = filters.map((f) => where(f.field, f.op, f.value))
+    const q = query(collection(db, collectionName), ...constraints)
+    return onSnapshot(
+      q,
+      (snap) => {
+        onData(
+          snap.docs.map(
+            (item) => ({ id: item.id, ...item.data() }) as unknown as T
+          )
+        )
+      },
+      (error) => {
+        if (import.meta.env.DEV) {
+          console.warn(
+            `[RetailOS] Firestore subscribe skipped for ${collectionName}`,
+            error
+          )
+        }
+      }
+    )
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.warn(
+        `[RetailOS] Firestore subscribe setup failed for ${collectionName}`,
+        error
+      )
+    }
+    return () => undefined
   }
 }
 

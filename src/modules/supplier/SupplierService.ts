@@ -44,7 +44,17 @@ export class SupplierService {
     if (!input.name.trim()) {
       throw new SupplierError("VALIDATION", "Supplier name is required.")
     }
-    return supplierRepository.create(input, actorId)
+    try {
+      return await supplierRepository.create(input, actorId)
+    } catch (err) {
+      if (
+        err instanceof Error &&
+        /already exists/i.test(err.message)
+      ) {
+        throw new SupplierError("VALIDATION", err.message)
+      }
+      throw err
+    }
   }
 
   static save(record: SupplierRecord, isNew = false) {

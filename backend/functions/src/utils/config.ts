@@ -1,5 +1,5 @@
 /**
- * Backend-only WhatsApp credentials.
+ * Backend-only WhatsApp / Telegram credentials.
  * Never expose these to the Vite frontend.
  */
 export function whatsappConfig() {
@@ -14,4 +14,16 @@ export function whatsappConfig() {
 export function isWhatsAppConfigured(): boolean {
   const cfg = whatsappConfig()
   return Boolean(cfg.phoneNumberId && cfg.accessToken)
+}
+
+export function telegramConfig() {
+  return {
+    botToken: process.env.TELEGRAM_BOT_TOKEN || "",
+    /** Optional default chat when notification meta omits chat id. */
+    defaultChatId: process.env.TELEGRAM_CHAT_ID || "",
+  }
+}
+
+export function isTelegramConfigured(): boolean {
+  return Boolean(telegramConfig().botToken)
 }

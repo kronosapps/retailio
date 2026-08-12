@@ -4,6 +4,7 @@ import {
   getCachedStoreSettings,
 } from "@/data/storeSettings"
 import type { StoreSettingsRecord } from "@/modules/notifications/types/notification"
+import { AuditService } from "@/modules/audit"
 
 import { getDocument, upsertDocument } from "./firestoreHelpers"
 
@@ -69,6 +70,19 @@ export class StoreSettingsRepository {
 
     cacheStoreSettings(safe)
     await upsertDocument(COLLECTION, safe.id, safe)
+    void AuditService.record({
+      kind: "SETTINGS_CHANGED",
+      message: `Store settings updated · ${safe.businessName || storeId}`,
+      actorId,
+      storeId,
+      entityType: "settings",
+      entityId: safe.id,
+      after: {
+        businessName: safe.businessName,
+        whatsappBusinessNumber: safe.whatsappBusinessNumber,
+        storeGst: safe.storeGst,
+      },
+    })
     return safe
   }
 }

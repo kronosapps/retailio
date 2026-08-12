@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react"
-import { Link } from "react-router-dom"
+import { useEffect, useMemo, useState } from "react"
+import { Link, useSearchParams } from "react-router-dom"
 import { Plus, Trash2 } from "lucide-react"
 
 import { MobileListCard, ResponsiveList } from "@/components/ResponsiveList"
@@ -52,6 +52,8 @@ function newBillLine(defaultGst: number): BillLine {
  */
 export function PurchaseInvoicesView() {
   const { userId } = useAuth()
+  const [searchParams] = useSearchParams()
+  const supplierParam = (searchParams.get("supplierId") || "").trim()
   const [tick, setTick] = useState(0)
   const [createOpen, setCreateOpen] = useState(false)
   const [createMode, setCreateMode] = useState<CreateMode>("grn")
@@ -61,7 +63,7 @@ export function PurchaseInvoicesView() {
   const [defaultGstRate, setDefaultGstRate] = useState(
     String(taxConfig.gst.percent || 0)
   )
-  const [supplierId, setSupplierId] = useState("")
+  const [supplierId, setSupplierId] = useState(supplierParam)
   const [billLines, setBillLines] = useState<BillLine[]>([
     newBillLine(taxConfig.gst.percent || 0),
   ])
@@ -73,11 +75,24 @@ export function PurchaseInvoicesView() {
   const [payMethod, setPayMethod] = useState<"Cash" | "UPI">("Cash")
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [focusSupplierId, setFocusSupplierId] = useState(supplierParam)
+
+  useEffect(() => {
+    if (!supplierParam) return
+    setFocusSupplierId(supplierParam)
+    setSupplierId(supplierParam)
+  }, [supplierParam])
 
   const invoices = useMemo(() => {
     void tick
-    return SupplierInvoiceService.list()
-  }, [tick])
+    const list = SupplierInvoiceService.list()
+    if (!focusSupplierId) return list
+    return [...list].sort((a, b) => {
+      const aHit = a.supplierId === focusSupplierId ? 0 : 1
+      const bHit = b.supplierId === focusSupplierId ? 0 : 1
+      return aHit - bHit
+    })
+  }, [tick, focusSupplierId])
 
   const unbilled = useMemo(() => {
     void tick
@@ -225,6 +240,12 @@ export function PurchaseInvoicesView() {
 
   return (
     <div className="space-y-4">
+      {focusSupplierId ? (
+        <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-950 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-50">
+          Showing supplier from alert ·{" "}
+          <span className="font-mono text-xs">{focusSupplierId}</span>
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-lg font-semibold">Purchase Invoices</h2>

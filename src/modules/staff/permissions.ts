@@ -1,5 +1,6 @@
 import type { UserRole } from "@/types/user"
 import { canAccessUtilityPath } from "@/modules/utilities/catalog"
+import { canAccessSettingsPath } from "@/modules/settings/catalog"
 
 export type StaffNavItem = {
   to: string
@@ -12,6 +13,7 @@ export const STAFF_NAV_ITEMS: StaffNavItem[] = [
   { to: "/", label: "Dashboard", roles: ["admin", "manager"] },
   { to: "/pos", label: "POS", roles: ["admin", "manager", "cashier"] },
   { to: "/shifts", label: "Shifts", roles: ["admin", "manager", "cashier"] },
+  { to: "/day-ops", label: "Day Ops", roles: ["admin", "manager"] },
   { to: "/returns", label: "Returns", roles: ["admin", "manager"] },
   { to: "/inventory", label: "Inventory", roles: ["admin", "manager"] },
   { to: "/purchasing", label: "Purchasing", roles: ["admin", "manager"] },
@@ -20,8 +22,8 @@ export const STAFF_NAV_ITEMS: StaffNavItem[] = [
   { to: "/reports", label: "Reports", roles: ["admin", "manager"] },
   { to: "/utilities", label: "Utilities", roles: ["admin", "manager"] },
   { to: "/banking", label: "Banking", roles: ["admin"] },
-  { to: "/options", label: "Admin Options", roles: ["admin"] },
-  { to: "/staff", label: "Staff", roles: ["admin"] },
+  { to: "/settings", label: "Settings", roles: ["admin"] },
+  { to: "/staff", label: "Staff management", roles: ["admin"] },
 ]
 
 export function isAdmin(role: UserRole | null | undefined): boolean {
@@ -58,6 +60,10 @@ export function canAccessPath(
     return isManagerOrAbove(role)
   }
 
+  if (path === "/day-ops" || path.startsWith("/day-ops/")) {
+    return isManagerOrAbove(role)
+  }
+
   if (path === "/inventory" || path.startsWith("/inventory/")) {
     return isManagerOrAbove(role)
   }
@@ -72,6 +78,15 @@ export function canAccessPath(
 
   if (path === "/utilities" || path.startsWith("/utilities/")) {
     return canAccessUtilityPath(role, path)
+  }
+
+  if (path === "/settings" || path.startsWith("/settings/")) {
+    return canAccessSettingsPath(role, path)
+  }
+
+  // Legacy bookmark
+  if (path === "/options") {
+    return role === "admin"
   }
 
   return navItemsForRole(role).some((item) => item.to === path)

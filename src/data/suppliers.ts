@@ -3,6 +3,8 @@
  * Firestore + Sheets sync happens via SupplierRepository after writes.
  */
 
+import { normalizeNameKey } from "@/modules/masterData/normalizeNameKey"
+
 export type SupplierRecord = {
   id: string
   name: string
@@ -124,6 +126,16 @@ export function listLocalSuppliers(options?: {
 
 export function getLocalSupplier(id: string): SupplierRecord | null {
   return readStore().items.find((item) => item.id === id) ?? null
+}
+
+export function findLocalSupplierByName(name: string): SupplierRecord | null {
+  const needle = normalizeNameKey(name)
+  if (!needle) return null
+  return (
+    readStore().items.find(
+      (item) => normalizeNameKey(item.name) === needle
+    ) ?? null
+  )
 }
 
 export function upsertLocalSupplier(record: SupplierRecord): SupplierRecord {

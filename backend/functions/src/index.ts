@@ -14,6 +14,8 @@ admin.initializeApp()
 
 export { createStaff } from "./staff/createStaff"
 export { listStaff } from "./staff/listStaff"
+export { updateStaff } from "./staff/updateStaff"
+export { deleteStaff } from "./staff/deleteStaff"
 
 /**
  * When a payment becomes Paid, queue a WhatsApp receipt notification.

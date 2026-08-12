@@ -10,6 +10,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
+import { SoftAlertsBell } from "@/modules/notifications/components/SoftAlertsBell"
 import { navItemsForRole, roleLabel } from "@/modules/staff"
 import { useAuth } from "@/providers/AuthProvider"
 
@@ -83,6 +84,7 @@ export function PosLayout() {
         </div>
 
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <SoftAlertsBell />
           <div className="min-w-0 text-right">
             <p className="truncate text-sm font-medium">
               {profile?.displayName || profile?.username || "Staff"}

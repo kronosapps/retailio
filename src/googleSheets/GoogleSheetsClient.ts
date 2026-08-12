@@ -3,21 +3,23 @@
  * ONLY the Google Sheets sync provider may use this — never React or modules.
  *
  * POST body shape:
- * { action: "insert" | "update", sheet: string, data: object }
- * { action: "batchInsert", sheet: string, rows: object[] }
+ * { action: "insert" | "update" | "upsert", sheet: string, data: object, keyField?: string }
+ * { action: "batchInsert" | "batchUpsert", sheet: string, rows: object[], keyField?: string }
  */
 import { env } from "@/core/config/env"
 
 export type GoogleSheetsRequest =
   | {
-      action: "insert" | "update"
+      action: "insert" | "update" | "upsert"
       sheet: string
       data: Record<string, unknown>
+      keyField?: string
     }
   | {
-      action: "batchInsert"
+      action: "batchInsert" | "batchUpsert"
       sheet: string
       rows: Record<string, unknown>[]
+      keyField?: string
     }
 
 export function getGoogleScriptUrl(): string {

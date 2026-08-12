@@ -1,5 +1,6 @@
 import { EventSubscriber } from "@/events/EventSubscriber"
 import { EventTypes, type DomainEvent } from "@/events/EventTypes"
+import { SaleTransactionService } from "@/modules/saleTransaction"
 import { invoiceRepository } from "@/repositories/InvoiceRepository"
 
 import { InventoryService } from "./InventoryService"
@@ -52,10 +53,15 @@ export class InventoryEngine {
         payload.createdBy ?? null,
         null
       )
+      await SaleTransactionService.finalizeStock(invoiceId)
     } catch (err) {
       if (import.meta.env.DEV) {
         console.warn("[InventoryEngine] sale stock deduct failed", err)
       }
+      await SaleTransactionService.fail(
+        invoiceId,
+        err instanceof Error ? err.message : "Stock deduct failed"
+      )
     }
   }
 }

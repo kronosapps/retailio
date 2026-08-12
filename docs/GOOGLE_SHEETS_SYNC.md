@@ -62,14 +62,17 @@ invoiceNumber | transactionReference | paymentId | amount | paymentMethod | stat
 /**
  * RetailOS → Google Sheets webhook
  * Expects POST JSON:
- * { action: "insert", sheet: "Payments", data: { ... } }
- * { action: "batchInsert", sheet: "Payments", rows: [ {...}, ... ] }
+ * { action: "insert" | "upsert", sheet: "Payments", data: { ... }, keyField?: "paymentId" }
+ * { action: "batchInsert" | "batchUpsert", sheet: "Payments", rows: [ {...}, ... ], keyField?: "paymentId" }
+ *
+ * Upsert is required for production — retries must not create duplicate payments.
  */
 function doPost(e) {
   try {
     var body = JSON.parse(e.postData.contents);
     var sheetName = body.sheet || "Sheet1";
     var action = body.action || "insert";
+    var keyField = body.keyField || null;
 
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName(sheetName);
@@ -77,12 +80,19 @@ function doPost(e) {
       sheet = ss.insertSheet(sheetName);
     }
 
-    if (action === "batchInsert") {
+    if (action === "batchUpsert") {
+      var upsertRows = body.rows || [];
+      for (var u = 0; u < upsertRows.length; u++) {
+        upsertObjectRow(sheet, upsertRows[u] || {}, keyField);
+      }
+    } else if (action === "batchInsert") {
       var rows = body.rows || [];
       for (var i = 0; i < rows.length; i++) {
         appendObjectRow(sheet, rows[i] || {});
       }
-    } else if (action === "insert" || action === "update") {
+    } else if (action === "upsert" || action === "update") {
+      upsertObjectRow(sheet, body.data || {}, keyField);
+    } else if (action === "insert") {
       appendObjectRow(sheet, body.data || {});
     }
 
@@ -96,38 +106,88 @@ function doPost(e) {
   }
 }
 
-function appendObjectRow(sheet, data) {
+function ensureHeaders(sheet, data) {
   var keys = Object.keys(data);
-  if (keys.length === 0) return;
-
-  // If sheet is empty, write headers first
+  if (keys.length === 0) return [];
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(keys.concat(["syncedAt"]));
   }
+  return sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+}
 
-  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  var row = headers.map(function (header) {
+function appendObjectRow(sheet, data) {
+  var headers = ensureHeaders(sheet, data);
+  if (!headers.length) return;
+  sheet.appendRow(buildRow(headers, data));
+}
+
+/** Find row by keyField and overwrite; else append. */
+function upsertObjectRow(sheet, data, keyField) {
+  var headers = ensureHeaders(sheet, data);
+  if (!headers.length) return;
+
+  var key = keyField || guessKeyField(data);
+  if (!key || data[key] === undefined || data[key] === null || data[key] === "") {
+    appendObjectRow(sheet, data);
+    return;
+  }
+
+  var keyCol = headers.indexOf(key);
+  if (keyCol < 0) {
+    // Key column missing — add it then append.
+    appendObjectRow(sheet, data);
+    return;
+  }
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    var values = sheet.getRange(2, keyCol + 1, lastRow, keyCol + 1).getValues();
+    var target = String(data[key]);
+    for (var r = 0; r < values.length; r++) {
+      if (String(values[r][0]) === target) {
+        var rowIndex = r + 2;
+        var row = buildRow(headers, data);
+        sheet.getRange(rowIndex, 1, rowIndex, headers.length).setValues([row]);
+        return;
+      }
+    }
+  }
+  sheet.appendRow(buildRow(headers, data));
+}
+
+function guessKeyField(data) {
+  if (data.paymentId) return "paymentId";
+  if (data.invoiceId) return "invoiceId";
+  if (data.refundId) return "refundId";
+  if (data.sku) return "sku";
+  if (data.id) return "id";
+  return null;
+}
+
+function buildRow(headers, data) {
+  return headers.map(function (header) {
     if (header === "syncedAt") return new Date().toISOString();
     var value = data[header];
     if (value === null || value === undefined) return "";
     if (typeof value === "object") return JSON.stringify(value);
     return value;
   });
-  sheet.appendRow(row);
 }
 
 /** Manual smoke test from the Apps Script editor */
 function testAppend() {
-  appendObjectRow(
+  upsertObjectRow(
     SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Payments"),
     {
+      paymentId: "PAY-TEST",
       invoiceNumber: "INV-TEST",
       transactionReference: "INV-TEST",
       amount: 100,
       paymentMethod: "UPI",
       status: "Paid",
       paidAt: new Date().toISOString(),
-    }
+    },
+    "paymentId"
   );
 }
 ```

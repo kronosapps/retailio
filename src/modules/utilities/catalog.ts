@@ -2,6 +2,7 @@ import type { UserRole } from "@/types/user"
 
 export type UtilityGroupId =
   | "setup"
+  | "master-data"
   | "daily"
   | "accounting"
   | "analysis"
@@ -12,9 +13,18 @@ export type UtilityToolId =
   | "financial-year"
   | "barcode"
   | "recycle-bin"
+  | "master-data"
+  | "master-brands"
+  | "master-units"
+  | "master-tax-rates"
+  | "master-payment-methods"
   | "daybook"
   | "all-transactions"
+  | "accounting"
+  | "chart-of-accounts"
+  | "manual-journal"
   | "trial-balance"
+  | "profit-loss"
   | "balance-sheet"
   | "cash-flow"
   | "account-statement"
@@ -24,6 +34,9 @@ export type UtilityToolId =
   | "report-expense"
   | "expense-create"
   | "erp-chain"
+  | "audit-log"
+  | "sync-center"
+  | "backup-recovery"
   | "pricing"
   | "gst"
   | "tcs"
@@ -43,6 +56,7 @@ export const UTILITY_GROUPS: {
   title: string
 }[] = [
   { id: "setup", title: "Business & Setup" },
+  { id: "master-data", title: "Master Data" },
   { id: "daily", title: "Daily Operations" },
   { id: "accounting", title: "Accounting" },
   { id: "analysis", title: "Analysis" },
@@ -83,6 +97,46 @@ export const UTILITY_TOOLS: UtilityTool[] = [
     roles: ["admin"],
   },
   {
+    id: "master-data",
+    group: "master-data",
+    title: "Master Data Hub",
+    description: "Products, categories, brands, units, tax & more",
+    path: "/utilities/master-data",
+    roles: ["admin", "manager"],
+  },
+  {
+    id: "master-brands",
+    group: "master-data",
+    title: "Brands",
+    description: "Canonical brand names (case-insensitive)",
+    path: "/utilities/master-data/brands",
+    roles: ["admin", "manager"],
+  },
+  {
+    id: "master-units",
+    group: "master-data",
+    title: "Units",
+    description: "Units of measure (g, kg, pcs, …)",
+    path: "/utilities/master-data/units",
+    roles: ["admin", "manager"],
+  },
+  {
+    id: "master-tax-rates",
+    group: "master-data",
+    title: "Tax Rates",
+    description: "GST slabs for catalog & POS",
+    path: "/utilities/master-data/tax-rates",
+    roles: ["admin", "manager"],
+  },
+  {
+    id: "master-payment-methods",
+    group: "master-data",
+    title: "Payment Methods",
+    description: "Enable or label Cash / UPI / On account",
+    path: "/utilities/master-data/payment-methods",
+    roles: ["admin"],
+  },
+  {
     id: "daybook",
     group: "daily",
     title: "Daybook",
@@ -99,11 +153,43 @@ export const UTILITY_TOOLS: UtilityTool[] = [
     roles: ["admin", "manager"],
   },
   {
+    id: "accounting",
+    group: "accounting",
+    title: "Accounting Hub",
+    description: "Single-company GL map, pipelines & reports",
+    path: "/utilities/accounting",
+    roles: ["admin", "manager"],
+  },
+  {
+    id: "chart-of-accounts",
+    group: "accounting",
+    title: "Chart of Accounts",
+    description: "Ledger codes for the retail CoA",
+    path: "/utilities/chart-of-accounts",
+    roles: ["admin", "manager"],
+  },
+  {
+    id: "manual-journal",
+    group: "accounting",
+    title: "Manual Journal",
+    description: "Post balanced adjusting entries",
+    path: "/utilities/manual-journal",
+    roles: ["admin"],
+  },
+  {
     id: "trial-balance",
     group: "accounting",
     title: "Trial Balance",
     description: "Debit/credit balances by account",
     path: "/utilities/trial-balance",
+    roles: ["admin", "manager"],
+  },
+  {
+    id: "profit-loss",
+    group: "accounting",
+    title: "Profit & Loss",
+    description: "Income, expenses, gross & net profit",
+    path: "/utilities/profit-loss",
     roles: ["admin", "manager"],
   },
   {
@@ -179,6 +265,30 @@ export const UTILITY_TOOLS: UtilityTool[] = [
     roles: ["admin", "manager"],
   },
   {
+    id: "audit-log",
+    group: "daily",
+    title: "Audit log",
+    description: "Who changed prices, stock, discounts, refunds, settings",
+    path: "/utilities/audit",
+    roles: ["admin", "manager"],
+  },
+  {
+    id: "sync-center",
+    group: "daily",
+    title: "Sync Center",
+    description: "Pending, failed, dead letter, incomplete sales & retry",
+    path: "/utilities/sync",
+    roles: ["admin", "manager"],
+  },
+  {
+    id: "backup-recovery",
+    group: "setup",
+    title: "Backup & Recovery",
+    description: "Database / domain exports — admin only; Sheets is not backup",
+    path: "/utilities/backup",
+    roles: ["admin"],
+  },
+  {
     id: "pricing",
     group: "daily",
     title: "Promotions Management",
@@ -190,8 +300,9 @@ export const UTILITY_TOOLS: UtilityTool[] = [
   {
     id: "gst",
     group: "statutory",
-    title: "GST Reports",
-    description: "Operational GST summary from invoices",
+    title: "GST / Tax Billing",
+    description:
+      "HSN, rates, CGST/SGST/IGST, B2B/B2C, tax credit notes — filing placeholders",
     path: "/utilities/gst",
     roles: ["admin", "manager"],
   },

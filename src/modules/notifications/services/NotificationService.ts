@@ -53,7 +53,12 @@ export class NotificationService {
   static analytics(storeId: string | null = null): NotificationAnalytics {
     const items = notificationRepository
       .list()
-      .filter((n) => !storeId || !n.storeId || n.storeId === storeId)
+      .filter(
+        (n) =>
+          n.channel !== "in_app" &&
+          n.audience !== "staff" &&
+          (!storeId || !n.storeId || n.storeId === storeId)
+      )
 
     const today = startOfToday().getTime()
     const sentToday = items.filter(

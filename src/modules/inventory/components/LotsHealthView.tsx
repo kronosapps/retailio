@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "react-router-dom"
 
 import { MobileListCard, ResponsiveList } from "@/components/ResponsiveList"
 import { Button } from "@/components/ui/button"
@@ -14,15 +15,23 @@ type Section = "lots" | "expiry" | "reorder" | "health"
  */
 export function LotsHealthView() {
   const { userId, profile } = useAuth()
-  const [section, setSection] = useState<Section>("expiry")
+  const [searchParams] = useSearchParams()
+  const skuParam = (searchParams.get("sku") || "").trim().toUpperCase()
+  const [section, setSection] = useState<Section>(skuParam ? "lots" : "expiry")
   const [tick, setTick] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  useEffect(() => {
+    if (skuParam) setSection("lots")
+  }, [skuParam])
+
   const lots = useMemo(() => {
     void tick
-    return InventoryService.listLots().filter((l) => l.quantity > 0)
-  }, [tick])
+    const all = InventoryService.listLots().filter((l) => l.quantity > 0)
+    if (!skuParam) return all
+    return all.filter((l) => l.sku.toUpperCase() === skuParam)
+  }, [tick, skuParam])
 
   const alerts = useMemo(() => {
     void tick

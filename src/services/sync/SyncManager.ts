@@ -1,9 +1,11 @@
 import { EventSubscriber } from "@/events/EventSubscriber"
+import { EventPublisher } from "@/events/EventPublisher"
 import { EventTypes, type DomainEvent } from "@/events/EventTypes"
 
 import { googleSheetsSyncProvider } from "./GoogleSheetsSyncProvider"
 import { retryManager } from "./RetryManager"
 import { shouldEnqueueLiveSheetSync } from "./syncPolicy"
+import { syncIdempotencyKey, sheetUpsertKeyField } from "./syncIdempotency"
 import { syncQueue, type SyncQueueItem } from "./SyncQueue"
 import type { SyncProvider } from "./SyncProvider"
 
@@ -338,6 +340,9 @@ export class SyncManager {
     if (this.started) return
     this.started = true
 
+    syncQueue.recoverStaleSyncing()
+    syncQueue.pruneCompleted()
+
     this.subscriber.on("*", (event) => {
       this.enqueueFromEvent(event)
       void this.processQueue()
@@ -361,6 +366,32 @@ export class SyncManager {
     this.providers.push(provider)
   }
 
+  /** Force a drain pass (Sync Center / Options). */
+  processNow() {
+    return this.processQueue()
+  }
+
+  retryDeadLetter(id: string) {
+    const item = syncQueue.requeueDeadLetter(id, { resetRetries: true })
+    if (item) void this.processQueue()
+    return item
+  }
+
+  retryAllDeadLetters() {
+    const dead = syncQueue.listDeadLetters()
+    const revived = dead
+      .map((item) =>
+        syncQueue.requeueDeadLetter(item.id, { resetRetries: true })
+      )
+      .filter(Boolean)
+    if (revived.length > 0) void this.processQueue()
+    return revived.length
+  }
+
+  getItem(id: string) {
+    return syncQueue.getById(id)
+  }
+
   private enqueueFromEvent(event: DomainEvent) {
     // Invoices / payments / refunds / customers wait for End of Day.
     if (!shouldEnqueueLiveSheetSync(event.type)) return
@@ -368,12 +399,15 @@ export class SyncManager {
     const route = ROUTES[event.type]
     if (!route) return
 
+    const key = syncIdempotencyKey(event.type, event.payload)
+    const upsertKey = sheetUpsertKeyField(route.sheet)
     syncQueue.enqueue({
-      action: "insert",
+      action: upsertKey ? "upsert" : "insert",
       sheet: route.sheet,
       data: event.payload,
       eventType: event.type,
       eventId: event.id,
+      idempotencyKey: key,
     })
   }
 
@@ -422,6 +456,12 @@ export class SyncManager {
 
       if (retryManager.shouldRetry(retries)) {
         syncQueue.update(item.id, {
+          status: "Failed",
+          retries,
+          error: message,
+        })
+        // Brief Failed visibility, then Retrying for the next attempt.
+        syncQueue.update(item.id, {
           status: "Retrying",
           retries,
           error: message,
@@ -431,6 +471,19 @@ export class SyncManager {
         if (fresh) await this.processItem({ ...fresh, retries })
       } else {
         syncQueue.moveToDeadLetter({ ...item, retries }, message)
+        await EventPublisher.publish(
+          EventTypes.SYNC_FAILED,
+          {
+            queueId: item.id,
+            eventType: item.eventType,
+            eventId: item.eventId,
+            sheet: item.sheet,
+            error: message,
+            retries,
+            idempotencyKey: item.idempotencyKey,
+          },
+          null
+        )
       }
     }
   }

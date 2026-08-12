@@ -22,6 +22,8 @@ export type RecordedSaleLine = {
   isLoyaltyReward?: boolean
   /** Frozen price explanation — do not re-resolve from today's catalog. */
   priceSnapshot?: import("@/modules/pricing/types").PriceSnapshot | null
+  /** Frozen line GST — HSN, rate, CGST/SGST/IGST. */
+  taxSnapshot?: import("@/modules/gst/types").LineTaxSnapshot | null
 }
 
 export type RecordedSale = {
@@ -66,7 +68,19 @@ export type RecordedSale = {
     sgstAmount: Paisa
     cgstPercent: number
     sgstPercent: number
+    /** Interstate GST (0 when intra-state CGST+SGST). */
+    igstAmount?: Paisa
+    igstPercent?: number
     total: Paisa
+  }
+  /** GST document identity frozen at sale time. */
+  tax?: {
+    pricingMode: "INCLUSIVE" | "EXCLUSIVE"
+    supplyType: "INTRA" | "INTER"
+    partyType: "B2B" | "B2C"
+    placeOfSupply: string
+    customerGstin: string | null
+    storeGstin: string | null
   }
   loyalty: {
     mode: "off" | "percent" | "item"
@@ -126,6 +140,10 @@ function normalizeSaleTotals(
     gstAmount,
     cgstAmount,
     sgstAmount,
+    igstAmount:
+      typeof totals.igstAmount === "number" ? totals.igstAmount : 0,
+    igstPercent:
+      typeof totals.igstPercent === "number" ? totals.igstPercent : 0,
     cgstPercent:
       typeof totals.cgstPercent === "number" ? totals.cgstPercent : 2.5,
     sgstPercent:

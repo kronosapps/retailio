@@ -4,6 +4,7 @@
  */
 
 import type { CategoryRecord } from "@/modules/inventory/types"
+import { normalizeNameKey } from "@/modules/masterData/normalizeNameKey"
 
 const STORAGE_KEY = "retailos.categories.v1"
 
@@ -22,7 +23,13 @@ function readStore(): CategoryStore {
     if (!raw) return emptyStore()
     const parsed = JSON.parse(raw) as Partial<CategoryStore>
     if (!Array.isArray(parsed.items)) return emptyStore()
-    return { version: 1, items: parsed.items as CategoryRecord[] }
+    return {
+      version: 1,
+      items: parsed.items.map((item) => ({
+        ...item,
+        nameKey: item.nameKey || normalizeNameKey(item.name || ""),
+      })) as CategoryRecord[],
+    }
   } catch {
     return emptyStore()
   }
@@ -43,20 +50,27 @@ export function getLocalCategory(id: string): CategoryRecord | null {
 }
 
 export function findLocalCategoryByName(name: string): CategoryRecord | null {
-  const needle = name.trim().toLowerCase()
+  const needle = normalizeNameKey(name)
+  if (!needle) return null
   return (
-    readStore().items.find((item) => item.name.trim().toLowerCase() === needle) ??
-    null
+    readStore().items.find(
+      (item) => (item.nameKey || normalizeNameKey(item.name)) === needle
+    ) ?? null
   )
 }
 
 export function upsertLocalCategory(record: CategoryRecord): CategoryRecord {
   const store = readStore()
-  const index = store.items.findIndex((item) => item.id === record.id)
-  if (index >= 0) store.items[index] = record
-  else store.items.push(record)
+  const next: CategoryRecord = {
+    ...record,
+    name: record.name.trim(),
+    nameKey: normalizeNameKey(record.name),
+  }
+  const index = store.items.findIndex((item) => item.id === next.id)
+  if (index >= 0) store.items[index] = next
+  else store.items.push(next)
   writeStore(store)
-  return record
+  return next
 }
 
 export function replaceLocalCategories(items: CategoryRecord[]) {

@@ -50,4 +50,4 @@ export {
 } from "./errors"
 
 export { fetchUserProfile } from "./userProfile"
-export { createFirebaseStaffUser } from "./createStaffUser"
+export { createFirebaseStaffUser, updateFirebaseStaffAuth } from "./createStaffUser"

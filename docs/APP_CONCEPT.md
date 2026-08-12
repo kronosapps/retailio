@@ -110,7 +110,8 @@ Canonical docs: [`ARCHITECTURE.md`](./ARCHITECTURE.md), [`DEVELOPER_GUIDE.md`](.
 | `/transactions` | admin, manager |
 | `/invoices/:id` | admin, manager |
 | `/banking` | **admin only** |
-| `/options` Admin Options | admin |
+| `/settings` Settings Center | admin |
+| `/options` | redirects to `/settings` |
 | `/staff` Staff management | admin |
 
 - Cashier home = `/pos`; manager/admin home = `/`.
@@ -129,7 +130,7 @@ Canonical docs: [`ARCHITECTURE.md`](./ARCHITECTURE.md), [`DEVELOPER_GUIDE.md`](.
 - `/login` — guest only
 - Authenticated + permissioned:
   - PosLayout: `/pos`
-  - AppLayout: `/`, `/inventory`, `/customers`, `/transactions`, `/invoices/:invoiceId`, `/options`, `/banking`, `/staff`
+  - AppLayout: `/`, `/inventory`, `/customers`, `/transactions`, `/invoices/:invoiceId`, `/settings`, `/banking`, `/staff`
 - `*` → redirect `/`
 
 ---
@@ -182,6 +183,18 @@ Canonical docs: [`ARCHITECTURE.md`](./ARCHITECTURE.md), [`DEVELOPER_GUIDE.md`](.
 ### Notifications
 
 - `notificationEngine` started at bootstrap; queue/retry patterns; docs in [`NOTIFICATION_ENGINE.md`](./NOTIFICATION_ENGINE.md).
+- Staff soft alerts (`in_app`) for stock, discounts/refunds, cash variance, sync/payment failures, pending POs, AR/AP — bell inbox in App + POS layouts.
+- Follow-ups: [`NOTIFICATIONS_TODO.md`](./NOTIFICATIONS_TODO.md).
+
+### Operational audit
+
+- `auditEngine` + `AuditService` — store mutation trail (login, price, stock, discount, refund, banking, staff, settings).
+- UI: Utilities → Audit log (`/utilities/audit`). Docs: [`AUDIT.md`](./AUDIT.md).
+
+### Offline sync reliability
+
+- Queue lifecycle + dead letter + Sync Center (`/utilities/sync`). Payment transition idempotency + Sheets upsert keys.
+- Docs: [`SYNC.md`](./SYNC.md), script: [`GOOGLE_SHEETS_SYNC.md`](./GOOGLE_SHEETS_SYNC.md).
 
 ### Banking (admin)
 

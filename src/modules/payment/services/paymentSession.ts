@@ -1,3 +1,4 @@
+import { SaleTransactionService } from "@/modules/saleTransaction"
 import { invoiceRepository } from "@/repositories/InvoiceRepository"
 import { paymentRepository } from "@/repositories/PaymentRepository"
 
@@ -137,6 +138,11 @@ export async function createPaymentSession(options: {
     customerId: session.customerId,
     customerPhone: session.customerPhone,
   })
+
+  void SaleTransactionService.attachPayment(
+    invoice.invoiceId,
+    session.paymentId
+  )
 
   appendPaymentLog({
     paymentId: session.paymentId,

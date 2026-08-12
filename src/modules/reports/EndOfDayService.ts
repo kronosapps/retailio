@@ -2,10 +2,12 @@ import type { RecordedSale } from "@/data/invoices"
 import type { RefundRecord } from "@/data/refunds"
 import { paisaToRupees } from "@/lib/money"
 import {
+  dayKeyFromDate,
   isInRange,
   resolveDashboardRange,
 } from "@/modules/dashboard/services/dateRanges"
 import type { Payment } from "@/modules/payment/types"
+import type { DayClosingPreview } from "@/modules/dayOps/types"
 import type { CustomerRecord } from "@/repositories/CustomerRepository"
 import { customerRepository } from "@/repositories/CustomerRepository"
 import { invoiceRepository } from "@/repositories/InvoiceRepository"
@@ -16,6 +18,11 @@ import { googleSheetsSyncProvider } from "@/services/sync/GoogleSheetsSyncProvid
 const EOD_STORAGE_KEY = "retailos.eod.v1"
 
 export type EndOfDayDay = "today" | "yesterday"
+
+export type EndOfDayRunOptions = {
+  /** Enrich DailyClose with DayOps panel totals when provided. */
+  closingPreview?: DayClosingPreview | null
+}
 
 export type EndOfDayRunRecord = {
   dayKey: string
@@ -54,13 +61,6 @@ function readEodStore(): EodStore {
 
 function writeEodStore(store: EodStore) {
   localStorage.setItem(EOD_STORAGE_KEY, JSON.stringify(store))
-}
-
-function dayKeyFromDate(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, "0")
-  const d = String(date.getDate()).padStart(2, "0")
-  return `${y}${m}${d}`
 }
 
 function toInvoicePayload(sale: RecordedSale) {
@@ -195,12 +195,14 @@ export class EndOfDayService {
 
   static async run(
     day: EndOfDayDay = "today",
-    storeId: string | null = null
+    storeId: string | null = null,
+    options: EndOfDayRunOptions = {}
   ): Promise<EndOfDayResult> {
     const errors: string[] = []
     const sheetsConfigured = this.isSheetsConfigured()
     const range = resolveDashboardRange(day)
     const dayKey = dayKeyFromDate(range.start)
+    const preview = options.closingPreview ?? null
 
     if (!sheetsConfigured) {
       return {
@@ -288,6 +290,48 @@ export class EndOfDayService {
         customerCount: dayCustomers.length,
         closedAt: new Date().toISOString(),
         eodSync: true,
+        // DayOps panel enrichment (optional)
+        cashInRupees: preview
+          ? paisaToRupees(preview.cash.inPaisa)
+          : undefined,
+        cashRefundsRupees: preview
+          ? paisaToRupees(preview.cash.refundsPaisa)
+          : undefined,
+        cashNetRupees: preview
+          ? paisaToRupees(preview.cash.netPaisa)
+          : undefined,
+        upiInRupees: preview
+          ? paisaToRupees(preview.upi.inPaisa)
+          : undefined,
+        upiRefundsRupees: preview
+          ? paisaToRupees(preview.upi.refundsPaisa)
+          : undefined,
+        upiNetRupees: preview
+          ? paisaToRupees(preview.upi.netPaisa)
+          : undefined,
+        discountsRupees: preview
+          ? paisaToRupees(preview.discounts.totalDiscountPaisa)
+          : undefined,
+        expensesRupees: preview
+          ? paisaToRupees(preview.expenses.totalPaisa)
+          : undefined,
+        expenseCount: preview?.expenses.count,
+        stockExceptionCount: preview?.stockExceptions.length,
+        openShiftsCount: preview?.openShiftsCount,
+        cashierVarianceTotalRupees: preview
+          ? paisaToRupees(
+              preview.cashierVariance.reduce(
+                (s, r) => s + (r.variancePaisa ?? 0),
+                0
+              )
+            )
+          : undefined,
+        bankingClosingCashRupees: preview
+          ? paisaToRupees(preview.bankingClosingCashPaisa)
+          : undefined,
+        bankingClosingUpiRupees: preview
+          ? paisaToRupees(preview.bankingClosingUpiPaisa)
+          : undefined,
       })
       summarySynced = true
     } catch (err) {

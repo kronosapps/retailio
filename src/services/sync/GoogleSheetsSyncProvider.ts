@@ -4,6 +4,7 @@ import {
 } from "@/googleSheets/GoogleSheetsClient"
 import { getPaymentSettings } from "@/modules/payment/settings/paymentSettings"
 
+import { sheetUpsertKeyField } from "./syncIdempotency"
 import type { SyncProvider } from "./SyncProvider"
 
 function asRecord(data: unknown): Record<string, unknown> {
@@ -23,6 +24,7 @@ function resolveScriptUrl(explicit?: string): string {
 /**
  * SyncProvider implementation for Google Apps Script → Sheets.
  * Primary URL: VITE_GOOGLE_SCRIPT_URL (never hardcoded).
+ * Prefer upsert by business key so retries do not duplicate rows.
  */
 export class GoogleSheetsSyncProvider implements SyncProvider {
   readonly id = "google-sheets"
@@ -43,10 +45,21 @@ export class GoogleSheetsSyncProvider implements SyncProvider {
       // Quiet skip when unset — local POS still works.
       return
     }
+    const keyField = sheetUpsertKeyField(sheet)
+    const record = asRecord(data)
+    if (keyField && record[keyField] != null && record[keyField] !== "") {
+      await postToGoogleSheets(url, {
+        action: "upsert",
+        sheet,
+        data: record,
+        keyField,
+      })
+      return
+    }
     await postToGoogleSheets(url, {
       action: "insert",
       sheet,
-      data: asRecord(data),
+      data: record,
     })
   }
 
@@ -56,7 +69,16 @@ export class GoogleSheetsSyncProvider implements SyncProvider {
     if (rows.length === 0) return
 
     const records = rows.map(asRecord)
-    // Prefer one batch POST; Apps Script falls back to per-row if needed.
+    const keyField = sheetUpsertKeyField(sheet)
+    if (keyField) {
+      await postToGoogleSheets(url, {
+        action: "batchUpsert",
+        sheet,
+        rows: records,
+        keyField,
+      })
+      return
+    }
     await postToGoogleSheets(url, {
       action: "batchInsert",
       sheet,

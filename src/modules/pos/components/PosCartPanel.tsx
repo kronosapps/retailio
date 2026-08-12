@@ -34,12 +34,15 @@ export type PosCartTotals = {
   pointsRedeemed?: number
   taxableAmount: number
   gstAmount: number
+  gstPercent?: number
   sgstLabel: string
   sgstPercent: number
   sgstAmount: number
   cgstLabel: string
   cgstPercent: number
   cgstAmount: number
+  igstAmount?: number
+  igstPercent?: number
   total: number
 }
 
@@ -311,22 +314,33 @@ export function PosCartPanel({
                   {formatMoney(totals.taxableAmount)}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span>
-                  {totals.sgstLabel} ({totals.sgstPercent}%)
-                </span>
-                <span className="tabular-nums">
-                  {formatMoney(totals.sgstAmount)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span>
-                  {totals.cgstLabel} ({totals.cgstPercent}%)
-                </span>
-                <span className="tabular-nums">
-                  {formatMoney(totals.cgstAmount)}
-                </span>
-              </div>
+              {(totals.igstAmount ?? 0) > 0 ? (
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>IGST ({totals.igstPercent ?? totals.gstPercent}%)</span>
+                  <span className="tabular-nums">
+                    {formatMoney(totals.igstAmount ?? 0)}
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>
+                      {totals.sgstLabel} ({totals.sgstPercent}%)
+                    </span>
+                    <span className="tabular-nums">
+                      {formatMoney(totals.sgstAmount)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>
+                      {totals.cgstLabel} ({totals.cgstPercent}%)
+                    </span>
+                    <span className="tabular-nums">
+                      {formatMoney(totals.cgstAmount)}
+                    </span>
+                  </div>
+                </>
+              )}
             </>
           ) : null}
           <div className="flex items-center justify-between font-semibold">
@@ -335,8 +349,9 @@ export function PosCartPanel({
           </div>
           {cart.length > 0 && totals.gstAmount > 0 ? (
             <p className="text-[11px] text-muted-foreground">
-              Inclusive of {totals.sgstLabel} {totals.sgstPercent}% +{" "}
-              {totals.cgstLabel} {totals.cgstPercent}% — charge unchanged
+              {(totals.igstAmount ?? 0) > 0
+                ? "Interstate supply — IGST breakout"
+                : `Inclusive of ${totals.sgstLabel} ${totals.sgstPercent}% + ${totals.cgstLabel} ${totals.cgstPercent}% — charge unchanged`}
             </p>
           ) : null}
         </div>

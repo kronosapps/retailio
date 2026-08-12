@@ -26,6 +26,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
+import { SoftAlertsBell } from "@/modules/notifications/components/SoftAlertsBell"
+import { PaymentDialog } from "@/modules/payment"
 import { navItemsForRole, roleLabel } from "@/modules/staff"
 import { useAuth } from "@/providers/AuthProvider"
 
@@ -39,6 +41,7 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   "/reports": ChartColumn,
   "/utilities": Wrench,
   "/banking": Landmark,
+  "/settings": Settings2,
   "/options": Settings2,
   "/staff": UserCog,
 }
@@ -105,16 +108,19 @@ export function AppLayout() {
             </p>
           </div>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="shrink-0"
-          onClick={() => void signOut()}
-        >
-          <LogOut data-icon="inline-start" />
-          <span className="sr-only">Sign out</span>
-        </Button>
+        <div className="flex shrink-0 items-center gap-1">
+          <SoftAlertsBell />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            onClick={() => void signOut()}
+          >
+            <LogOut data-icon="inline-start" />
+            <span className="sr-only">Sign out</span>
+          </Button>
+        </div>
       </header>
 
       {/* Desktop sidebar */}
@@ -141,6 +147,9 @@ export function AppLayout() {
         </nav>
 
         <div className="p-3">
+          <div className="mb-2 flex justify-end md:justify-start">
+            <SoftAlertsBell className="hidden md:inline-flex" />
+          </div>
           <Button
             variant="ghost"
             className="w-full justify-start"
@@ -187,6 +196,7 @@ export function AppLayout() {
         }}
       >
         <Outlet />
+        <PaymentDialog />
       </main>
     </div>
   )

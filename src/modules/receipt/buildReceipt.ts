@@ -64,7 +64,10 @@ export function buildReceiptText(ctx: ReceiptContext): string {
 
   for (const line of sale.lines) {
     const free = line.isLoyaltyReward ? " (FREE)" : ""
-    lines.push(`${line.name} (${line.weight})${free}`)
+    const hsn = line.taxSnapshot?.hsnCode
+      ? ` HSN ${line.taxSnapshot.hsnCode}`
+      : ""
+    lines.push(`${line.name} (${line.weight})${free}${hsn}`)
     lines.push(
       `  ${line.qty} × ${formatMoney(line.unitPricePaisa)} = ${formatMoney(line.lineTotalPaisa)}`
     )
@@ -114,13 +117,24 @@ export function buildReceiptText(ctx: ReceiptContext): string {
     )
   }
   lines.push(`Taxable: ${formatMoney(sale.totals.taxableAmount)}`)
-  lines.push(
-    `SGST (${sale.totals.sgstPercent}%): ${formatMoney(sale.totals.sgstAmount)}`
-  )
-  lines.push(
-    `CGST (${sale.totals.cgstPercent}%): ${formatMoney(sale.totals.cgstAmount)}`
-  )
+  if ((sale.totals.igstAmount ?? 0) > 0) {
+    lines.push(
+      `IGST (${sale.totals.igstPercent ?? sale.totals.gstPercent}%): ${formatMoney(sale.totals.igstAmount ?? 0)}`
+    )
+  } else {
+    lines.push(
+      `SGST (${sale.totals.sgstPercent}%): ${formatMoney(sale.totals.sgstAmount)}`
+    )
+    lines.push(
+      `CGST (${sale.totals.cgstPercent}%): ${formatMoney(sale.totals.cgstAmount)}`
+    )
+  }
   lines.push(`*Total: ${formatMoney(sale.totals.total)}*`)
+  if (sale.tax?.partyType || sale.tax?.placeOfSupply) {
+    lines.push(
+      `Tax: ${sale.tax.partyType || "—"}${sale.tax.placeOfSupply ? ` · PoS ${sale.tax.placeOfSupply}` : ""}${sale.tax.customerGstin ? ` · ${sale.tax.customerGstin}` : ""}`
+    )
+  }
   lines.push("------------------------------")
 
   const pointsEarned = sale.loyalty?.pointsEarned

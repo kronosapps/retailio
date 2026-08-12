@@ -16,6 +16,7 @@ import {
 } from "@/data/promoSettings"
 import { splitInclusiveGst, taxConfig } from "@/data/tax"
 import { type Paisa, percentOfPaisa, roundPaisa, rupeesToPaisa } from "@/lib/money"
+import { taxPricedLines } from "@/modules/gst/taxEngine"
 import { productRepository } from "@/repositories/ProductRepository"
 import {
   couponRepository,
@@ -53,6 +54,10 @@ export type PriceCartLineInput = {
   listUnitPaisa: Paisa
   category?: string | null
   isLoyaltyReward?: boolean
+  /** Product GST % when known (else engine default). */
+  gstRate?: number | null
+  hsnCode?: string | null
+  sacCode?: string | null
 }
 
 export type PricedCartLine = PriceCartLineInput & {
@@ -61,6 +66,7 @@ export type PricedCartLine = PriceCartLineInput & {
   /** Net line after all discounts. */
   lineTotalPaisa: Paisa
   priceSnapshot: PriceSnapshot
+  taxSnapshot: import("@/modules/gst/types").LineTaxSnapshot
 }
 
 export type PriceOrderInput = {
@@ -77,6 +83,9 @@ export type PriceOrderInput = {
   customerSegments?: string[]
   /** YYYY-MM-DD — enables birthday promo when configured. */
   customerBirthday?: string | null
+  /** Customer GSTIN for B2B / place of supply. */
+  customerGstin?: string | null
+  customerStateCode?: string | null
   at?: Date
 }
 
@@ -87,12 +96,15 @@ export type PriceOrderTotals = OrderTotals & {
   promotionalDiscount: Paisa
   pointsDiscount: Paisa
   pointsRedeemed: number
+  igstAmount: Paisa
+  igstPercent: number
 }
 
 export type PriceOrderResult = {
   lines: PricedCartLine[]
   totals: PriceOrderTotals
   coupon: CouponRecord | null
+  tax: import("@/modules/gst/types").OrderTaxSummary
 }
 
 function dateKey(d: Date): string {
@@ -535,6 +547,8 @@ export class PricingService {
         promotionalDiscount: 0,
         pointsDiscount: 0,
         pointsRedeemed: 0,
+        igstAmount: 0,
+        igstPercent: 0,
       }
     } else {
       totals = {
@@ -545,6 +559,8 @@ export class PricingService {
         pointsDiscount: 0,
         pointsRedeemed: 0,
         grossSubtotal: promoSubtotal || baseTotals.grossSubtotal,
+        igstAmount: 0,
+        igstPercent: 0,
       }
     }
 
@@ -713,13 +729,87 @@ export class PricingService {
         listUnitPaisa: line.listUnitPaisa,
         category: line.category,
         isLoyaltyReward: line.isLoyaltyReward,
+        gstRate: line.gstRate,
+        hsnCode: line.hsnCode,
+        sacCode: line.sacCode,
         unitPricePaisa: line.listUnitPaisa,
         lineTotalPaisa: netLine,
         priceSnapshot: snapshot,
+        taxSnapshot: {
+          hsnCode: null,
+          sacCode: null,
+          gstRate: 0,
+          pricingMode: "INCLUSIVE",
+          supplyType: "INTRA",
+          taxablePaisa: 0,
+          cgstPaisa: 0,
+          sgstPaisa: 0,
+          igstPaisa: 0,
+          gstPaisa: 0,
+          lineTotalPaisa: netLine,
+        },
       }
     })
 
-    return { lines: pricedLines, totals, coupon }
+    // 5) Line-level GST (product rates / HSN) — inclusive retail default
+    const taxLinesInput = pricedLines.map((line) => {
+      const product = productRepository.getById(
+        (line.sku || line.itemId || "").trim()
+      )
+      return {
+        netLinePaisa: line.lineTotalPaisa,
+        gstRate: line.gstRate ?? product?.gstRate ?? null,
+        hsnCode: line.hsnCode ?? product?.hsnCode ?? null,
+        sacCode: line.sacCode ?? null,
+        isLoyaltyReward: line.isLoyaltyReward,
+      }
+    })
+    const { lineTaxes, summary: taxSummary } = taxPricedLines(taxLinesInput, {
+      customerGstin: input.customerGstin,
+      customerStateCode: input.customerStateCode,
+    })
+
+    const pricedWithTax: PricedCartLine[] = pricedLines.map((line, i) => ({
+      ...line,
+      taxSnapshot: lineTaxes[i],
+      // Exclusive mode: payable grows by tax; inclusive keeps net as charged.
+      lineTotalPaisa:
+        taxSummary.pricingMode === "EXCLUSIVE"
+          ? lineTaxes[i].lineTotalPaisa
+          : line.lineTotalPaisa,
+    }))
+
+    const primaryRate =
+      taxSummary.ratesUsed.length === 1
+        ? taxSummary.ratesUsed[0]
+        : taxSummary.ratesUsed[0] ?? taxConfig.gst.percent
+
+    const payableTotal =
+      taxSummary.pricingMode === "EXCLUSIVE"
+        ? taxSummary.totalPaisa
+        : totals.total
+
+    totals = {
+      ...totals,
+      total: payableTotal,
+      taxableAmount: taxSummary.taxablePaisa,
+      gstAmount: taxSummary.gstPaisa,
+      gstPercent: primaryRate,
+      cgstAmount: taxSummary.cgstPaisa,
+      sgstAmount: taxSummary.sgstPaisa,
+      cgstPercent: primaryRate / 2,
+      sgstPercent: primaryRate / 2,
+      igstAmount: taxSummary.igstPaisa,
+      igstPercent:
+        taxSummary.supplyType === "INTER" ? primaryRate : 0,
+    }
+
+    return {
+      lines: pricedWithTax,
+      totals,
+      coupon,
+      tax: taxSummary,
+    }
   }
 
   static explainSaleLine(snapshot: PriceSnapshot | null | undefined): string {

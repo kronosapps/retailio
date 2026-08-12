@@ -5,13 +5,16 @@ import { formatPeriodLabel } from "@/modules/reporting/utils/report-periods"
 import { journalRepository } from "@/repositories/JournalRepository"
 
 import { AccountingProjectionService } from "./AccountingProjectionService"
-import { CHART_OF_ACCOUNTS, getAccount } from "./chartOfAccounts"
+import { AccountingRules } from "./rules/AccountingRules"
+import { ACCOUNT_CODES, CHART_OF_ACCOUNTS, getAccount } from "./chartOfAccounts"
 import type {
   AccountStatementResult,
   BalanceSheetResult,
   CashFlowResult,
   DaybookRow,
   JournalEntry,
+  JournalLine,
+  ProfitAndLossResult,
   TrialBalanceResult,
 } from "./types"
 
@@ -139,13 +142,8 @@ export class AccountingService {
         amountPaisa: r.creditPaisa - r.debitPaisa,
       }))
 
-    const income = tb.rows
-      .filter((r) => r.accountType === "income")
-      .reduce((s, r) => s + (r.creditPaisa - r.debitPaisa), 0)
-    const expense = tb.rows
-      .filter((r) => r.accountType === "expense")
-      .reduce((s, r) => s + (r.debitPaisa - r.creditPaisa), 0)
-    const retained = income - expense
+    const pnl = await this.getProfitAndLoss(fy)
+    const retained = pnl.netProfitPaisa
 
     const equityBase = tb.rows
       .filter((r) => r.accountType === "equity")
@@ -191,6 +189,101 @@ export class AccountingService {
     }
   }
 
+  /**
+   * Period P&L from income / expense accounts on the trial balance.
+   * Single-company retail: Sales − Returns − COGS ≈ gross; then − expenses = net.
+   */
+  static async getProfitAndLoss(
+    fy?: FinancialYear | null
+  ): Promise<ProfitAndLossResult> {
+    const tb = await this.getTrialBalance(fy)
+
+    const income = tb.rows
+      .filter((r) => r.accountType === "income")
+      .map((r) => ({
+        accountCode: r.accountCode,
+        accountName: r.accountName,
+        amountPaisa: r.creditPaisa - r.debitPaisa,
+      }))
+      .filter((r) => r.amountPaisa !== 0)
+      .sort((a, b) => a.accountCode.localeCompare(b.accountCode))
+
+    const expenses = tb.rows
+      .filter((r) => r.accountType === "expense")
+      .map((r) => ({
+        accountCode: r.accountCode,
+        accountName: r.accountName,
+        amountPaisa: r.debitPaisa - r.creditPaisa,
+      }))
+      .filter((r) => r.amountPaisa !== 0)
+      .sort((a, b) => a.accountCode.localeCompare(b.accountCode))
+
+    const totalIncomePaisa = income.reduce((s, r) => s + r.amountPaisa, 0)
+    const totalExpensesPaisa = expenses.reduce((s, r) => s + r.amountPaisa, 0)
+
+    const sales =
+      income.find((r) => r.accountCode === ACCOUNT_CODES.SALES)?.amountPaisa ||
+      0
+    const salesReturns = Math.abs(
+      income.find((r) => r.accountCode === ACCOUNT_CODES.SALES_RETURNS)
+        ?.amountPaisa || 0
+    )
+    // Sales returns often reduce income (debit-normal on 4100 → negative income amount)
+    const salesReturnsRow = income.find(
+      (r) => r.accountCode === ACCOUNT_CODES.SALES_RETURNS
+    )
+    const returnsDrag =
+      salesReturnsRow && salesReturnsRow.amountPaisa < 0
+        ? -salesReturnsRow.amountPaisa
+        : salesReturns
+    const cogs =
+      expenses.find((r) => r.accountCode === ACCOUNT_CODES.COGS)?.amountPaisa ||
+      0
+    const grossProfitPaisa = sales - returnsDrag - cogs
+    const netProfitPaisa = totalIncomePaisa - totalExpensesPaisa
+
+    return {
+      asOf: tb.asOf,
+      periodLabel: tb.periodLabel,
+      income,
+      expenses,
+      totalIncomePaisa,
+      totalExpensesPaisa,
+      grossProfitPaisa,
+      netProfitPaisa,
+      notes: [
+        HYBRID_NOTE,
+        "Gross profit ≈ Sales − Sales returns − COGS. Net profit = total income − total expenses.",
+        "Feeds Balance Sheet retained earnings for the active financial year.",
+      ],
+    }
+  }
+
+  /** Post a balanced manual journal into the durable GL. */
+  static async postManualJournal(input: {
+    description: string
+    date?: string
+    lines: JournalLine[]
+    actorId?: string | null
+    actorName?: string | null
+    storeId?: string | null
+  }): Promise<JournalEntry> {
+    for (const line of input.lines) {
+      if (!getAccount(line.accountCode)) {
+        throw new Error(`Unknown account ${line.accountCode}.`)
+      }
+    }
+    const entry = AccountingRules.fromManual({
+      description: input.description,
+      date: input.date,
+      lines: input.lines,
+      operatorId: input.actorId ?? null,
+      operatorName: input.actorName ?? null,
+      storeId: input.storeId ?? null,
+    })
+    return journalRepository.savePosted(entry)
+  }
+
   static async getCashFlow(
     fy?: FinancialYear | null
   ): Promise<CashFlowResult> {
@@ -209,8 +302,9 @@ export class AccountingService {
       operatingInPaisa: snap.totals.cashInPaisa + snap.totals.upiInPaisa,
       operatingOutPaisa: snap.totals.cashOutPaisa + snap.totals.upiOutPaisa,
       notes: [
-        "Cash and UPI are tracked separately via the Banking module.",
-        "Investing/financing classification is not yet modeled.",
+        "Lightweight operating cash view from Banking (cash + UPI), not a full IAS cash-flow statement.",
+        "Investing/financing sections are not modeled for single-store retail yet.",
+        "Sale → Payment and Expense → Cash/UPI post to the GL via AccountingEngine.",
       ],
     }
   }

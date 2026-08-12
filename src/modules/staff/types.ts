@@ -8,6 +8,21 @@ export type CreateStaffInput = {
   storeId?: string | null
 }
 
+export type UpdateStaffInput = {
+  id: string
+  username?: string
+  /** Empty / omitted = leave passcode unchanged. */
+  passcode?: string
+  /**
+   * Required on Firebase when changing username or passcode (Spark path —
+   * signs into a secondary app; no Cloud Functions).
+   */
+  currentPasscode?: string
+  displayName?: string
+  role?: UserRole
+  active?: boolean
+}
+
 export type StaffListItem = {
   id: string
   username: string

@@ -1,6 +1,7 @@
 import { env } from "@/core/config/env"
 import {
   findLocalCreatedStaff,
+  getLocalStaffByUsername,
   type LocalStaffRecord,
 } from "@/modules/staff/localStaffStore"
 import {
@@ -81,6 +82,14 @@ export function findLocalUser(
 ): LocalUserRecord | undefined {
   const u = normalizeUsername(username)
   const p = normalizePasscode(passcode)
+
+  // Local overlays / created staff win over seeded env users.
+  const overlay = getLocalStaffByUsername(u)
+  if (overlay) {
+    if (!overlay.active) return undefined
+    if (overlay.passcode !== p) return undefined
+    return fromCreated(overlay)
+  }
 
   const seeded = LOCAL_USERS.find(
     (user) => user.username === u && user.passcode === p

@@ -178,14 +178,23 @@ export class ProductService {
       input.costPrice === undefined ? existing.purchasePrice : input.costPrice
     const gstRate = input.gstRate ?? existing.gstRate
     const unitSize = input.unitSize ?? existing.unitSize
+    const unit =
+      input.unit !== undefined
+        ? input.unit.trim() || String(unitSize)
+        : existing.unit || String(unitSize)
+    const brand =
+      input.brand === undefined
+        ? existing.brand
+        : input.brand?.trim() || null
 
     const next: ProductRecord = {
       ...existing,
       name: input.name?.trim() || existing.name,
       barcode,
       category: input.category?.trim() || existing.category,
+      brand,
       unitSize,
-      unit: String(unitSize),
+      unit,
       gstRate,
       cgst: gstRate / 2,
       sgst: gstRate / 2,

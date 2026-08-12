@@ -41,9 +41,56 @@ import { OptionsPage } from "@/pages/OptionsPage"
 import { PosPage } from "@/pages/PosPage"
 import { ReportsPage } from "@/pages/ReportsPage"
 import { StaffPage } from "@/pages/StaffPage"
+import { DayOpsPage } from "@/pages/DayOpsPage"
 import { ShiftsPage } from "@/pages/ShiftsPage"
 import { ReturnsPage } from "@/pages/ReturnsPage"
 import { TransactionsPage } from "@/pages/TransactionsPage"
+
+const SettingsLayout = lazy(() =>
+  import("@/pages/settings/SettingsLayout").then((m) => ({
+    default: m.SettingsLayout,
+  }))
+)
+const SettingsHomePage = lazy(() =>
+  import("@/pages/settings/SettingsHomePage").then((m) => ({
+    default: m.SettingsHomePage,
+  }))
+)
+const SettingsInvoicePage = lazy(() =>
+  import("@/pages/settings/SettingsInvoicePage").then((m) => ({
+    default: m.SettingsInvoicePage,
+  }))
+)
+const SettingsTaxPage = lazy(() =>
+  import("@/pages/settings/SettingsTaxPage").then((m) => ({
+    default: m.SettingsTaxPage,
+  }))
+)
+const SettingsInventoryPage = lazy(() =>
+  import("@/pages/settings/SettingsInventoryPage").then((m) => ({
+    default: m.SettingsInventoryPage,
+  }))
+)
+const SettingsPosPage = lazy(() =>
+  import("@/pages/settings/SettingsPosPage").then((m) => ({
+    default: m.SettingsPosPage,
+  }))
+)
+const SettingsPaymentsPage = lazy(() =>
+  import("@/pages/settings/SettingsPaymentsPage").then((m) => ({
+    default: m.SettingsPaymentsPage,
+  }))
+)
+const SettingsNotificationsPage = lazy(() =>
+  import("@/pages/settings/SettingsNotificationsPage").then((m) => ({
+    default: m.SettingsNotificationsPage,
+  }))
+)
+const SettingsIntegrationsPage = lazy(() =>
+  import("@/pages/settings/SettingsIntegrationsPage").then((m) => ({
+    default: m.SettingsIntegrationsPage,
+  }))
+)
 
 const UtilitiesLayout = lazy(() =>
   import("@/pages/utilities/UtilitiesLayout").then((m) => ({
@@ -85,6 +132,21 @@ const ErpChainPage = lazy(() =>
     default: m.ErpChainPage,
   }))
 )
+const AuditLogPage = lazy(() =>
+  import("@/pages/utilities/AuditLogPage").then((m) => ({
+    default: m.AuditLogPage,
+  }))
+)
+const SyncCenterPage = lazy(() =>
+  import("@/pages/utilities/SyncCenterPage").then((m) => ({
+    default: m.SyncCenterPage,
+  }))
+)
+const BackupPage = lazy(() =>
+  import("@/pages/utilities/BackupPage").then((m) => ({
+    default: m.BackupPage,
+  }))
+)
 const PricingPage = lazy(() =>
   import("@/pages/utilities/PricingPage").then((m) => ({
     default: m.PricingPage,
@@ -121,6 +183,26 @@ const AccountStatementPage = lazy(() =>
     default: m.AccountStatementPage,
   }))
 )
+const AccountingHubPage = lazy(() =>
+  import("@/pages/utilities/AccountingPages").then((m) => ({
+    default: m.AccountingHubPage,
+  }))
+)
+const ChartOfAccountsPage = lazy(() =>
+  import("@/pages/utilities/AccountingPages").then((m) => ({
+    default: m.ChartOfAccountsPage,
+  }))
+)
+const ManualJournalPage = lazy(() =>
+  import("@/pages/utilities/AccountingPages").then((m) => ({
+    default: m.ManualJournalPage,
+  }))
+)
+const ProfitAndLossPage = lazy(() =>
+  import("@/pages/utilities/AccountingPages").then((m) => ({
+    default: m.ProfitAndLossPage,
+  }))
+)
 
 const UtilityItemReportPage = lazy(() =>
   import("@/pages/utilities/AnalysisPages").then((m) => ({
@@ -143,8 +225,8 @@ const ExpenseReportPage = lazy(() =>
   }))
 )
 const GstReportsPage = lazy(() =>
-  import("@/pages/utilities/AnalysisPages").then((m) => ({
-    default: m.GstReportsPage,
+  import("@/pages/utilities/GstBillingPage").then((m) => ({
+    default: m.GstBillingPage,
   }))
 )
 const TcsReportsPage = lazy(() =>
@@ -155,6 +237,31 @@ const TcsReportsPage = lazy(() =>
 const Form27EqPage = lazy(() =>
   import("@/pages/utilities/AnalysisPages").then((m) => ({
     default: m.Form27EqPage,
+  }))
+)
+const MasterDataHubPage = lazy(() =>
+  import("@/pages/utilities/MasterDataPages").then((m) => ({
+    default: m.MasterDataHubPage,
+  }))
+)
+const BrandsMasterPage = lazy(() =>
+  import("@/pages/utilities/MasterDataPages").then((m) => ({
+    default: m.BrandsMasterPage,
+  }))
+)
+const UnitsMasterPage = lazy(() =>
+  import("@/pages/utilities/MasterDataPages").then((m) => ({
+    default: m.UnitsMasterPage,
+  }))
+)
+const TaxRatesMasterPage = lazy(() =>
+  import("@/pages/utilities/MasterDataPages").then((m) => ({
+    default: m.TaxRatesMasterPage,
+  }))
+)
+const PaymentMethodsMasterPage = lazy(() =>
+  import("@/pages/utilities/MasterDataPages").then((m) => ({
+    default: m.PaymentMethodsMasterPage,
   }))
 )
 
@@ -180,6 +287,7 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/shifts" element={<ShiftsPage />} />
+            <Route path="/day-ops" element={<DayOpsPage />} />
             <Route path="/returns" element={<ReturnsPage />} />
             <Route path="/inventory" element={<InventoryPage />}>
               <Route index element={<InventoryIndexRedirect />} />
@@ -227,12 +335,33 @@ export default function App() {
               <Route path="financial-year" element={<FinancialYearPage />} />
               <Route path="barcode" element={<BarcodeGeneratorPage />} />
               <Route path="recycle-bin" element={<RecycleBinPage />} />
+              <Route path="master-data" element={<MasterDataHubPage />} />
+              <Route
+                path="master-data/brands"
+                element={<BrandsMasterPage />}
+              />
+              <Route path="master-data/units" element={<UnitsMasterPage />} />
+              <Route
+                path="master-data/tax-rates"
+                element={<TaxRatesMasterPage />}
+              />
+              <Route
+                path="master-data/payment-methods"
+                element={<PaymentMethodsMasterPage />}
+              />
               <Route path="daybook" element={<DaybookPage />} />
               <Route
                 path="all-transactions"
                 element={<AllTransactionsPage />}
               />
+              <Route path="accounting" element={<AccountingHubPage />} />
+              <Route
+                path="chart-of-accounts"
+                element={<ChartOfAccountsPage />}
+              />
+              <Route path="manual-journal" element={<ManualJournalPage />} />
               <Route path="trial-balance" element={<TrialBalancePage />} />
+              <Route path="profit-loss" element={<ProfitAndLossPage />} />
               <Route path="balance-sheet" element={<BalanceSheetPage />} />
               <Route path="cash-flow" element={<CashFlowPage />} />
               <Route
@@ -245,6 +374,9 @@ export default function App() {
               <Route path="report-expense" element={<ExpenseReportPage />} />
               <Route path="expenses" element={<ExpenseCreatePage />} />
               <Route path="erp-chain" element={<ErpChainPage />} />
+              <Route path="audit" element={<AuditLogPage />} />
+              <Route path="sync" element={<SyncCenterPage />} />
+              <Route path="backup" element={<BackupPage />} />
               <Route path="pricing" element={<PricingPage />} />
               <Route path="gst" element={<GstReportsPage />} />
               <Route path="tcs" element={<TcsReportsPage />} />
@@ -255,6 +387,29 @@ export default function App() {
               element={<InvoiceDetailsPage />}
             />
             <Route path="/options" element={<OptionsPage />} />
+            <Route
+              path="/settings"
+              element={
+                <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Loading settings…</p>}>
+                  <SettingsLayout />
+                </Suspense>
+              }
+            >
+              <Route index element={<SettingsHomePage />} />
+              <Route path="invoice" element={<SettingsInvoicePage />} />
+              <Route path="tax" element={<SettingsTaxPage />} />
+              <Route path="inventory" element={<SettingsInventoryPage />} />
+              <Route path="pos" element={<SettingsPosPage />} />
+              <Route path="payments" element={<SettingsPaymentsPage />} />
+              <Route
+                path="notifications"
+                element={<SettingsNotificationsPage />}
+              />
+              <Route
+                path="integrations"
+                element={<SettingsIntegrationsPage />}
+              />
+            </Route>
             <Route path="/banking" element={<BankingPage />} />
             <Route path="/staff" element={<StaffPage />} />
           </Route>

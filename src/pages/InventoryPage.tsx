@@ -2,6 +2,7 @@ import { NavLink, Outlet } from "react-router-dom"
 import { useEffect } from "react"
 
 import { InventoryService } from "@/modules/inventory"
+import { MasterDataService } from "@/modules/masterData"
 import { ProductService } from "@/modules/products"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/providers/AuthProvider"
@@ -29,6 +30,7 @@ export function InventoryPage() {
     void ProductService.ensureCatalogSeeded(storeId, actorId)
     void InventoryService.ensureSamples(storeId, actorId)
     void InventoryService.ensureCategoriesFromProducts(storeId, actorId)
+    void MasterDataService.bootstrapFromCatalog(storeId, actorId)
     void InventoryService.hydrateLots()
   }, [profile?.storeId, userId])
 

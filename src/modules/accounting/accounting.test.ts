@@ -147,6 +147,34 @@ describe("AccountingRules", () => {
     expect(isBalanced(prn!)).toBe(true)
     expect(prn!.referenceType).toBe("purchase_return")
   })
+
+  it("builds balanced manual journals and rejects imbalance", async () => {
+    const { AccountingRules, isBalanced } = await import(
+      "@/modules/accounting/rules/AccountingRules"
+    )
+
+    const ok = AccountingRules.fromManual({
+      description: "Owner drawing",
+      date: "2026-04-10",
+      lines: [
+        { accountCode: "3000", debitPaisa: 50000, creditPaisa: 0 },
+        { accountCode: "1000", debitPaisa: 0, creditPaisa: 50000 },
+      ],
+    })
+    expect(isBalanced(ok)).toBe(true)
+    expect(ok.referenceType).toBe("manual")
+    expect(ok.source).toBe("posted")
+
+    expect(() =>
+      AccountingRules.fromManual({
+        description: "Bad",
+        lines: [
+          { accountCode: "5000", debitPaisa: 100, creditPaisa: 0 },
+          { accountCode: "1000", debitPaisa: 0, creditPaisa: 50 },
+        ],
+      })
+    ).toThrow(/not balanced/i)
+  })
 })
 
 describe("JournalRepository idempotency", () => {
@@ -243,5 +271,68 @@ describe("AccountingService merge", () => {
     expect(hit?.source).toBe("posted")
     expect(hit?.description).toBe("Posted Rent")
     expect(hit?.paymentMethod).toBe("UPI")
+  })
+})
+
+describe("AccountingService P&L", () => {
+  beforeEach(() => {
+    vi.resetModules()
+    // @ts-expect-error test polyfill
+    globalThis.localStorage = memoryStorage()
+  })
+
+  it("computes gross and net from posted sale + expense", async () => {
+    const { journalRepository } = await import(
+      "@/repositories/JournalRepository"
+    )
+    const { AccountingRules } = await import(
+      "@/modules/accounting/rules/AccountingRules"
+    )
+    const { AccountingService } = await import(
+      "@/modules/accounting/AccountingService"
+    )
+
+    await journalRepository.savePosted(
+      AccountingRules.fromSale(
+        {
+          invoiceId: "INV-PNL",
+          createdAt: new Date().toISOString(),
+          cashierId: "u1",
+          cashierName: "Ada",
+          paymentMethod: "Cash",
+          paymentStatus: "Paid",
+          storeId: "s1",
+          totals: { taxableAmount: 10000, gstAmount: 0, total: 10000 },
+          lines: [],
+        } as never,
+        { cogsPaisa: 4000 }
+      )
+    )
+    await journalRepository.savePosted(
+      AccountingRules.fromExpense({
+        id: "exp-pnl",
+        title: "Rent",
+        amountPaisa: 1000,
+        storeId: "s1",
+        createdAt: new Date().toISOString(),
+        paymentMethod: "Cash",
+      })
+    )
+
+    const pnl = await AccountingService.getProfitAndLoss({
+      id: "fy-test",
+      label: "Test FY",
+      startDate: "2000-01-01",
+      endDate: "2099-12-31",
+      status: "active",
+      storeId: null,
+      createdAt: "2000-01-01T00:00:00.000Z",
+      updatedAt: "2000-01-01T00:00:00.000Z",
+    })
+
+    expect(pnl.grossProfitPaisa).toBe(6000)
+    expect(pnl.netProfitPaisa).toBe(5000)
+    expect(pnl.totalIncomePaisa).toBeGreaterThan(0)
+    expect(pnl.totalExpensesPaisa).toBeGreaterThan(0)
   })
 })

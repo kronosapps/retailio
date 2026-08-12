@@ -22,4 +22,5 @@ export type {
   CreateStaffInput,
   CreateStaffResult,
   StaffListItem,
+  UpdateStaffInput,
 } from "./types"

@@ -44,6 +44,7 @@ export type JournalEntry = {
     | "credit_note"
     | "credit_note_applied"
     | "ar_settlement"
+    | "manual"
   referenceId: string
   operatorId: string | null
   operatorName: string | null
@@ -54,6 +55,26 @@ export type JournalEntry = {
   /** Domain event id when posted from EventBus. */
   eventId?: string | null
   storeId?: string | null
+}
+
+export type ProfitAndLossRow = {
+  accountCode: string
+  accountName: string
+  amountPaisa: number
+}
+
+export type ProfitAndLossResult = {
+  asOf: string
+  periodLabel: string
+  income: ProfitAndLossRow[]
+  expenses: ProfitAndLossRow[]
+  totalIncomePaisa: number
+  totalExpensesPaisa: number
+  /** Sales − sales returns − COGS (retail gross). */
+  grossProfitPaisa: number
+  /** Income − expenses (equals period retained earnings on BS). */
+  netProfitPaisa: number
+  notes: string[]
 }
 
 export type TrialBalanceRow = {

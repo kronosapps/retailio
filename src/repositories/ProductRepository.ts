@@ -127,6 +127,8 @@ function toSheetsPayload(product: ProductRecord) {
     storeId: product.storeId,
     active: product.active,
     updatedAt: product.updatedAt,
+    createdBy: product.createdBy ?? null,
+    updatedBy: product.updatedBy ?? null,
   }
 }
 

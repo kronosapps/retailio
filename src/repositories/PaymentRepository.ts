@@ -17,6 +17,9 @@ const HYDRATE_TTL_MS = 15_000
 /**
  * Owns the `payments` Firestore collection.
  * Payment Module must not talk to Google Sheets — only this repository + events.
+ *
+ * Idempotency: stable `paymentId` as doc id; `PAYMENT_RECEIVED` publishes only
+ * on the Pending → Paid transition (network retries must not double-fire).
  */
 export class PaymentRepository {
   private hydratedAt = 0
@@ -31,20 +34,24 @@ export class PaymentRepository {
 
   /** Create or overwrite a payment session document. */
   async save(payment: Payment): Promise<Payment> {
+    const prior = getPaymentById(payment.paymentId)
+    const wasPaid = prior?.status === "Paid"
+    const wasFailed = prior?.status === "Failed"
     const saved = savePayment(payment)
 
     await upsertDocument(COLLECTION, saved.paymentId, {
       ...saved,
       id: saved.paymentId,
+      idempotencyKey: `payment:${saved.paymentId}`,
     })
 
-    if (saved.status === "Paid") {
+    if (saved.status === "Paid" && !wasPaid) {
       await EventPublisher.publish(
         EventTypes.PAYMENT_RECEIVED,
         toPaymentSyncPayload(saved),
         saved.storeId ?? null
       )
-    } else if (saved.status === "Failed") {
+    } else if (saved.status === "Failed" && !wasFailed) {
       await EventPublisher.publish(
         EventTypes.PAYMENT_FAILED,
         toPaymentSyncPayload(saved),
@@ -59,20 +66,42 @@ export class PaymentRepository {
     paymentId: string,
     patch: Partial<Payment>
   ): Promise<Payment> {
+    const prior = getPaymentById(paymentId)
+    const wasPaid = prior?.status === "Paid"
+    const wasFailed = prior?.status === "Failed"
+
+    // Idempotent no-op: already Paid and patch keeps Paid — return without re-events.
+    if (
+      wasPaid &&
+      (!patch.status || patch.status === "Paid")
+    ) {
+      const existing = prior!
+      await upsertDocument(COLLECTION, existing.paymentId, {
+        ...existing,
+        ...patch,
+        paymentId: existing.paymentId,
+        status: "Paid",
+        id: existing.paymentId,
+        idempotencyKey: `payment:${existing.paymentId}`,
+      })
+      return { ...existing, ...patch, paymentId: existing.paymentId, status: "Paid" }
+    }
+
     const updated = updatePayment(paymentId, patch)
 
     await upsertDocument(COLLECTION, updated.paymentId, {
       ...updated,
       id: updated.paymentId,
+      idempotencyKey: `payment:${updated.paymentId}`,
     })
 
-    if (updated.status === "Paid") {
+    if (updated.status === "Paid" && !wasPaid) {
       await EventPublisher.publish(
         EventTypes.PAYMENT_RECEIVED,
         toPaymentSyncPayload(updated),
         updated.storeId ?? null
       )
-    } else if (updated.status === "Failed") {
+    } else if (updated.status === "Failed" && !wasFailed) {
       await EventPublisher.publish(
         EventTypes.PAYMENT_FAILED,
         toPaymentSyncPayload(updated),
@@ -110,6 +139,8 @@ function toPaymentSyncPayload(payment: Payment) {
     invoiceNumber: payment.invoiceNumber,
     transactionReference: payment.transactionReference,
     paymentId: payment.paymentId,
+    /** Stable key for SyncQueue + Sheets upsert. */
+    idempotencyKey: `payment:${payment.paymentId}`,
     /** Tender amount after store credit (rupees) — banking/till. */
     amount: Math.max(0, Number((payment.amount - creditRupees).toFixed(2))),
     amountGross: payment.amount,
