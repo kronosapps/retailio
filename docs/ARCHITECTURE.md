@@ -51,7 +51,7 @@ No layer may skip another layer.
 
 ## Firestore collections
 
-`products` · `customers` · `suppliers` · `purchase_orders` · `goods_receipts` · `purchase_invoices` · `supplier_payments` · `inventory` · `inventory_movements` · `categories` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events`
+`products` · `customers` · `suppliers` · `purchase_orders` · `goods_receipts` · `purchase_invoices` · `supplier_payments` · `inventory` · `inventory_movements` · `inventory_lots` · `stock_takes` · `cashier_shifts` · `categories` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events`
 
 ### Purchasing (Phases 1–5)
 
@@ -167,10 +167,26 @@ Supplier → PO → GRN → Inventory → Purchase Invoice → Supplier Payment
 | GRN | `GOODS_RECEIVED` + stock movements | Sync (stock via service call) |
 | Purchase invoice | `PURCHASE_INVOICE_POSTED` | AccountingEngine |
 | Supplier payment | `SUPPLIER_PAYMENT_RECORDED` | Banking + Accounting |
-| POS paid | `PAYMENT_RECEIVED` | Inventory + Banking + Accounting + Notification |
+| POS paid | `PAYMENT_RECEIVED` | Inventory + Banking + Accounting + Notification + Till |
 | Stock adjust / take / opening | `INVENTORY_MOVEMENT_CREATED` / `STOCK_*` | AccountingEngine (non-sale/purchase types) |
 
 Reports remain pull-only. Integration test: `src/modules/integration/erpChain.test.ts`.
+
+---
+
+## Cashier shifts / till
+
+Separate from Banking (store cashbook). Module: `src/modules/shift/`.
+
+```text
+Open shift (float) → Cash sales/refunds/expenses (TillEngine) → Cash in/out/drop → Close (count vs expected)
+```
+
+- **Expected cash** = opening + sales + cash in − refunds − expenses − cash out − drops − supplier cash
+- Events: `SHIFT_OPENED`, `TILL_MOVEMENT`, `SHIFT_CLOSED`
+- UI: `/shifts` (admin, manager, cashier)
+- Collection: `cashier_shifts` · local `retailos.cashier_shifts.v1`
+- Sales without an open shift for that cashier are skipped by TillEngine (POS still works)
 
 ---
 
@@ -192,6 +208,7 @@ Supported types (`src/events/EventTypes.ts`):
 - `SUPPLIER_PAYMENT_RECORDED`
 - `PURCHASE_RETURN_CREATED` / `PURCHASE_RETURN_POSTED` / `PURCHASE_RETURN_UPDATED`
 - `EXPENSE_CREATED`
+- `SHIFT_OPENED` / `SHIFT_CLOSED` / `TILL_MOVEMENT`
 
 Flow: repository write → `EventPublisher.publish` → `EventBus` → engines + `SyncManager` enqueues → provider.
 

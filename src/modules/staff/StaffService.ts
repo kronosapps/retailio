@@ -69,7 +69,7 @@ function toListItem(doc: UserDoc): StaffListItem | null {
  * Staff identity module — create/list staff accounts.
  * Firebase Spark: secondary Auth app + Firestore (admin rules).
  * Local mode: seeded users + localStorage.
- * Shift / EOD / cash stay in separate modules.
+ * EOD reporting stays in reports/sync; cash accountability is ShiftService / TillEngine.
  */
 export class StaffService {
   static async list(): Promise<StaffListItem[]> {

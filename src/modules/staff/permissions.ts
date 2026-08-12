@@ -11,6 +11,7 @@ export type StaffNavItem = {
 export const STAFF_NAV_ITEMS: StaffNavItem[] = [
   { to: "/", label: "Dashboard", roles: ["admin", "manager"] },
   { to: "/pos", label: "POS", roles: ["admin", "manager", "cashier"] },
+  { to: "/shifts", label: "Shifts", roles: ["admin", "manager", "cashier"] },
   { to: "/inventory", label: "Inventory", roles: ["admin", "manager"] },
   { to: "/purchasing", label: "Purchasing", roles: ["admin", "manager"] },
   { to: "/customers", label: "Customers", roles: ["admin", "manager"] },

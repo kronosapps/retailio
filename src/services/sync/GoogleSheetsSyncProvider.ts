@@ -124,6 +124,10 @@ export class GoogleSheetsSyncProvider implements SyncProvider {
     return this.send("Expenses", data)
   }
 
+  syncCashierShift(data: unknown) {
+    return this.send("CashierShifts", data)
+  }
+
   syncBatch(sheet: string, rows: unknown[]) {
     return this.sendBatch(sheet, rows)
   }

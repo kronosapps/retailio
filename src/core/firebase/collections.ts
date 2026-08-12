@@ -19,6 +19,7 @@ export const COLLECTIONS = {
   INVENTORY_MOVEMENTS: "inventory_movements",
   INVENTORY_LOTS: "inventory_lots",
   STOCK_TAKES: "stock_takes",
+  CASHIER_SHIFTS: "cashier_shifts",
   CATEGORIES: "categories",
   EXPENSES: "expenses",
   JOURNAL_ENTRIES: "journal_entries",
