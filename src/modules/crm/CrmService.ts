@@ -4,10 +4,11 @@ import {
 } from "@/data/customers"
 import { listRecordedSales, type RecordedSale } from "@/data/invoices"
 import {
-  loyaltyConfig,
   getEffectiveLoyalty,
   pointsFromSpendPaisa,
+  loyaltyConfig,
 } from "@/data/loyalty"
+import { isSalePunchEligible } from "@/data/promoSettings"
 import type { CrmAuditRecord } from "@/data/crmAudit"
 import { EventPublisher } from "@/events/EventPublisher"
 import { EventTypes } from "@/events/EventTypes"
@@ -26,6 +27,7 @@ import type {
   CustomerSegment,
   CustomerSegmentId,
   RecordPurchaseLoyaltyInput,
+  RecordPurchaseLoyaltyResult,
 } from "./types"
 
 export class CrmError extends Error {
@@ -514,10 +516,10 @@ export class CrmService {
     return { creditNote: adjusted, customer: next }
   }
 
-  /** After Mark Paid — stamps punches, earns points, deducts redeemed points. */
+  /** After Mark Paid — stamps punches (if eligible), earns points, deducts redeemed. */
   static async recordPaidPurchase(
     input: RecordPurchaseLoyaltyInput
-  ): Promise<CustomerRecord | null> {
+  ): Promise<RecordPurchaseLoyaltyResult | null> {
     const existing = customerRepository.getById(input.customerId)
     if (!existing) return null
 
@@ -525,11 +527,20 @@ export class CrmService {
     const earned = pointsFromSpendPaisa(spend)
     const redeemed = Math.max(0, Math.floor(input.pointsRedeemed || 0))
     const punchesBefore = existing.loyaltyPunches
+    const required = getEffectiveLoyalty().punchesRequired
     let punches = punchesBefore
+    let punchStamped = false
+
     if (input.redeemedLoyalty) {
       punches = 0
-    } else if (spend > 0) {
-      punches = Math.min(getEffectiveLoyalty().punchesRequired, punches + 1)
+    } else if (
+      isSalePunchEligible({
+        purchasePaisa: spend,
+        lines: input.lines,
+      })
+    ) {
+      punches = Math.min(required, punches + 1)
+      punchStamped = punches > punchesBefore
     }
 
     const next = await customerRepository.save(
@@ -582,12 +593,12 @@ export class CrmService {
         actorId: input.actorId ?? null,
         storeId: next.storeId,
       })
-    } else if (punches > punchesBefore) {
+    } else if (punchStamped) {
       await crmAuditRepository.append({
         customerId: next.id,
         customerName: next.name,
         kind: "PUNCHES_STAMPED",
-        message: `Punch stamped (${next.loyaltyPunches}/${getEffectiveLoyalty().punchesRequired})`,
+        message: `Punch stamped (${next.loyaltyPunches}/${required}) — digital = physical card`,
         delta: 1,
         balanceAfter: next.loyaltyPunches,
         actorId: input.actorId ?? null,
@@ -595,6 +606,84 @@ export class CrmService {
       })
     }
 
+    return {
+      customer: next,
+      punchesBefore,
+      punchesAfter: next.loyaltyPunches,
+      punchStamped,
+      pointsEarned: earned,
+      pointsRedeemed: redeemed,
+      pointsBalanceAfter: next.loyaltyPoints,
+    }
+  }
+
+  /**
+   * Lost physical punch card — reduce one digital punch (same ledger).
+   */
+  static async losePhysicalCardPunch(input: {
+    customerId: string
+    actorId?: string | null
+  }): Promise<CustomerRecord> {
+    const existing = customerRepository.getById(input.customerId)
+    if (!existing) throw new CrmError("NOT_FOUND", "Customer not found.")
+    if (existing.loyaltyPunches <= 0) {
+      throw new CrmError("VALIDATION", "No punches left to remove.")
+    }
+    const next = await customerRepository.save(
+      {
+        ...existing,
+        loyaltyPunches: existing.loyaltyPunches - 1,
+        updatedBy: input.actorId ?? existing.updatedBy,
+      },
+      false
+    )
+    await crmAuditRepository.append({
+      customerId: next.id,
+      customerName: next.name,
+      kind: "PUNCHES_ADJUSTED",
+      message: "Lost physical punch card (−1 punch)",
+      delta: -1,
+      balanceAfter: next.loyaltyPunches,
+      actorId: input.actorId ?? null,
+      storeId: next.storeId,
+    })
+    return next
+  }
+
+  /**
+   * Manual physical-card stamp (in-store punch without a sale) — mirrors digital.
+   */
+  static async stampPhysicalCard(input: {
+    customerId: string
+    actorId?: string | null
+  }): Promise<CustomerRecord> {
+    const existing = customerRepository.getById(input.customerId)
+    if (!existing) throw new CrmError("NOT_FOUND", "Customer not found.")
+    const required = getEffectiveLoyalty().punchesRequired
+    if (existing.loyaltyPunches >= required) {
+      throw new CrmError(
+        "VALIDATION",
+        "Punch card already full — redeem before stamping."
+      )
+    }
+    const next = await customerRepository.save(
+      {
+        ...existing,
+        loyaltyPunches: existing.loyaltyPunches + 1,
+        updatedBy: input.actorId ?? existing.updatedBy,
+      },
+      false
+    )
+    await crmAuditRepository.append({
+      customerId: next.id,
+      customerName: next.name,
+      kind: "PUNCHES_STAMPED",
+      message: `Physical card stamp synced (${next.loyaltyPunches}/${required})`,
+      delta: 1,
+      balanceAfter: next.loyaltyPunches,
+      actorId: input.actorId ?? null,
+      storeId: next.storeId,
+    })
     return next
   }
 

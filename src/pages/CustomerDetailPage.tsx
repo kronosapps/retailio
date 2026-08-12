@@ -685,8 +685,9 @@ export function CustomerDetailPage() {
 
         <TabsContent value="loyalty" className="mt-4 space-y-4">
           <p className="text-sm text-muted-foreground">
-            Punches stamp on each paid visit; redeeming punch reward on POS resets
-            to 0. Points earn 1 per ₹1 spent.
+            Digital punches mirror the physical punch card. Redeeming a punch
+            reward on POS resets to 0. Points earn per spend (see Promotions
+            Management).
           </p>
           <form
             className="grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-2"
@@ -721,6 +722,65 @@ export function CustomerDetailPage() {
               </Button>
             </div>
           </form>
+
+          <div className="flex flex-wrap gap-2 rounded-xl border border-border p-4">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() => {
+                void (async () => {
+                  setError(null)
+                  setBusy(true)
+                  try {
+                    await CrmService.stampPhysicalCard({
+                      customerId,
+                      actorId: userId,
+                    })
+                    setTick((t) => t + 1)
+                  } catch (err) {
+                    setError(
+                      err instanceof Error
+                        ? err.message
+                        : "Could not stamp card."
+                    )
+                  } finally {
+                    setBusy(false)
+                  }
+                })()
+              }}
+            >
+              Stamp physical card (+1)
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() => {
+                void (async () => {
+                  setError(null)
+                  setBusy(true)
+                  try {
+                    await CrmService.losePhysicalCardPunch({
+                      customerId,
+                      actorId: userId,
+                    })
+                    setTick((t) => t + 1)
+                  } catch (err) {
+                    setError(
+                      err instanceof Error
+                        ? err.message
+                        : "Could not adjust punches."
+                    )
+                  } finally {
+                    setBusy(false)
+                  }
+                })()
+              }}
+            >
+              Lost physical card (−1)
+            </Button>
+          </div>
         </TabsContent>
 
         <TabsContent value="offers" className="mt-4 space-y-3">

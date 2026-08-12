@@ -15,6 +15,7 @@ import {
 import {
   getPromoSettings,
   savePromoSettings,
+  setExclusiveLoyaltyOffer,
   type PromoSettings,
 } from "@/data/promoSettings"
 import { BankingService } from "@/modules/banking/BankingService"
@@ -322,6 +323,11 @@ export function PricingPage() {
 
         <TabsContent value="masters" className="mt-4 space-y-4">
           <div className="space-y-4 rounded-lg border border-border p-4">
+            <p className="text-xs text-muted-foreground">
+              Festival / campaign discounts can stack with the active loyalty
+              offer. Only one of Points, Punch %, or Free item may be on at a
+              time — disabled offers stay hidden on POS.
+            </p>
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium">Product promotions</p>
@@ -345,9 +351,11 @@ export function PricingPage() {
             </div>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-medium">Order promotions</p>
+                <p className="text-sm font-medium">
+                  Festival / campaign promotions
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  Campaigns (coupons), occasion & birthday promos
+                  Coupons, occasion & birthday — additional discounts OK
                 </p>
               </div>
               <Switch
@@ -360,6 +368,82 @@ export function PricingPage() {
                       orderPromotionsEnabled: on,
                     },
                   })
+                  refreshSettings()
+                }}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">Punch card (digital)</p>
+                <p className="text-xs text-muted-foreground">
+                  Stamp punches on paid sales (mirrors physical card) + receipt
+                </p>
+              </div>
+              <Switch
+                checked={settings.masters.punchCardEnabled}
+                onCheckedChange={(on) => {
+                  if (!requireAdminPasscode()) return
+                  savePromoSettings({
+                    masters: {
+                      ...settings.masters,
+                      punchCardEnabled: on,
+                    },
+                  })
+                  refreshSettings()
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4 rounded-lg border border-border p-4">
+            <p className="text-sm font-medium">Exclusive loyalty offer (POS)</p>
+            <p className="text-xs text-muted-foreground">
+              Turning one on turns the others off.
+            </p>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">Points redemption</p>
+                <p className="text-xs text-muted-foreground">
+                  Redeem wallet points in step multiples
+                </p>
+              </div>
+              <Switch
+                checked={settings.masters.pointsRedeemEnabled}
+                onCheckedChange={(on) => {
+                  if (!requireAdminPasscode()) return
+                  setExclusiveLoyaltyOffer("points", on)
+                  refreshSettings()
+                }}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">Punch % promo</p>
+                <p className="text-xs text-muted-foreground">
+                  Full punch card → percent off order
+                </p>
+              </div>
+              <Switch
+                checked={settings.masters.punchPercentEnabled}
+                onCheckedChange={(on) => {
+                  if (!requireAdminPasscode()) return
+                  setExclusiveLoyaltyOffer("punch_percent", on)
+                  refreshSettings()
+                }}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">Free item promo</p>
+                <p className="text-xs text-muted-foreground">
+                  Full punch card → choose a free item
+                </p>
+              </div>
+              <Switch
+                checked={settings.masters.freeItemPromoEnabled}
+                onCheckedChange={(on) => {
+                  if (!requireAdminPasscode()) return
+                  setExclusiveLoyaltyOffer("free_item", on)
                   refreshSettings()
                 }}
               />
@@ -377,6 +461,17 @@ export function PricingPage() {
                   points: Number(settings.loyaltyRedeem.points) || 1000,
                   rupees: Number(settings.loyaltyRedeem.rupees) || 10,
                   step: Number(settings.loyaltyRedeem.step) || 500,
+                },
+                punchRules: {
+                  minBillPaisa: Math.max(
+                    0,
+                    Math.round(Number(settings.punchRules.minBillPaisa) || 0)
+                  ),
+                  skuScope: settings.punchRules.skuScope,
+                  minQty: Math.max(
+                    1,
+                    Math.floor(Number(settings.punchRules.minQty) || 1)
+                  ),
                 },
                 earnPaisaPerPoint: settings.earnPaisaPerPoint,
                 punchesRequired: settings.punchesRequired,
@@ -508,6 +603,71 @@ export function PricingPage() {
               Effective now: {formatRedeemMappingLabel()} · step{" "}
               {getEffectiveLoyalty().redeemStep}
             </p>
+
+            <p className="pt-2 text-sm font-medium">Punch stamp rules</p>
+            <p className="text-xs text-muted-foreground">
+              Digital punches mirror the physical card. Sale must meet min bill
+              and/or buy enough of selected SKUs.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label>Min bill (₹)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={settings.punchRules.minBillPaisa / 100}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      punchRules: {
+                        ...s.punchRules,
+                        minBillPaisa: Math.round(
+                          (Number(e.target.value) || 0) * 100
+                        ),
+                      },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Min qty</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={settings.punchRules.minQty}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      punchRules: {
+                        ...s.punchRules,
+                        minQty: Number(e.target.value) || 1,
+                      },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1 sm:col-span-2">
+                <Label>SKU scope (blank = any product)</Label>
+                <Input
+                  value={settings.punchRules.skuScope.join(", ")}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      punchRules: {
+                        ...s.punchRules,
+                        skuScope: e.target.value
+                          .split(/[,\s]+/)
+                          .map((x) => x.trim().toUpperCase())
+                          .filter(Boolean),
+                      },
+                    }))
+                  }
+                  placeholder="SKU1, SKU2"
+                />
+              </div>
+            </div>
+
             <Button type="submit">Save loyalty settings</Button>
           </form>
 

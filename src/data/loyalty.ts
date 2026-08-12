@@ -57,6 +57,12 @@ export function getEffectiveLoyalty() {
     name: loyaltyConfig.name,
     note: loyaltyConfig.note,
     segments: loyaltyConfig.segments,
+    masters: s.masters,
+    punchRules: s.punchRules,
+    punchCardEnabled: s.masters.punchCardEnabled,
+    pointsRedeemEnabled: s.masters.pointsRedeemEnabled,
+    punchPercentEnabled: s.masters.punchPercentEnabled,
+    freeItemPromoEnabled: s.masters.freeItemPromoEnabled,
   }
 }
 

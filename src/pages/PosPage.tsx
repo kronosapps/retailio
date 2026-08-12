@@ -263,9 +263,13 @@ export function PosPage() {
     promoSettings.friendsAndFamily.presets ||
     discountConfig.friendsAndFamily.presets
   const selectedLoyaltyReward = getLoyaltyRewardItem(selectedLoyaltyRewardId)
-  const hasActiveLoyaltyPercent = loyaltyMode === "percent"
+  const loyaltyEff = getEffectiveLoyalty()
+  const hasActiveLoyaltyPercent =
+    loyaltyMode === "percent" && loyaltyEff.punchPercentEnabled
   const hasActiveLoyaltyItem =
-    loyaltyMode === "item" && Boolean(selectedLoyaltyReward)
+    loyaltyMode === "item" &&
+    loyaltyEff.freeItemPromoEnabled &&
+    Boolean(selectedLoyaltyReward)
   const hasActiveLoyalty = hasActiveLoyaltyPercent || hasActiveLoyaltyItem
 
   const items = useMemo(
@@ -342,9 +346,9 @@ export function PosPage() {
     [customerId, attachedCustomer]
   )
 
-  const loyaltyEff = getEffectiveLoyalty()
   const loyaltyReady =
     Boolean(attachedCustomer) &&
+    loyaltyEff.punchCardEnabled &&
     (attachedCustomer?.loyaltyPunches ?? 0) >= loyaltyEff.punchesRequired
 
   const redeemStep = loyaltyEff.redeemStep
@@ -352,6 +356,26 @@ export function PosPage() {
     Math.max(0, totals.total + (totals.pointsDiscount || 0)),
     availablePoints
   )
+
+  useEffect(() => {
+    if (!loyaltyEff.pointsRedeemEnabled && pointsToRedeem > 0) {
+      updateActivePosSession({ pointsToRedeem: 0 })
+    }
+    if (
+      loyaltyMode === "percent" &&
+      !loyaltyEff.punchPercentEnabled
+    ) {
+      updateActivePosSession({ loyaltyMode: "off" })
+    }
+    if (loyaltyMode === "item" && !loyaltyEff.freeItemPromoEnabled) {
+      clearLoyaltyReward()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- clear when masters flip
+  }, [
+    loyaltyEff.pointsRedeemEnabled,
+    loyaltyEff.punchPercentEnabled,
+    loyaltyEff.freeItemPromoEnabled,
+  ])
 
   const itemCount = sessionItemCount(session)
   const nextInvoiceId = useMemo(() => {
@@ -568,7 +592,9 @@ export function PosPage() {
             <p className="text-[11px] text-muted-foreground">
               Redeem {formatRedeemMappingLabel()} · steps of {redeemStep}
             </p>
-            {availablePoints >= redeemStep && cart.length > 0 ? (
+            {loyaltyEff.pointsRedeemEnabled &&
+            availablePoints >= redeemStep &&
+            cart.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
                 <Button
                   type="button"
@@ -949,11 +975,14 @@ export function PosPage() {
                     <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
                       <p className="font-medium">{attachedCustomer.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {attachedCustomer.phone || "No phone"} ·{" "}
-                        {attachedCustomer.loyaltyPunches}/
-                        {loyaltyEff.punchesRequired} punches ·{" "}
-                        {attachedCustomer.loyaltyPoints} pts · credit{" "}
-                        {formatMoney(attachedCustomer.storeCreditPaisa)}
+                        {attachedCustomer.phone || "No phone"}
+                        {loyaltyEff.punchCardEnabled
+                          ? ` · ${attachedCustomer.loyaltyPunches}/${loyaltyEff.punchesRequired} punches`
+                          : ""}
+                        {loyaltyEff.pointsRedeemEnabled
+                          ? ` · ${attachedCustomer.loyaltyPoints} pts`
+                          : ""}{" "}
+                        · credit {formatMoney(attachedCustomer.storeCreditPaisa)}
                       </p>
                       <div className="mt-1 flex flex-wrap gap-1">
                         {CrmService.deriveSegments(attachedCustomer).map((s) => (
@@ -1001,7 +1030,10 @@ export function PosPage() {
                   )}
                 </div>
 
-                {loyaltyReady && loyaltyMode === "off" ? (
+                {loyaltyReady &&
+                loyaltyMode === "off" &&
+                (loyaltyEff.punchPercentEnabled ||
+                  loyaltyEff.freeItemPromoEnabled) ? (
                   <p className="rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-xs">
                     Loyalty ready — {attachedCustomer?.loyaltyPunches}/
                     {loyaltyEff.punchesRequired} punches. Choose a reward
@@ -1009,17 +1041,23 @@ export function PosPage() {
                   </p>
                 ) : null}
 
-                <div className="rounded-lg border border-border px-3 py-3">
-                  <p className="text-sm font-medium">{loyaltyConfig.name}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {loyaltyConfig.note}
-                  </p>
-                  <p className="mt-2 text-xs font-medium">
-                    Reward: {getLoyaltyRewardSummary()}
-                  </p>
-                </div>
+                {loyaltyEff.punchCardEnabled ||
+                loyaltyEff.punchPercentEnabled ||
+                loyaltyEff.freeItemPromoEnabled ? (
+                  <div className="rounded-lg border border-border px-3 py-3">
+                    <p className="text-sm font-medium">{loyaltyConfig.name}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {loyaltyConfig.note}
+                    </p>
+                    <p className="mt-2 text-xs font-medium">
+                      Reward: {getLoyaltyRewardSummary()}
+                    </p>
+                  </div>
+                ) : null}
 
-                {attachedCustomer && availablePoints > 0 ? (
+                {loyaltyEff.pointsRedeemEnabled &&
+                attachedCustomer &&
+                availablePoints > 0 ? (
                   <div className="space-y-2 rounded-lg border border-border px-3 py-3">
                     <Label htmlFor="pos-points">
                       Redeem points (max {maxPointsForOrder} ·{" "}
@@ -1124,62 +1162,67 @@ export function PosPage() {
                   </div>
                 ) : null}
 
-                <div className="space-y-2">
-                  <Label className="text-sm">
-                    Choose one reward for this order
-                  </Label>
-                  <div className="grid gap-2">
-                    <button
-                      type="button"
-                      onClick={chooseLoyaltyPercent}
-                      className={cn(
-                        "rounded-lg border px-3 py-2.5 text-left transition-colors active:scale-[0.99]",
-                        loyaltyMode === "percent"
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:bg-muted"
-                      )}
-                    >
-                      <p className="text-sm font-medium">
-                        {loyaltyConfig.percentReward.percent}% off the order
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        No free item — discount only
-                      </p>
-                    </button>
+                {loyaltyEff.punchPercentEnabled ? (
+                  <div className="space-y-2">
+                    <Label className="text-sm">
+                      Punch % reward for this order
+                    </Label>
+                    <div className="grid gap-2">
+                      <button
+                        type="button"
+                        onClick={chooseLoyaltyPercent}
+                        className={cn(
+                          "rounded-lg border px-3 py-2.5 text-left transition-colors active:scale-[0.99]",
+                          loyaltyMode === "percent"
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:bg-muted"
+                        )}
+                      >
+                        <p className="text-sm font-medium">
+                          {loyaltyEff.percentReward.percent}% off the order
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          No free item — discount only
+                        </p>
+                      </button>
+                    </div>
                   </div>
-                </div>
+                ) : null}
 
-                <div className="space-y-2">
-                  <Label className="text-sm">Or choose one free item</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Selecting a free item replaces the percent discount.
-                  </p>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {LOYALTY_REWARD_ITEMS.map((reward) => {
-                      const selected =
-                        loyaltyMode === "item" &&
-                        selectedLoyaltyRewardId === reward.id
-                      return (
-                        <button
-                          key={reward.id}
-                          type="button"
-                          onClick={() => selectLoyaltyReward(reward.id)}
-                          className={cn(
-                            "rounded-lg border px-3 py-2.5 text-left transition-colors active:scale-[0.99]",
-                            selected
-                              ? "border-primary bg-primary/10"
-                              : "border-border hover:bg-muted"
-                          )}
-                        >
-                          <p className="text-sm font-medium">{reward.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {reward.weight} · worth {formatMoney(reward.value)}
-                          </p>
-                        </button>
-                      )
-                    })}
+                {loyaltyEff.freeItemPromoEnabled ? (
+                  <div className="space-y-2">
+                    <Label className="text-sm">Free item promo</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Selecting a free item uses the punch reward.
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {LOYALTY_REWARD_ITEMS.map((reward) => {
+                        const selected =
+                          loyaltyMode === "item" &&
+                          selectedLoyaltyRewardId === reward.id
+                        return (
+                          <button
+                            key={reward.id}
+                            type="button"
+                            onClick={() => selectLoyaltyReward(reward.id)}
+                            className={cn(
+                              "rounded-lg border px-3 py-2.5 text-left transition-colors active:scale-[0.99]",
+                              selected
+                                ? "border-primary bg-primary/10"
+                                : "border-border hover:bg-muted"
+                            )}
+                          >
+                            <p className="text-sm font-medium">{reward.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {reward.weight} · worth{" "}
+                              {formatMoney(reward.value)}
+                            </p>
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
-                </div>
+                ) : null}
 
                 {hasActiveLoyaltyPercent ? (
                   <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">

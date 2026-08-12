@@ -26,11 +26,34 @@ export type LoyaltyRedeemMapping = {
   step: number
 }
 
+/**
+ * Master switches.
+ * Points / punch-% / free-item are mutually exclusive (only one POS offer at a time).
+ * Festival / campaign (order promotions) can stack as additional discounts.
+ */
 export type PromoMasterSwitches = {
   /** Product / SKU line promotions. */
   productPromotionsEnabled: boolean
-  /** Order campaigns: coupons, occasion, birthday. */
+  /** Order campaigns: coupons, occasion, birthday (additional discounts OK). */
   orderPromotionsEnabled: boolean
+  /** Digital punch card stamping + punch progress on receipt. */
+  punchCardEnabled: boolean
+  /** Points redemption at POS (exclusive vs punch % / free item). */
+  pointsRedeemEnabled: boolean
+  /** Punch-card % reward at POS. */
+  punchPercentEnabled: boolean
+  /** Free-item punch reward at POS. */
+  freeItemPromoEnabled: boolean
+}
+
+/** When a paid sale qualifies for a digital punch stamp. */
+export type PunchRules = {
+  /** Minimum payable / bill in paisa (0 = no min). */
+  minBillPaisa: number
+  /** Empty = any product. Otherwise only these SKUs count toward punch qty. */
+  skuScope: string[]
+  /** Min qty of qualifying products (default 1). */
+  minQty: number
 }
 
 export type OccasionSettings = {
@@ -53,6 +76,7 @@ export type PromoSettings = {
   version: 1
   masters: PromoMasterSwitches
   loyaltyRedeem: LoyaltyRedeemMapping
+  punchRules: PunchRules
   /** Earn: paisa spent per 1 point. */
   earnPaisaPerPoint: number
   punchesRequired: number
@@ -78,11 +102,20 @@ function defaults(): PromoSettings {
     masters: {
       productPromotionsEnabled: true,
       orderPromotionsEnabled: true,
+      punchCardEnabled: true,
+      pointsRedeemEnabled: true,
+      punchPercentEnabled: false,
+      freeItemPromoEnabled: false,
     },
     loyaltyRedeem: {
       points: 1000,
       rupees: 10,
       step: 500,
+    },
+    punchRules: {
+      minBillPaisa: 0,
+      skuScope: [],
+      minQty: 1,
     },
     earnPaisaPerPoint: loyalty.points?.paisaPerPoint ?? 100,
     punchesRequired: loyalty.punchesRequired,
@@ -106,12 +139,15 @@ function read(): PromoSettings {
     if (!raw) return defaults()
     const parsed = JSON.parse(raw) as Partial<PromoSettings>
     const base = defaults()
+    const masters = { ...base.masters, ...parsed.masters }
+    // Enforce exclusivity on load (migrate older stores).
     return {
       ...base,
       ...parsed,
       version: 1,
-      masters: { ...base.masters, ...parsed.masters },
+      masters: enforceExclusiveLoyaltyOffers(masters),
       loyaltyRedeem: { ...base.loyaltyRedeem, ...parsed.loyaltyRedeem },
+      punchRules: { ...base.punchRules, ...parsed.punchRules },
       birthday: { ...base.birthday, ...parsed.birthday },
       occasion: { ...base.occasion, ...parsed.occasion },
       friendsAndFamily: {
@@ -128,6 +164,29 @@ function write(settings: PromoSettings) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
 }
 
+/** Only one of points / punch% / free-item may be on. Prefer points → punch% → free item. */
+export function enforceExclusiveLoyaltyOffers(
+  masters: PromoMasterSwitches
+): PromoMasterSwitches {
+  const on = [
+    masters.pointsRedeemEnabled,
+    masters.punchPercentEnabled,
+    masters.freeItemPromoEnabled,
+  ].filter(Boolean).length
+  if (on <= 1) return masters
+  if (masters.pointsRedeemEnabled) {
+    return {
+      ...masters,
+      punchPercentEnabled: false,
+      freeItemPromoEnabled: false,
+    }
+  }
+  if (masters.punchPercentEnabled) {
+    return { ...masters, freeItemPromoEnabled: false }
+  }
+  return masters
+}
+
 export function getPromoSettings(): PromoSettings {
   return read()
 }
@@ -136,10 +195,13 @@ export function savePromoSettings(
   patch: Partial<PromoSettings>
 ): PromoSettings {
   const cur = read()
+  let masters = { ...cur.masters, ...patch.masters }
+  masters = enforceExclusiveLoyaltyOffers(masters)
   const clean: PromoSettings = {
     version: 1,
-    masters: { ...cur.masters, ...patch.masters },
+    masters,
     loyaltyRedeem: { ...cur.loyaltyRedeem, ...patch.loyaltyRedeem },
+    punchRules: { ...cur.punchRules, ...patch.punchRules },
     earnPaisaPerPoint: patch.earnPaisaPerPoint ?? cur.earnPaisaPerPoint,
     punchesRequired: patch.punchesRequired ?? cur.punchesRequired,
     percentReward: patch.percentReward ?? cur.percentReward,
@@ -156,6 +218,27 @@ export function savePromoSettings(
   return clean
 }
 
+/**
+ * Enable one exclusive loyalty offer; disables the other two.
+ * Pass which key to turn on (or null to turn all three off).
+ */
+export function setExclusiveLoyaltyOffer(
+  offer: "points" | "punch_percent" | "free_item" | null,
+  enabled: boolean
+): PromoSettings {
+  const cur = getPromoSettings()
+  const masters: PromoMasterSwitches = {
+    ...cur.masters,
+    pointsRedeemEnabled: false,
+    punchPercentEnabled: false,
+    freeItemPromoEnabled: false,
+  }
+  if (enabled && offer === "points") masters.pointsRedeemEnabled = true
+  if (enabled && offer === "punch_percent") masters.punchPercentEnabled = true
+  if (enabled && offer === "free_item") masters.freeItemPromoEnabled = true
+  return savePromoSettings({ masters })
+}
+
 /** Paisa off per redeemed point from mapping (1000 pts = ₹10 → 1 paisa/pt). */
 export function redeemPaisaPerPointFromMapping(
   mapping: LoyaltyRedeemMapping = getPromoSettings().loyaltyRedeem
@@ -163,6 +246,51 @@ export function redeemPaisaPerPointFromMapping(
   const pts = Math.max(1, Math.round(mapping.points || 1000))
   const rupees = Math.max(0, Number(mapping.rupees) || 0)
   return Math.max(1, Math.round((rupees * 100) / pts))
+}
+
+export type PunchLineInput = {
+  itemId: string
+  sku?: string | null
+  qty: number
+  isLoyaltyReward?: boolean
+}
+
+/** Whether this sale earns a digital punch (same counter as physical card). */
+export function isSalePunchEligible(
+  input: {
+    purchasePaisa: number
+    lines?: PunchLineInput[]
+  },
+  settings = getPromoSettings()
+): boolean {
+  if (!settings.masters.punchCardEnabled) return false
+  const rules = settings.punchRules
+  const spend = Math.max(0, Math.round(input.purchasePaisa || 0))
+  if (spend < Math.max(0, rules.minBillPaisa || 0)) return false
+
+  const lines = (input.lines || []).filter((l) => !l.isLoyaltyReward && l.qty > 0)
+  const scope = (rules.skuScope || [])
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean)
+  const minQty = Math.max(1, Math.floor(rules.minQty || 1))
+
+  // No line detail (legacy callers): stamp on spend if min bill met.
+  if (!input.lines || input.lines.length === 0) {
+    return spend > 0
+  }
+
+  if (scope.length === 0) {
+    const totalQty = lines.reduce((s, l) => s + l.qty, 0)
+    return spend > 0 && totalQty >= minQty
+  }
+
+  const qualifyingQty = lines
+    .filter((l) => {
+      const key = (l.sku || l.itemId || "").trim().toUpperCase()
+      return scope.includes(key)
+    })
+    .reduce((s, l) => s + l.qty, 0)
+  return qualifyingQty >= minQty
 }
 
 export function isBirthdayInWindow(
@@ -182,7 +310,6 @@ export function isBirthdayInWindow(
   const end = new Date(year, month, day)
   end.setDate(end.getDate() + Math.max(0, settings.daysAfter))
   const cur = new Date(at.getFullYear(), at.getMonth(), at.getDate())
-  // Handle year wrap roughly: also check previous/next year window
   if (cur >= start && cur <= end) return true
   const bdayPrev = new Date(bday)
   bdayPrev.setFullYear(year - 1)

@@ -72,6 +72,12 @@ export type RecordedSale = {
     mode: "off" | "percent" | "item"
     freeItemId: string | null
     freeItemName: string | null
+    /** Snapshot after Mark Paid (for receipt). */
+    punchesBefore?: number | null
+    punchesAfter?: number | null
+    punchStamped?: boolean
+    pointsEarned?: number | null
+    pointsBalanceAfter?: number | null
   }
 }
 
@@ -337,6 +343,7 @@ export function updateInvoicePayment(
     customerId?: string | null
     customerPhone?: string | null
     storeCreditAppliedPaisa?: number
+    loyalty?: Partial<RecordedSale["loyalty"]>
   }
 ): RecordedSale | null {
   const store = readStore()
@@ -346,7 +353,16 @@ export function updateInvoicePayment(
   const current = store.sales[index]
   const next: RecordedSale = {
     ...current,
-    ...patch,
+    paymentId:
+      patch.paymentId !== undefined ? patch.paymentId : current.paymentId,
+    paymentStatus:
+      patch.paymentStatus !== undefined
+        ? patch.paymentStatus
+        : current.paymentStatus,
+    paymentMethod:
+      patch.paymentMethod !== undefined
+        ? patch.paymentMethod
+        : current.paymentMethod,
     customerName: patch.customerName ?? current.customerName,
     customerId:
       patch.customerId !== undefined ? patch.customerId : current.customerId,
@@ -354,6 +370,9 @@ export function updateInvoicePayment(
       patch.customerPhone !== undefined
         ? patch.customerPhone
         : current.customerPhone,
+    loyalty: patch.loyalty
+      ? { ...current.loyalty, ...patch.loyalty }
+      : current.loyalty,
     totals:
       patch.storeCreditAppliedPaisa !== undefined
         ? {

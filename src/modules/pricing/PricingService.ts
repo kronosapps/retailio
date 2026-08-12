@@ -317,6 +317,12 @@ export class PricingService {
     const at = input.at || new Date()
     const settings = getPromoSettings()
     const orderPromosOn = settings.masters.orderPromotionsEnabled
+    const redeemLoyaltyPercent =
+      settings.masters.punchPercentEnabled &&
+      Boolean(input.redeemLoyaltyPercent)
+    const pointsToRedeem = settings.masters.pointsRedeemEnabled
+      ? input.pointsToRedeem
+      : 0
     const occasion = orderPromosOn ? getActiveOccasionDiscount(at) : null
     const fnf = clampDiscountPercent(
       input.friendsFamilyPercent || 0,
@@ -332,22 +338,28 @@ export class PricingService {
 
     // 1) Line-level promo
     const intermediate = input.lines.map((line) => {
-      if (line.isLoyaltyReward || line.qty <= 0) {
+      const isFreeReward =
+        Boolean(line.isLoyaltyReward) && settings.masters.freeItemPromoEnabled
+      if (isFreeReward || line.qty <= 0) {
         const snap: PriceSnapshot = {
           listUnitPaisa: 0,
           promoUnitPaisa: 0,
           listLinePaisa: 0,
           promoLinePaisa: 0,
           netLinePaisa: 0,
-          explanation: "Loyalty reward (₹0).",
-          appliedRules: [
-            {
-              type: "LOYALTY",
-              id: "reward-item",
-              label: "Free loyalty item",
-              amountPaisa: 0,
-            },
-          ],
+          explanation: isFreeReward
+            ? "Loyalty reward (₹0)."
+            : "Empty line.",
+          appliedRules: isFreeReward
+            ? [
+                {
+                  type: "LOYALTY",
+                  id: "reward-item",
+                  label: "Free loyalty item",
+                  amountPaisa: 0,
+                },
+              ]
+            : [],
         }
         return {
           ...line,
@@ -430,7 +442,7 @@ export class PricingService {
         applyOccasion: Boolean(input.applyOccasion),
         occasion,
         friendsFamilyPercent: fnf,
-        redeemLoyalty: Boolean(input.redeemLoyaltyPercent),
+        redeemLoyalty: redeemLoyaltyPercent,
       }
     )
 
@@ -453,7 +465,7 @@ export class PricingService {
       const afterBirthday = Math.max(0, afterOccasion - birthdayDiscount)
       let loyaltyDiscount = 0
       let loyaltyLabel: string | null = null
-      if (input.redeemLoyaltyPercent) {
+      if (redeemLoyaltyPercent) {
         loyaltyDiscount = percentOfPaisa(
           afterBirthday,
           loyaltyEff.percentReward.percent
@@ -517,7 +529,7 @@ export class PricingService {
     }
 
     // 3b) Loyalty points redeem (after punch %, before line allocation)
-    const wantPoints = Math.max(0, Math.floor(input.pointsToRedeem || 0))
+    const wantPoints = Math.max(0, Math.floor(pointsToRedeem || 0))
     const availablePoints = Math.max(0, Math.floor(input.availablePoints || 0))
     if (wantPoints > 0 && availablePoints > 0 && totals.total > 0) {
       const pointsRedeemed = maxRedeemablePoints(

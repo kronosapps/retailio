@@ -356,13 +356,35 @@ export function usePayment() {
           const redeemedLoyalty =
             sale?.loyalty?.mode === "percent" ||
             sale?.loyalty?.mode === "item"
-          await CrmService.recordPaidPurchase({
+          const loyaltyResult = await CrmService.recordPaidPurchase({
             customerId: customer.id,
             purchasePaisa: invoice.amountPaisa,
             redeemedLoyalty,
             pointsRedeemed: sale?.totals.pointsRedeemed || 0,
+            lines: sale?.lines.map((l) => ({
+              itemId: l.itemId,
+              sku: l.sku,
+              qty: l.qty,
+              isLoyaltyReward: l.isLoyaltyReward,
+            })),
             actorId: userId,
           })
+          if (loyaltyResult) {
+            const { getPromoSettings } = await import("@/data/promoSettings")
+            const punchOn = getPromoSettings().masters.punchCardEnabled
+            await invoiceRepository.updatePaymentFields(invoice.invoiceId, {
+              loyalty: {
+                mode: sale?.loyalty?.mode ?? "off",
+                freeItemId: sale?.loyalty?.freeItemId ?? null,
+                freeItemName: sale?.loyalty?.freeItemName ?? null,
+                punchesBefore: punchOn ? loyaltyResult.punchesBefore : null,
+                punchesAfter: punchOn ? loyaltyResult.punchesAfter : null,
+                punchStamped: punchOn ? loyaltyResult.punchStamped : false,
+                pointsEarned: loyaltyResult.pointsEarned,
+                pointsBalanceAfter: loyaltyResult.pointsBalanceAfter,
+              },
+            })
+          }
           if (settlement.method === "OnAccount" && tenderPaisa > 0) {
             await CrmService.bumpOutstanding({
               customerId: customer.id,

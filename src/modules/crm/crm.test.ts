@@ -135,15 +135,15 @@ describe("CRM — customer profile & loyalty", () => {
       purchasePaisa: 10000,
       redeemedLoyalty: false,
     })
-    expect(after?.loyaltyPunches).toBe(1)
-    expect(after?.loyaltyPoints).toBe(100)
+    expect(after?.customer.loyaltyPunches).toBe(1)
+    expect(after?.customer.loyaltyPoints).toBe(100)
 
     const redeemed = await CrmService.recordPaidPurchase({
       customerId: customer.id,
       purchasePaisa: 10000,
       redeemedLoyalty: true,
     })
-    expect(redeemed?.loyaltyPunches).toBe(0)
+    expect(redeemed?.customer.loyaltyPunches).toBe(0)
   })
 
   it("redeems points in 500 steps, bumps on-account AR, and settles", async () => {
