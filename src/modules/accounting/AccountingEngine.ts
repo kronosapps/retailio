@@ -13,7 +13,10 @@ import { supplierInvoiceRepository } from "@/repositories/SupplierInvoiceReposit
 import { supplierPaymentRepository } from "@/repositories/SupplierPaymentRepository"
 
 import { saleCogsPaisa } from "./costBasis"
-import { AccountingRules } from "./rules/AccountingRules"
+import { AccountingRules, journalLine } from "./rules/AccountingRules"
+import { ACCOUNT_CODES } from "./chartOfAccounts"
+import { salesReturnRepository } from "@/repositories/SalesReturnRepository"
+import { creditNoteRepository } from "@/repositories/CreditNoteRepository"
 
 type PaymentReceivedPayload = {
   paymentId?: string
@@ -72,6 +75,12 @@ export class AccountingEngine {
     })
     this.subscriber.on(EventTypes.INVENTORY_MOVEMENT_CREATED, (event) => {
       void this.onInventoryMovement(event)
+    })
+    this.subscriber.on(EventTypes.SALE_RETURN_POSTED, (event) => {
+      void this.onSalesReturnPosted(event)
+    })
+    this.subscriber.on(EventTypes.CREDIT_NOTE_ISSUED, (event) => {
+      void this.onCreditNoteIssued(event)
     })
   }
 
@@ -320,6 +329,112 @@ export class AccountingEngine {
     } catch (err) {
       if (import.meta.env.DEV) {
         console.warn("[AccountingEngine] inventory movement journal failed", err)
+      }
+    }
+  }
+
+  private async onSalesReturnPosted(event: DomainEvent) {
+    const payload = event.payload as { id?: string }
+    const id = payload?.id
+    if (!id) return
+
+    try {
+      if (journalRepository.getByReference("sales_return", id)) return
+
+      const ret = salesReturnRepository.getById(id)
+      if (!ret || ret.status !== "POSTED") return
+
+      const sale = await invoiceRepository.getById(ret.invoiceId)
+      let restockCogs = 0
+      if (ret.restock && sale) {
+        // Pro-rate catalog COGS by returned qty / sold qty per line.
+        for (const line of ret.lines) {
+          const sold = sale.lines.find(
+            (l) =>
+              (l.sku || l.itemId).toUpperCase() ===
+              (line.sku || line.itemId).toUpperCase()
+          )
+          if (!sold || sold.qty <= 0) continue
+          const full = saleCogsPaisa({
+            ...sale,
+            lines: [sold],
+          })
+          restockCogs += Math.round((full * line.quantity) / sold.qty)
+        }
+      }
+
+      if (ret.settlement === "REFUND" && ret.refundId) {
+        // Cash reverse is on the refund journal; post COGS reverse only.
+        if (ret.restock && restockCogs > 0) {
+          await journalRepository.savePosted({
+            id: `je_srn_${ret.id}`,
+            date: (ret.postedAt || ret.createdAt).slice(0, 10),
+            createdAt: ret.postedAt || ret.createdAt,
+            description: `Sales return ${ret.returnNumber} COGS reverse`,
+            referenceType: "sales_return",
+            referenceId: ret.id,
+            operatorId: ret.updatedBy ?? ret.createdBy,
+            operatorName: null,
+            paymentMethod: null,
+            lines: [
+              journalLine(ACCOUNT_CODES.INVENTORY, restockCogs, 0),
+              journalLine(ACCOUNT_CODES.COGS, 0, restockCogs),
+            ],
+            source: "posted",
+            eventId: event.id,
+            storeId: ret.storeId,
+          })
+        }
+        return
+      }
+
+      const entry = AccountingRules.fromSalesReturn(ret, {
+        eventId: event.id,
+        source: "posted",
+        restockCogsPaisa: restockCogs,
+      })
+      if (!entry) return
+      await journalRepository.savePosted(entry)
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn("[AccountingEngine] sales return journal failed", err)
+      }
+    }
+  }
+
+  private async onCreditNoteIssued(event: DomainEvent) {
+    const payload = event.payload as {
+      id?: string
+      salesReturnId?: string | null
+    }
+    if (!payload?.id) return
+
+    try {
+      // Prefer the sales-return journal when this note was issued from a return.
+      if (
+        payload.salesReturnId &&
+        journalRepository.getByReference("sales_return", payload.salesReturnId)
+      ) {
+        return
+      }
+      if (journalRepository.getByReference("credit_note", payload.id)) return
+
+      const note = creditNoteRepository.getById(payload.id)
+      if (!note) return
+      if (note.salesReturnId) {
+        // Wait for SALE_RETURN_POSTED to own the GL.
+        return
+      }
+
+      const entry = AccountingRules.fromCreditNote(note, {
+        eventId: event.id,
+        source: "posted",
+      })
+      if (!entry) return
+      await journalRepository.savePosted(entry)
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn("[AccountingEngine] credit note journal failed", err)
       }
     }
   }

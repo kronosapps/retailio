@@ -655,6 +655,62 @@ export class InventoryService {
     return count
   }
 
+  /**
+   * Restock selected lines for a posted sales return.
+   * Idempotent per salesReturnId+sku.
+   */
+  static async restockForSalesReturn(input: {
+    salesReturnId: string
+    invoiceId: string
+    storeId?: string | null
+    actorId?: string | null
+    actorName?: string | null
+    lines: Array<{
+      sku: string | null
+      itemId: string
+      name: string
+      quantity: number
+    }>
+  }): Promise<number> {
+    let count = 0
+    for (const line of input.lines) {
+      if (line.quantity <= 0) continue
+      const sku = resolveLineSku({
+        sku: line.sku,
+        itemId: line.itemId,
+        name: line.name,
+        weight: "",
+      })
+      if (!sku) continue
+      const ref = `sale-return:${input.salesReturnId}:${sku}`
+      try {
+        await this.recordMovement({
+          sku,
+          type: "RETURN",
+          quantity: line.quantity,
+          reason: `Sales return ${input.salesReturnId}`,
+          referenceId: input.invoiceId,
+          idempotentKey: ref,
+          notes: line.name,
+          actorId: input.actorId ?? null,
+          actorName: input.actorName ?? null,
+          storeId: input.storeId ?? null,
+          allowNegative: false,
+        })
+        count += 1
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn(
+            "[InventoryService] sales return restock failed",
+            sku,
+            err
+          )
+        }
+      }
+    }
+    return count
+  }
+
   // —— Categories ——
 
   static listCategories(): CategoryRecord[] {

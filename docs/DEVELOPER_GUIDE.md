@@ -40,6 +40,14 @@
 5. Banking remains store cashbook; till is cashier accountability.
 6. Do not call Till from Payment/POS React — events only.
 
+## Sales returns, exchanges & credit notes
+
+1. Goods document → `SalesReturnService.create` / `post` → `sales_returns` (partial lines, caps like purchase returns).
+2. Settlement: `REFUND` (cash/UPI via refund + engines), `CREDIT_NOTE` (customer store credit), `EXCHANGE` (restock + new sale + net pay/refund).
+3. Restock → `InventoryService.restockForSalesReturn` (`RETURN` movements). Cancel unpaid → `SALE_CANCELLED` (no stock).
+4. UI: `/returns` (admin/manager). Dashboard full-refund dialog posts a full remaining return via the same service.
+5. Do not invent a parallel cash path — refund settlement still emits `REFUND_*` / `PAYMENT_REFUNDED` for Banking/Till/Accounting.
+
 ### Bulk product import
 
 1. Download template / export via `ProductImportService.downloadTemplate()` / `downloadExport()`.

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { Link } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -13,8 +14,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { formatMoney } from "@/lib/money"
 import { useAuth } from "@/providers/AuthProvider"
-
-import { RefundError, RefundService } from "../RefundService"
+import {
+  SalesReturnError,
+  SalesReturnService,
+} from "@/modules/salesReturn"
+import { invoiceRepository } from "@/repositories/InvoiceRepository"
 
 export type RefundDialogTarget = {
   invoiceId: string
@@ -23,6 +27,9 @@ export type RefundDialogTarget = {
   paymentMethod: string | null
 }
 
+/**
+ * Quick full-return + refund. Partial / credit / exchange → /returns.
+ */
 export function RefundDialog({
   target,
   open,
@@ -54,24 +61,42 @@ export function RefundDialog({
     setBusy(true)
     setError(null)
     try {
-      await RefundService.process({
+      const sale = await invoiceRepository.getById(target.invoiceId)
+      if (!sale) throw new SalesReturnError("NOT_FOUND", "Invoice not found.")
+      const remaining = SalesReturnService.remainingReturnable(sale)
+      const lines = remaining
+        .filter((r) => r.remainingQty > 0)
+        .map((r) => ({
+          itemId: r.itemId,
+          sku: r.sku,
+          quantity: r.remainingQty,
+        }))
+      if (!lines.length) {
+        throw new SalesReturnError(
+          "VALIDATION",
+          "Nothing left to return on this invoice."
+        )
+      }
+      await SalesReturnService.create({
         invoiceId: target.invoiceId,
+        settlement: "REFUND",
+        lines,
         reason,
         restock,
-        actorId: userId,
-        storeId: profile?.storeId ?? null,
-        method:
+        refundMethod:
           target.paymentMethod === "UPI" || target.paymentMethod === "Cash"
             ? target.paymentMethod
             : "Cash",
+        actorId: userId,
+        storeId: profile?.storeId ?? null,
       })
       onOpenChange(false)
       onCompleted?.()
     } catch (err) {
       setError(
-        err instanceof RefundError
+        err instanceof SalesReturnError || err instanceof Error
           ? err.message
-          : "Could not process refund."
+          : "Could not process return."
       )
     } finally {
       setBusy(false)
@@ -80,66 +105,52 @@ export function RefundDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" showCloseButton={!busy}>
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>Refund sale</DialogTitle>
+          <DialogTitle>Full return + refund</DialogTitle>
           <DialogDescription>
-            Full refund for {target.invoiceId}. This cannot be undone from the
-            POS.
+            Returns all remaining lines on {target.invoiceId} and refunds{" "}
+            {formatMoney(target.totalPaisa)} to {target.customerName}. For
+            partial returns, credit notes, or exchanges use{" "}
+            <Link to="/returns" className="underline underline-offset-2">
+              Returns
+            </Link>
+            .
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
-          <div className="rounded-lg border border-border bg-muted/40 px-3 py-3 text-sm">
-            <p className="text-muted-foreground">Customer</p>
-            <p className="font-medium">{target.customerName}</p>
-            <p className="mt-2 text-muted-foreground">Amount</p>
-            <p className="text-xl font-semibold tabular-nums">
-              {formatMoney(target.totalPaisa)}
-            </p>
-          </div>
-
-          <div className="space-y-1.5">
+        <div className="space-y-3 py-2">
+          <div className="space-y-1">
             <Label htmlFor="refund-reason">Reason</Label>
             <Input
               id="refund-reason"
               value={reason}
-              onChange={(event) => setReason(event.target.value)}
-              placeholder="Customer return"
+              onChange={(e) => setReason(e.target.value)}
             />
           </div>
-
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
-              className="size-4 rounded border-border"
               checked={restock}
-              onChange={(event) => setRestock(event.target.checked)}
+              onChange={(e) => setRestock(e.target.checked)}
             />
-            Restock matching inventory items when available
+            Restock inventory
           </label>
-
           {error ? (
             <p className="text-sm text-destructive">{error}</p>
           ) : null}
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter>
           <Button
             type="button"
             variant="outline"
-            disabled={busy}
             onClick={() => onOpenChange(false)}
           >
             Cancel
           </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            disabled={busy || !reason.trim()}
-            onClick={() => void submit()}
-          >
-            {busy ? "Refunding…" : "Confirm refund"}
+          <Button type="button" disabled={busy} onClick={submit}>
+            {busy ? "Processing…" : "Post full return"}
           </Button>
         </DialogFooter>
       </DialogContent>

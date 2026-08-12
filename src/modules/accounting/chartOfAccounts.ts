@@ -29,6 +29,12 @@ export const CHART_OF_ACCOUNTS: LedgerAccount[] = [
     normalBalance: "credit",
   },
   {
+    code: "2200",
+    name: "Customer Credits",
+    type: "liability",
+    normalBalance: "credit",
+  },
+  {
     code: "3000",
     name: "Owner Capital / Balancing",
     type: "equity",
@@ -61,6 +67,7 @@ export const ACCOUNT_CODES = {
   GST_INPUT: "1300",
   AP: "2000",
   GST_PAYABLE: "2100",
+  CUSTOMER_CREDIT: "2200",
   CAPITAL: "3000",
   SALES: "4000",
   SALES_RETURNS: "4100",

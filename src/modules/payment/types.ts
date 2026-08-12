@@ -7,6 +7,7 @@ export type PaymentStatus =
   | "Cancelled"
   | "Expired"
   | "Refunded"
+  | "PartiallyRefunded"
 
 /** Active tender types on POS. Legacy Card/Bank/Split may still exist in old rows. */
 export type PaymentMethod = "Cash" | "UPI"

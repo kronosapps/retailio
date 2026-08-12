@@ -229,6 +229,40 @@ const ROUTES: Partial<Record<string, SheetRoute>> = {
       }
     },
   },
+  [EventTypes.SALE_RETURN_CREATED]: {
+    sheet: "SalesReturns",
+    sync: async (p, data) => {
+      if (typeof p.syncRefund === "function") await p.syncRefund(data)
+    },
+  },
+  [EventTypes.SALE_RETURN_POSTED]: {
+    sheet: "SalesReturns",
+    sync: async (p, data) => {
+      if (typeof p.syncRefund === "function") await p.syncRefund(data)
+    },
+  },
+  [EventTypes.SALE_RETURN_UPDATED]: {
+    sheet: "SalesReturns",
+    sync: async (p, data) => {
+      if (typeof p.syncRefund === "function") await p.syncRefund(data)
+    },
+  },
+  [EventTypes.CREDIT_NOTE_ISSUED]: {
+    sheet: "CreditNotes",
+    sync: async (p, data) => {
+      if (typeof p.syncCustomer === "function") await p.syncCustomer(data)
+    },
+  },
+  [EventTypes.CREDIT_NOTE_APPLIED]: {
+    sheet: "CreditNotes",
+    sync: async (p, data) => {
+      if (typeof p.syncCustomer === "function") await p.syncCustomer(data)
+    },
+  },
+  [EventTypes.SALE_CANCELLED]: {
+    sheet: "Invoices",
+    sync: (p, data) => p.syncInvoice(data),
+  },
 }
 
 /**
