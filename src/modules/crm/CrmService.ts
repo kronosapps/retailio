@@ -5,6 +5,7 @@ import {
 import { listRecordedSales, type RecordedSale } from "@/data/invoices"
 import {
   loyaltyConfig,
+  getEffectiveLoyalty,
   pointsFromSpendPaisa,
 } from "@/data/loyalty"
 import type { CrmAuditRecord } from "@/data/crmAudit"
@@ -107,7 +108,7 @@ export class CrmService {
     if (customer.storeCreditPaisa > 0) {
       out.push({ id: "credit_holder", label: "Store credit" })
     }
-    if (customer.loyaltyPunches >= loyaltyConfig.punchesRequired) {
+    if (customer.loyaltyPunches >= getEffectiveLoyalty().punchesRequired) {
       out.push({ id: "loyalty_ready", label: "Loyalty ready" })
     }
     return out
@@ -176,7 +177,7 @@ export class CrmService {
       unpaidInvoicesPaisa: unpaid,
       storeCreditPaisa: customer.storeCreditPaisa,
       loyaltyPunches: customer.loyaltyPunches,
-      punchesRequired: loyaltyConfig.punchesRequired,
+      punchesRequired: getEffectiveLoyalty().punchesRequired,
       loyaltyPoints: customer.loyaltyPoints,
       purchases: this.listPurchaseHistory(customerId),
       creditNotes: creditNoteRepository
@@ -528,7 +529,7 @@ export class CrmService {
     if (input.redeemedLoyalty) {
       punches = 0
     } else if (spend > 0) {
-      punches = Math.min(loyaltyConfig.punchesRequired, punches + 1)
+      punches = Math.min(getEffectiveLoyalty().punchesRequired, punches + 1)
     }
 
     const next = await customerRepository.save(
@@ -539,6 +540,8 @@ export class CrmService {
           0,
           existing.loyaltyPoints + earned - redeemed
         ),
+        loyaltyPointsRedeemed:
+          (existing.loyaltyPointsRedeemed || 0) + redeemed,
         updatedBy: input.actorId ?? existing.updatedBy,
       },
       false
@@ -584,7 +587,7 @@ export class CrmService {
         customerId: next.id,
         customerName: next.name,
         kind: "PUNCHES_STAMPED",
-        message: `Punch stamped (${next.loyaltyPunches}/${loyaltyConfig.punchesRequired})`,
+        message: `Punch stamped (${next.loyaltyPunches}/${getEffectiveLoyalty().punchesRequired})`,
         delta: 1,
         balanceAfter: next.loyaltyPunches,
         actorId: input.actorId ?? null,
@@ -757,7 +760,7 @@ export class CrmService {
       throw new CrmError("VALIDATION", "Punches must be ≥ 0.")
     }
     const target = Math.min(
-      loyaltyConfig.punchesRequired,
+      getEffectiveLoyalty().punchesRequired,
       Math.floor(input.loyaltyPunches)
     )
     const delta = target - existing.loyaltyPunches
@@ -873,6 +876,7 @@ export class CrmService {
       "visits",
       "spendPaisa",
       "points",
+      "pointsRedeemed",
       "storeCreditPaisa",
       "outstandingPaisa",
       "segments",
@@ -893,6 +897,7 @@ export class CrmService {
           String(c.visitCount),
           String(c.totalSpendPaisa),
           String(c.loyaltyPoints),
+          String(c.loyaltyPointsRedeemed || 0),
           String(c.storeCreditPaisa),
           String(c.outstandingPaisa),
           csvEscape(segs),

@@ -345,7 +345,8 @@ export function CustomersPage() {
                   <div>
                     {customer.visitCount} visits ·{" "}
                     {formatMoney(customer.totalSpendPaisa)} ·{" "}
-                    {customer.loyaltyPoints} pts · credit{" "}
+                    {customer.loyaltyPoints} pts · redeemed{" "}
+                    {customer.loyaltyPointsRedeemed || 0} · credit{" "}
                     {formatMoney(customer.storeCreditPaisa)}
                   </div>
                   <div className="text-xs text-muted-foreground">
@@ -388,6 +389,7 @@ export function CustomersPage() {
                     <th className="px-3 py-2 font-medium">Visits</th>
                     <th className="px-3 py-2 font-medium">Spend</th>
                     <th className="px-3 py-2 font-medium">Points</th>
+                    <th className="px-3 py-2 font-medium">Redeemed</th>
                     <th className="px-3 py-2 font-medium">Credit</th>
                     <th className="px-3 py-2 font-medium" />
                   </tr>
@@ -422,6 +424,9 @@ export function CustomersPage() {
                       </td>
                       <td className="px-3 py-2 tabular-nums">
                         {customer.loyaltyPoints}
+                      </td>
+                      <td className="px-3 py-2 tabular-nums">
+                        {customer.loyaltyPointsRedeemed || 0}
                       </td>
                       <td className="px-3 py-2 tabular-nums">
                         {formatMoney(customer.storeCreditPaisa)}

@@ -210,9 +210,20 @@ Invoice status: `PartiallyRefunded` until all lines returned, then `Refunded`.
 
 ---
 
-## Pricing, promotions & discounts
+## Pricing / Promotions Management
 
-Module: `src/modules/pricing/`. UI: `/utilities/pricing` (admin/manager). POS coupon tab under Discounts.
+Module: `src/modules/pricing/` + `src/data/promoSettings.ts`. UI: **`/utilities/pricing`** (labeled **Promotions Management**).
+
+| Area | Behavior |
+|------|----------|
+| Product promos | SKU/category line discounts (master switch) |
+| Campaigns | Coupons / segment offers (order promotions switch) |
+| Discounts | Occasion + Friends & Family caps (editable) |
+| Loyalty | Punch card, free-item catalog, points earn, **1000 pts = ₹10** mapping (editable), redeem **multiples of 500** |
+| Birthday | Optional % off when attached customer DOB is in window |
+| Admin gate | Enable/disable toggles require admin passcode |
+
+POS: attach customer on cart → apply loyalty points in 500 steps without opening Loyalty panel.
 
 ```text
 List (base) → Promotion (SKU/category) → Coupon → Friends & Family → Occasion → Loyalty %

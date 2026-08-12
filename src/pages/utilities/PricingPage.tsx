@@ -4,8 +4,20 @@ import { Link } from "react-router-dom"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatMoney } from "@/lib/money"
+import { LOYALTY_REWARD_ITEMS } from "@/data/loyalty-rewards"
+import {
+  formatRedeemMappingLabel,
+  getEffectiveLoyalty,
+} from "@/data/loyalty"
+import {
+  getPromoSettings,
+  savePromoSettings,
+  type PromoSettings,
+} from "@/data/promoSettings"
+import { BankingService } from "@/modules/banking/BankingService"
 import {
   PricingError,
   PricingService,
@@ -28,14 +40,18 @@ function plusDays(days: number) {
 }
 
 /**
- * Utilities → Pricing — promotions, coupons, price history, invoice explain.
+ * Utilities → Promotions Management — discounts, loyalty, campaigns, mapping.
  */
 export function PricingPage() {
   const { userId, profile } = useAuth()
   const [tick, setTick] = useState(0)
-  const [tab, setTab] = useState("promotions")
+  const [tab, setTab] = useState("masters")
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [adminPasscode, setAdminPasscode] = useState("")
+  const [settings, setSettings] = useState<PromoSettings>(() =>
+    getPromoSettings()
+  )
 
   const [promoName, setPromoName] = useState("")
   const [promoType, setPromoType] = useState<"PERCENT" | "FIXED">("PERCENT")
@@ -61,7 +77,22 @@ export function PricingPage() {
 
   useEffect(() => {
     void PricingService.hydrate().then(() => setTick((t) => t + 1))
+    setSettings(getPromoSettings())
   }, [])
+
+  function requireAdminPasscode(): boolean {
+    if (!BankingService.verifyPasscode(adminPasscode)) {
+      setError("Admin passcode required to change promotion switches.")
+      return false
+    }
+    setError(null)
+    return true
+  }
+
+  function refreshSettings() {
+    setSettings(getPromoSettings())
+    setTick((t) => t + 1)
+  }
 
   const promotions = useMemo(() => {
     void tick
@@ -151,6 +182,7 @@ export function PricingPage() {
   }
 
   async function togglePromo(row: PromotionRecord) {
+    if (!requireAdminPasscode()) return
     setBusy(true)
     try {
       await PricingService.savePromotion({
@@ -176,6 +208,7 @@ export function PricingPage() {
   }
 
   async function toggleCoupon(row: CouponRecord) {
+    if (!requireAdminPasscode()) return
     setBusy(true)
     try {
       await PricingService.saveCoupon({
@@ -243,10 +276,10 @@ export function PricingPage() {
     <div className="mx-auto max-w-3xl space-y-4 pb-8">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold">Pricing</h2>
+          <h2 className="text-lg font-semibold">Promotions Management</h2>
           <p className="text-sm text-muted-foreground">
-            Promotions, coupons, and sell-price history. Sale lines keep a frozen
-            price snapshot so you can explain why an item sold below list.
+            Discounts, loyalty, campaigns, points→₹ mapping, birthday & free-item
+            promos. Enable/disable switches need the admin passcode.
           </p>
         </div>
         <Link
@@ -257,6 +290,18 @@ export function PricingPage() {
         </Link>
       </div>
 
+      <div className="space-y-1.5 rounded-lg border border-border p-3">
+        <Label htmlFor="promo-admin-pass">Admin passcode (for enable/disable)</Label>
+        <Input
+          id="promo-admin-pass"
+          type="password"
+          autoComplete="current-password"
+          value={adminPasscode}
+          onChange={(e) => setAdminPasscode(e.target.value)}
+          placeholder="Required to toggle promotions"
+        />
+      </div>
+
       {error ? (
         <p className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
           {error}
@@ -264,16 +309,434 @@ export function PricingPage() {
       ) : null}
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="promotions">Promos</TabsTrigger>
-          <TabsTrigger value="coupons">Coupons</TabsTrigger>
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
+          <TabsTrigger value="masters">Switches</TabsTrigger>
+          <TabsTrigger value="loyalty">Loyalty</TabsTrigger>
+          <TabsTrigger value="discounts">Discounts</TabsTrigger>
+          <TabsTrigger value="birthday">Birthday</TabsTrigger>
+          <TabsTrigger value="promotions">Product</TabsTrigger>
+          <TabsTrigger value="coupons">Campaigns</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
           <TabsTrigger value="explain">Why?</TabsTrigger>
         </TabsList>
 
+        <TabsContent value="masters" className="mt-4 space-y-4">
+          <div className="space-y-4 rounded-lg border border-border p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">Product promotions</p>
+                <p className="text-xs text-muted-foreground">
+                  SKU / category line discounts at POS
+                </p>
+              </div>
+              <Switch
+                checked={settings.masters.productPromotionsEnabled}
+                onCheckedChange={(on) => {
+                  if (!requireAdminPasscode()) return
+                  savePromoSettings({
+                    masters: {
+                      ...settings.masters,
+                      productPromotionsEnabled: on,
+                    },
+                  })
+                  refreshSettings()
+                }}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">Order promotions</p>
+                <p className="text-xs text-muted-foreground">
+                  Campaigns (coupons), occasion & birthday promos
+                </p>
+              </div>
+              <Switch
+                checked={settings.masters.orderPromotionsEnabled}
+                onCheckedChange={(on) => {
+                  if (!requireAdminPasscode()) return
+                  savePromoSettings({
+                    masters: {
+                      ...settings.masters,
+                      orderPromotionsEnabled: on,
+                    },
+                  })
+                  refreshSettings()
+                }}
+              />
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="loyalty" className="mt-4 space-y-4">
+          <form
+            className="space-y-3 rounded-lg border border-border p-4"
+            onSubmit={(e) => {
+              e.preventDefault()
+              savePromoSettings({
+                loyaltyRedeem: {
+                  points: Number(settings.loyaltyRedeem.points) || 1000,
+                  rupees: Number(settings.loyaltyRedeem.rupees) || 10,
+                  step: Number(settings.loyaltyRedeem.step) || 500,
+                },
+                earnPaisaPerPoint: settings.earnPaisaPerPoint,
+                punchesRequired: settings.punchesRequired,
+                percentReward: settings.percentReward,
+                percentRewardLabel: settings.percentRewardLabel,
+              })
+              refreshSettings()
+            }}
+          >
+            <p className="text-sm font-medium">Points → discount mapping</p>
+            <p className="text-xs text-muted-foreground">
+              Default {formatRedeemMappingLabel()}. Redeem only in multiples of
+              the step (e.g. 1670 pts → 1500 redeemable).
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="space-y-1">
+                <Label>Points</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={settings.loyaltyRedeem.points}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      loyaltyRedeem: {
+                        ...s.loyaltyRedeem,
+                        points: Number(e.target.value) || 0,
+                      },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>= Rupees</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={settings.loyaltyRedeem.rupees}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      loyaltyRedeem: {
+                        ...s.loyaltyRedeem,
+                        rupees: Number(e.target.value) || 0,
+                      },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Redeem step</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={settings.loyaltyRedeem.step}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      loyaltyRedeem: {
+                        ...s.loyaltyRedeem,
+                        step: Number(e.target.value) || 500,
+                      },
+                    }))
+                  }
+                />
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label>Earn (paisa per point)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={settings.earnPaisaPerPoint}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      earnPaisaPerPoint: Number(e.target.value) || 100,
+                    }))
+                  }
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  100 = 1 point per ₹1 spent
+                </p>
+              </div>
+              <div className="space-y-1">
+                <Label>Punches required</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={settings.punchesRequired}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      punchesRequired: Number(e.target.value) || 5,
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Punch % reward</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={settings.percentReward}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      percentReward: Number(e.target.value) || 0,
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Punch reward label</Label>
+                <Input
+                  value={settings.percentRewardLabel}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      percentRewardLabel: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Effective now: {formatRedeemMappingLabel()} · step{" "}
+              {getEffectiveLoyalty().redeemStep}
+            </p>
+            <Button type="submit">Save loyalty settings</Button>
+          </form>
+
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-sm font-medium">Free item promo catalog</p>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Punch-card free items offered on POS Loyalty when punches are ready.
+            </p>
+            <ul className="space-y-2">
+              {LOYALTY_REWARD_ITEMS.map((item) => (
+                <li
+                  key={item.id}
+                  className="flex justify-between gap-2 text-sm"
+                >
+                  <span>
+                    {item.name} · {item.weight}
+                  </span>
+                  <span className="tabular-nums text-muted-foreground">
+                    {formatMoney(item.value)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="discounts" className="mt-4 space-y-4">
+          <form
+            className="space-y-3 rounded-lg border border-border p-4"
+            onSubmit={(e) => {
+              e.preventDefault()
+              savePromoSettings({
+                occasion: settings.occasion,
+                friendsAndFamily: settings.friendsAndFamily,
+              })
+              refreshSettings()
+            }}
+          >
+            <p className="text-sm font-medium">Occasion / festival campaign</p>
+            <div className="flex items-center justify-between gap-3">
+              <Label>Active</Label>
+              <Switch
+                checked={settings.occasion.active}
+                onCheckedChange={(on) => {
+                  if (!requireAdminPasscode()) return
+                  setSettings((s) => ({
+                    ...s,
+                    occasion: { ...s.occasion, active: on },
+                  }))
+                }}
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1 sm:col-span-2">
+                <Label>Name</Label>
+                <Input
+                  value={settings.occasion.name}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      occasion: { ...s.occasion, name: e.target.value },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Percent</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={settings.occasion.percent}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      occasion: {
+                        ...s.occasion,
+                        percent: Number(e.target.value) || 0,
+                      },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>F&amp;F max %</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={settings.friendsAndFamily.maxPercent}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      friendsAndFamily: {
+                        ...s.friendsAndFamily,
+                        maxPercent: Number(e.target.value) || 50,
+                      },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Starts</Label>
+                <Input
+                  type="date"
+                  value={settings.occasion.startsOn}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      occasion: { ...s.occasion, startsOn: e.target.value },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Ends</Label>
+                <Input
+                  type="date"
+                  value={settings.occasion.endsOn}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      occasion: { ...s.occasion, endsOn: e.target.value },
+                    }))
+                  }
+                />
+              </div>
+            </div>
+            <Button type="submit">Save discounts</Button>
+          </form>
+        </TabsContent>
+
+        <TabsContent value="birthday" className="mt-4 space-y-4">
+          <form
+            className="space-y-3 rounded-lg border border-border p-4"
+            onSubmit={(e) => {
+              e.preventDefault()
+              savePromoSettings({ birthday: settings.birthday })
+              refreshSettings()
+            }}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">Birthday promo</p>
+                <p className="text-xs text-muted-foreground">
+                  Auto % off when attached customer birthday is in window
+                </p>
+              </div>
+              <Switch
+                checked={settings.birthday.active}
+                onCheckedChange={(on) => {
+                  if (!requireAdminPasscode()) return
+                  setSettings((s) => ({
+                    ...s,
+                    birthday: { ...s.birthday, active: on },
+                  }))
+                }}
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label>Percent</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={settings.birthday.percent}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      birthday: {
+                        ...s.birthday,
+                        percent: Number(e.target.value) || 0,
+                      },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Label</Label>
+                <Input
+                  value={settings.birthday.label}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      birthday: { ...s.birthday, label: e.target.value },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Days before</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={settings.birthday.daysBefore}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      birthday: {
+                        ...s.birthday,
+                        daysBefore: Number(e.target.value) || 0,
+                      },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Days after</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={settings.birthday.daysAfter}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      birthday: {
+                        ...s.birthday,
+                        daysAfter: Number(e.target.value) || 0,
+                      },
+                    }))
+                  }
+                />
+              </div>
+            </div>
+            <Button type="submit">Save birthday promo</Button>
+          </form>
+        </TabsContent>
+
         <TabsContent value="promotions" className="mt-4 space-y-4">
           <form className="space-y-3 rounded-lg border border-border p-3" onSubmit={(e) => void savePromo(e)}>
-            <p className="text-sm font-medium">New promotion</p>
+            <p className="text-sm font-medium">New product promotion</p>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1 sm:col-span-2">
                 <Label htmlFor="promo-name">Name</Label>
@@ -404,7 +867,7 @@ export function PricingPage() {
             className="space-y-3 rounded-lg border border-border p-3"
             onSubmit={(e) => void saveCoupon(e)}
           >
-            <p className="text-sm font-medium">New coupon</p>
+            <p className="text-sm font-medium">New campaign coupon</p>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1 sm:col-span-2">
                 <Label htmlFor="cpn-code">Code</Label>

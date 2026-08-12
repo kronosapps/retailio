@@ -40,6 +40,8 @@ export type CustomerRecord = {
   loyaltyPunches: number
   /** Loyalty points wallet (earn on paid sales). */
   loyaltyPoints: number
+  /** Lifetime points redeemed (running total). */
+  loyaltyPointsRedeemed: number
   /** Manual tags (VIP, etc.); auto-segments are derived at read time. */
   tags: string[]
   /** Free-text offer / campaign note shown on CRM profile. */
@@ -149,6 +151,16 @@ function normalizeCustomer(raw: CustomerRecord): CustomerRecord {
       ? Math.max(
           0,
           Math.floor((raw as Partial<CustomerRecord>).loyaltyPoints || 0)
+        )
+      : 0,
+    loyaltyPointsRedeemed: Number.isFinite(
+      (raw as Partial<CustomerRecord>).loyaltyPointsRedeemed
+    )
+      ? Math.max(
+          0,
+          Math.floor(
+            (raw as Partial<CustomerRecord>).loyaltyPointsRedeemed || 0
+          )
         )
       : 0,
     tags: Array.isArray((raw as Partial<CustomerRecord>).tags)
@@ -297,6 +309,7 @@ export function buildCustomerRecord(
     lastPurchaseAt: null,
     loyaltyPunches: 0,
     loyaltyPoints: 0,
+    loyaltyPointsRedeemed: 0,
     tags: Array.isArray(input.tags)
       ? input.tags.map((t) => t.trim()).filter(Boolean)
       : [],

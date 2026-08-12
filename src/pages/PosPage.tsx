@@ -17,13 +17,17 @@ import {
   discountConfig,
   getActiveOccasionDiscount,
 } from "@/data/discounts"
+import { getPromoSettings } from "@/data/promoSettings"
 import { PricingService } from "@/modules/pricing"
 import { CustomerService } from "@/modules/customer"
 import { CrmService, CustomerAttachField } from "@/modules/crm"
 import {
   loyaltyConfig,
   getLoyaltyRewardSummary,
+  getEffectiveLoyalty,
   maxRedeemablePoints,
+  snapRedeemPoints,
+  formatRedeemMappingLabel,
 } from "@/data/loyalty"
 import { peekNextInvoiceId } from "@/data/invoices"
 import {
@@ -251,8 +255,13 @@ export function PosPage() {
       : null
 
   const activeOccasion = useMemo(() => getActiveOccasionDiscount(), [])
-  const fnfMax = discountConfig.friendsAndFamily.maxPercent
-  const fnfPresets = discountConfig.friendsAndFamily.presets
+  const promoSettings = getPromoSettings()
+  const fnfMax =
+    promoSettings.friendsAndFamily.maxPercent ||
+    discountConfig.friendsAndFamily.maxPercent
+  const fnfPresets =
+    promoSettings.friendsAndFamily.presets ||
+    discountConfig.friendsAndFamily.presets
   const selectedLoyaltyReward = getLoyaltyRewardItem(selectedLoyaltyRewardId)
   const hasActiveLoyaltyPercent = loyaltyMode === "percent"
   const hasActiveLoyaltyItem =
@@ -306,6 +315,7 @@ export function PosPage() {
         pointsToRedeem,
         availablePoints,
         customerSegments,
+        customerBirthday: attachedCustomer?.birthday ?? null,
       }),
     [
       cart,
@@ -316,6 +326,7 @@ export function PosPage() {
       pointsToRedeem,
       availablePoints,
       customerSegments,
+      attachedCustomer?.birthday,
     ]
   )
   const totals = priced.totals
@@ -331,10 +342,12 @@ export function PosPage() {
     [customerId, attachedCustomer]
   )
 
+  const loyaltyEff = getEffectiveLoyalty()
   const loyaltyReady =
     Boolean(attachedCustomer) &&
-    (attachedCustomer?.loyaltyPunches ?? 0) >= loyaltyConfig.punchesRequired
+    (attachedCustomer?.loyaltyPunches ?? 0) >= loyaltyEff.punchesRequired
 
+  const redeemStep = loyaltyEff.redeemStep
   const maxPointsForOrder = maxRedeemablePoints(
     Math.max(0, totals.total + (totals.pointsDiscount || 0)),
     availablePoints
@@ -545,13 +558,70 @@ export function PosPage() {
       <div className="space-y-2">
         <p className="text-xs font-medium text-muted-foreground">Customer</p>
         {attachedCustomer ? (
-          <div className="rounded-md bg-muted/50 px-2.5 py-2 text-sm">
+          <div className="space-y-2 rounded-md bg-muted/50 px-2.5 py-2 text-sm">
             <p className="font-medium">{attachedCustomer.name}</p>
             <p className="text-[11px] text-muted-foreground">
               {attachedCustomer.phone || "No phone"} ·{" "}
               {attachedCustomer.loyaltyPoints} pts · credit{" "}
               {formatMoney(attachedCustomer.storeCreditPaisa)}
             </p>
+            <p className="text-[11px] text-muted-foreground">
+              Redeem {formatRedeemMappingLabel()} · steps of {redeemStep}
+            </p>
+            {availablePoints >= redeemStep && cart.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  disabled={maxPointsForOrder < redeemStep}
+                  onClick={() =>
+                    updateActivePosSession({
+                      pointsToRedeem: snapRedeemPoints(
+                        (pointsToRedeem || 0) + redeemStep,
+                        maxPointsForOrder
+                      ),
+                    })
+                  }
+                >
+                  +{redeemStep} pts
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  disabled={maxPointsForOrder < redeemStep}
+                  onClick={() =>
+                    updateActivePosSession({
+                      pointsToRedeem: maxPointsForOrder,
+                    })
+                  }
+                >
+                  Apply max ({maxPointsForOrder})
+                </Button>
+                {pointsToRedeem > 0 ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() =>
+                      updateActivePosSession({ pointsToRedeem: 0 })
+                    }
+                  >
+                    Clear pts
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+            {pointsToRedeem > 0 ? (
+              <p className="text-[11px] font-medium">
+                Applying {pointsToRedeem} pts (−
+                {formatMoney(totals.pointsDiscount || 0)})
+              </p>
+            ) : null}
             <Button
               type="button"
               variant="ghost"
@@ -881,7 +951,7 @@ export function PosPage() {
                       <p className="text-xs text-muted-foreground">
                         {attachedCustomer.phone || "No phone"} ·{" "}
                         {attachedCustomer.loyaltyPunches}/
-                        {loyaltyConfig.punchesRequired} punches ·{" "}
+                        {loyaltyEff.punchesRequired} punches ·{" "}
                         {attachedCustomer.loyaltyPoints} pts · credit{" "}
                         {formatMoney(attachedCustomer.storeCreditPaisa)}
                       </p>
@@ -922,7 +992,7 @@ export function PosPage() {
                           customerPhone: c.phone || "",
                           pointsToRedeem: 0,
                           loyaltyMode:
-                            c.loyaltyPunches >= loyaltyConfig.punchesRequired
+                            c.loyaltyPunches >= loyaltyEff.punchesRequired
                               ? loyaltyMode
                               : "off",
                         })
@@ -934,7 +1004,7 @@ export function PosPage() {
                 {loyaltyReady && loyaltyMode === "off" ? (
                   <p className="rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-xs">
                     Loyalty ready — {attachedCustomer?.loyaltyPunches}/
-                    {loyaltyConfig.punchesRequired} punches. Choose a reward
+                    {loyaltyEff.punchesRequired} punches. Choose a reward
                     below.
                   </p>
                 ) : null}
@@ -953,27 +1023,71 @@ export function PosPage() {
                   <div className="space-y-2 rounded-lg border border-border px-3 py-3">
                     <Label htmlFor="pos-points">
                       Redeem points (max {maxPointsForOrder} ·{" "}
-                      {availablePoints} available)
+                      {availablePoints} available · multiples of {redeemStep})
                     </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {formatRedeemMappingLabel()}
+                    </p>
                     <Input
                       id="pos-points"
                       type="number"
                       min={0}
+                      step={redeemStep}
                       max={maxPointsForOrder}
                       value={pointsToRedeem}
                       onChange={(e) =>
                         updateActivePosSession({
-                          pointsToRedeem: Math.max(
-                            0,
-                            Math.min(
-                              maxPointsForOrder,
-                              Math.floor(Number(e.target.value) || 0)
-                            )
+                          pointsToRedeem: snapRedeemPoints(
+                            Number(e.target.value) || 0,
+                            maxPointsForOrder
                           ),
                         })
                       }
                       disabled={cart.length === 0}
                     />
+                    <div className="flex flex-wrap gap-1.5">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={maxPointsForOrder < redeemStep}
+                        onClick={() =>
+                          updateActivePosSession({
+                            pointsToRedeem: snapRedeemPoints(
+                              pointsToRedeem + redeemStep,
+                              maxPointsForOrder
+                            ),
+                          })
+                        }
+                      >
+                        +{redeemStep}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={maxPointsForOrder < redeemStep}
+                        onClick={() =>
+                          updateActivePosSession({
+                            pointsToRedeem: maxPointsForOrder,
+                          })
+                        }
+                      >
+                        Max {maxPointsForOrder}
+                      </Button>
+                      {pointsToRedeem > 0 ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            updateActivePosSession({ pointsToRedeem: 0 })
+                          }
+                        >
+                          Clear
+                        </Button>
+                      ) : null}
+                    </div>
                     {totals.pointsDiscount > 0 ? (
                       <p className="text-xs text-muted-foreground">
                         −{formatMoney(totals.pointsDiscount)} from points

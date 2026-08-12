@@ -1,6 +1,7 @@
 import discountData from "./discounts.json"
 import { type Paisa, percentOfPaisa, roundPaisa } from "@/lib/money"
-import { loyaltyConfig } from "./loyalty"
+import { getEffectiveLoyalty } from "./loyalty"
+import { getPromoSettings } from "./promoSettings"
 import { splitInclusiveGst, taxConfig } from "./tax"
 
 export type OccasionDiscount = {
@@ -52,7 +53,9 @@ export const discountConfig = discountData as DiscountConfig
 export function getActiveOccasionDiscount(
   today = new Date()
 ): OccasionDiscount | null {
-  const occasion = discountConfig.occasion
+  const settings = getPromoSettings()
+  const occasion = settings.occasion
+  if (!settings.masters.orderPromotionsEnabled) return null
   if (!occasion?.active) return null
   if (typeof occasion.percent !== "number" || occasion.percent <= 0) return null
   if (!isDateInRange(today, occasion.startsOn, occasion.endsOn)) return null
@@ -129,7 +132,7 @@ export function calculateOrderTotals(
   let loyaltyDiscount: Paisa = 0
   let loyaltyLabel: string | null = null
   if (options.redeemLoyalty) {
-    const { percent, label } = loyaltyConfig.percentReward
+    const { percent, label } = getEffectiveLoyalty().percentReward
     loyaltyDiscount = percentOfPaisa(afterOccasion, percent)
     loyaltyLabel = label
   }

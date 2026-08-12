@@ -181,8 +181,9 @@ export const UTILITY_TOOLS: UtilityTool[] = [
   {
     id: "pricing",
     group: "daily",
-    title: "Pricing",
-    description: "Promotions, coupons, price history & why-this-price",
+    title: "Promotions Management",
+    description:
+      "Discounts, loyalty, campaigns, points mapping, birthday & free-item promos",
     path: "/utilities/pricing",
     roles: ["admin", "manager"],
   },

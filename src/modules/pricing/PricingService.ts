@@ -6,10 +6,14 @@ import {
   type OrderTotals,
 } from "@/data/discounts"
 import {
-  loyaltyConfig,
+  getEffectiveLoyalty,
   maxRedeemablePoints,
   paisaFromPointsRedeemed,
 } from "@/data/loyalty"
+import {
+  getPromoSettings,
+  isBirthdayInWindow,
+} from "@/data/promoSettings"
 import { splitInclusiveGst, taxConfig } from "@/data/tax"
 import { type Paisa, percentOfPaisa, roundPaisa, rupeesToPaisa } from "@/lib/money"
 import { productRepository } from "@/repositories/ProductRepository"
@@ -71,6 +75,8 @@ export type PriceOrderInput = {
   availablePoints?: number
   /** CRM segment ids for coupon targeting (e.g. vip). */
   customerSegments?: string[]
+  /** YYYY-MM-DD — enables birthday promo when configured. */
+  customerBirthday?: string | null
   at?: Date
 }
 
@@ -264,6 +270,7 @@ export class PricingService {
     category: string | null | undefined,
     at = new Date()
   ): PromotionRecord | null {
+    if (!getPromoSettings().masters.productPromotionsEnabled) return null
     const today = dateKey(at)
     const key = sku.trim().toUpperCase()
     const cat = category?.trim() || ""
@@ -308,11 +315,20 @@ export class PricingService {
    */
   static priceOrder(input: PriceOrderInput): PriceOrderResult {
     const at = input.at || new Date()
-    const occasion = getActiveOccasionDiscount(at)
+    const settings = getPromoSettings()
+    const orderPromosOn = settings.masters.orderPromotionsEnabled
+    const occasion = orderPromosOn ? getActiveOccasionDiscount(at) : null
     const fnf = clampDiscountPercent(
       input.friendsFamilyPercent || 0,
-      discountConfig.friendsAndFamily.maxPercent
+      settings.friendsAndFamily.maxPercent ||
+        discountConfig.friendsAndFamily.maxPercent
     )
+    const birthdayOk =
+      orderPromosOn &&
+      isBirthdayInWindow(input.customerBirthday, at, settings.birthday)
+    const birthdayPercent = birthdayOk ? settings.birthday.percent : 0
+    const birthdayLabel = birthdayOk ? settings.birthday.label : null
+    const loyaltyEff = getEffectiveLoyalty()
 
     // 1) Line-level promo
     const intermediate = input.lines.map((line) => {
@@ -372,7 +388,7 @@ export class PricingService {
     // 2) Coupon on promo subtotal (optional segment targeting)
     let coupon: CouponRecord | null = null
     let couponDiscount = 0
-    if (input.couponCode?.trim()) {
+    if (orderPromosOn && input.couponCode?.trim()) {
       coupon = couponRepository.getByCode(input.couponCode)
       const today = dateKey(at)
       const customerSegs = new Set(input.customerSegments || [])
@@ -418,10 +434,9 @@ export class PricingService {
       }
     )
 
-    // Adjust: calculateOrderTotals used promo gross; we need coupon between promo and F&F.
-    // Recompute manually for correctness when coupon present.
+    // Adjust: recalculate when coupon and/or birthday layer on top of the stack.
     let totals: PriceOrderTotals
-    if (couponDiscount > 0) {
+    if (couponDiscount > 0 || birthdayPercent > 0) {
       const friendsFamilyDiscount = percentOfPaisa(afterCoupon, fnf)
       const afterFriendsFamily = Math.max(0, afterCoupon - friendsFamilyDiscount)
       const occasionPercent =
@@ -431,25 +446,34 @@ export class PricingService {
           ? percentOfPaisa(afterFriendsFamily, occasionPercent)
           : 0
       const afterOccasion = Math.max(0, afterFriendsFamily - occasionDiscount)
+      const birthdayDiscount =
+        birthdayPercent > 0
+          ? percentOfPaisa(afterOccasion, birthdayPercent)
+          : 0
+      const afterBirthday = Math.max(0, afterOccasion - birthdayDiscount)
       let loyaltyDiscount = 0
       let loyaltyLabel: string | null = null
       if (input.redeemLoyaltyPercent) {
         loyaltyDiscount = percentOfPaisa(
-          afterOccasion,
-          loyaltyConfig.percentReward.percent
+          afterBirthday,
+          loyaltyEff.percentReward.percent
         )
-        loyaltyLabel = loyaltyConfig.percentReward.label
+        loyaltyLabel = loyaltyEff.percentReward.label
       }
-      const total = Math.max(0, afterOccasion - loyaltyDiscount)
+      const total = Math.max(0, afterBirthday - loyaltyDiscount)
       const gst = splitInclusiveGst(total, taxConfig.gst.percent)
+      const occasionNameParts = [
+        occasion?.name ?? null,
+        birthdayDiscount > 0 ? birthdayLabel : null,
+      ].filter(Boolean)
       totals = {
         grossSubtotal: promoSubtotal,
         friendsFamilyDiscount,
         friendsFamilyPercent: fnf,
         afterFriendsFamily,
-        occasionDiscount,
-        occasionPercent,
-        occasionName: occasion?.name ?? null,
+        occasionDiscount: occasionDiscount + birthdayDiscount,
+        occasionPercent: occasionPercent + birthdayPercent,
+        occasionName: occasionNameParts.join(" + ") || null,
         loyaltyDiscount,
         loyaltyLabel,
         total,

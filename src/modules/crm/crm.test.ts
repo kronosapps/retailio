@@ -146,10 +146,13 @@ describe("CRM — customer profile & loyalty", () => {
     expect(redeemed?.loyaltyPunches).toBe(0)
   })
 
-  it("redeems points, bumps on-account AR, and settles", async () => {
+  it("redeems points in 500 steps, bumps on-account AR, and settles", async () => {
     const { CustomerService } = await import("@/modules/customer/CustomerService")
     const { CrmService } = await import("@/modules/crm/CrmService")
     const { PricingService } = await import("@/modules/pricing/PricingService")
+    const { maxRedeemablePoints } = await import("@/data/loyalty")
+
+    expect(maxRedeemablePoints(1_000_000, 1670)).toBe(1500)
 
     const customer = await CustomerService.create({
       name: "Arun",
@@ -157,7 +160,7 @@ describe("CRM — customer profile & loyalty", () => {
     })
     await CustomerService.save({
       ...customer,
-      loyaltyPoints: 500,
+      loyaltyPoints: 1670,
       totalSpendPaisa: 3_000_000,
       visitCount: 10,
     })
@@ -172,21 +175,23 @@ describe("CRM — customer profile & loyalty", () => {
           listUnitPaisa: 10000,
         },
       ],
-      pointsToRedeem: 20,
-      availablePoints: 500,
+      pointsToRedeem: 1670,
+      availablePoints: 1670,
       customerSegments: ["vip", "regular"],
     })
-    expect(priced.totals.pointsRedeemed).toBe(20)
-    expect(priced.totals.pointsDiscount).toBe(2000)
-    expect(priced.totals.total).toBe(8000)
+    // 1000 pts = ₹10 → 1 pt = 1 paisa; step 500 → 1500 pts = ₹15
+    expect(priced.totals.pointsRedeemed).toBe(1500)
+    expect(priced.totals.pointsDiscount).toBe(1500)
+    expect(priced.totals.total).toBe(8500)
 
     await CrmService.recordPaidPurchase({
       customerId: customer.id,
-      purchasePaisa: 8000,
-      pointsRedeemed: 20,
+      purchasePaisa: 8500,
+      pointsRedeemed: 1500,
     })
     const afterPoints = CustomerService.getById(customer.id)!
-    expect(afterPoints.loyaltyPoints).toBe(560)
+    expect(afterPoints.loyaltyPoints).toBe(1670 + 85 - 1500)
+    expect(afterPoints.loyaltyPointsRedeemed).toBe(1500)
 
     await CrmService.bumpOutstanding({
       customerId: customer.id,
