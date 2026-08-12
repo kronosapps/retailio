@@ -210,6 +210,22 @@ Invoice status: `PartiallyRefunded` until all lines returned, then `Refunded`.
 
 ---
 
+## Pricing, promotions & discounts
+
+Module: `src/modules/pricing/`. UI: `/utilities/pricing` (admin/manager). POS coupon tab under Discounts.
+
+```text
+List (base) → Promotion (SKU/category) → Coupon → Friends & Family → Occasion → Loyalty %
+```
+
+- Every sale line stores a frozen `priceSnapshot` (`listUnit`, promo unit, net, `appliedRules`, explanation).
+- Invoice totals keep list `grossSubtotal` plus coupon / F&F / occasion / loyalty amounts; `lineTotalPaisa` is net after discounts.
+- Catalog sell-price edits append `price_history` (`PRICE_CHANGED`).
+- Collections: `promotions`, `coupons`, `price_history`.
+- Deferred: customer price lists, BOGO / tiered qty, complex multi-promo stacking.
+
+---
+
 ## Event system
 
 Supported types (`src/events/EventTypes.ts`):

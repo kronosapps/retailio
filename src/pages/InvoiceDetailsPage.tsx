@@ -95,10 +95,17 @@ export function InvoiceDetailsPage() {
                     className="border-b border-border/50"
                   >
                     <td className="py-1.5 pr-2">
-                      {line.name}{" "}
-                      <span className="text-muted-foreground">
-                        {line.weight}
-                      </span>
+                      <div>
+                        {line.name}{" "}
+                        <span className="text-muted-foreground">
+                          {line.weight}
+                        </span>
+                      </div>
+                      {line.priceSnapshot?.explanation ? (
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          {line.priceSnapshot.explanation}
+                        </p>
+                      ) : null}
                     </td>
                     <td className="py-1.5 text-right tabular-nums">
                       {line.qty}
@@ -111,6 +118,14 @@ export function InvoiceDetailsPage() {
               </tbody>
             </table>
             <div className="space-y-1 text-sm">
+              {(sale.totals.couponDiscount ?? 0) > 0 ? (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Coupon {sale.totals.couponCode}</span>
+                  <span className="tabular-nums">
+                    −{formatMoney(sale.totals.couponDiscount ?? 0)}
+                  </span>
+                </div>
+              ) : null}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Taxable</span>
                 <span className="tabular-nums">

@@ -84,6 +84,11 @@ const ErpChainPage = lazy(() =>
     default: m.ErpChainPage,
   }))
 )
+const PricingPage = lazy(() =>
+  import("@/pages/utilities/PricingPage").then((m) => ({
+    default: m.PricingPage,
+  }))
+)
 
 const DaybookPage = lazy(() =>
   import("@/pages/utilities/AccountingPages").then((m) => ({
@@ -238,6 +243,7 @@ export default function App() {
               <Route path="report-expense" element={<ExpenseReportPage />} />
               <Route path="expenses" element={<ExpenseCreatePage />} />
               <Route path="erp-chain" element={<ErpChainPage />} />
+              <Route path="pricing" element={<PricingPage />} />
               <Route path="gst" element={<GstReportsPage />} />
               <Route path="tcs" element={<TcsReportsPage />} />
               <Route path="form-27eq" element={<Form27EqPage />} />

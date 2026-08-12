@@ -205,7 +205,19 @@ export class ProductService {
       updatedBy: input.actorId ?? existing.updatedBy,
     }
 
-    return productRepository.save(next, false)
+    const saved = await productRepository.save(next, false)
+    if (existing.sellingPricePaisa !== saved.sellingPricePaisa) {
+      const { PricingService } = await import("@/modules/pricing/PricingService")
+      await PricingService.recordPriceChange({
+        sku: saved.id,
+        productName: saved.name,
+        oldSellingPricePaisa: existing.sellingPricePaisa,
+        newSellingPricePaisa: saved.sellingPricePaisa,
+        actorId: input.actorId ?? null,
+        storeId: saved.storeId ?? null,
+      })
+    }
+    return saved
   }
 
   static async setActive(

@@ -19,6 +19,7 @@ const SESSION_IDS = Array.from(
 
 export type PosCartTotals = {
   grossSubtotal: number
+  promotionalDiscount?: number
   friendsFamilyDiscount: number
   friendsFamilyPercent: number
   occasionDiscount: number
@@ -26,6 +27,8 @@ export type PosCartTotals = {
   occasionName: string | null
   loyaltyDiscount: number
   loyaltyLabel: string | null
+  couponDiscount?: number
+  couponCode?: string | null
   taxableAmount: number
   gstAmount: number
   sgstLabel: string
@@ -236,6 +239,22 @@ export function PosCartPanel({
               {formatMoney(totals.grossSubtotal)}
             </span>
           </div>
+          {(totals.promotionalDiscount ?? 0) > 0 ? (
+            <div className="flex items-center justify-between text-muted-foreground">
+              <span>Promotions</span>
+              <span className="tabular-nums">
+                −{formatMoney(totals.promotionalDiscount ?? 0)}
+              </span>
+            </div>
+          ) : null}
+          {(totals.couponDiscount ?? 0) > 0 ? (
+            <div className="flex items-center justify-between text-muted-foreground">
+              <span>Coupon {totals.couponCode}</span>
+              <span className="tabular-nums">
+                −{formatMoney(totals.couponDiscount ?? 0)}
+              </span>
+            </div>
+          ) : null}
           {totals.friendsFamilyDiscount > 0 ? (
             <div className="flex items-center justify-between text-muted-foreground">
               <span>Friends & Family ({totals.friendsFamilyPercent}%)</span>

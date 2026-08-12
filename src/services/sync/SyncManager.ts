@@ -263,6 +263,46 @@ const ROUTES: Partial<Record<string, SheetRoute>> = {
     sheet: "Invoices",
     sync: (p, data) => p.syncInvoice(data),
   },
+  [EventTypes.PROMOTION_CREATED]: {
+    sheet: "Promotions",
+    sync: async (p, data) => {
+      if (typeof p.syncPromotion === "function") {
+        await p.syncPromotion(data)
+      }
+    },
+  },
+  [EventTypes.PROMOTION_UPDATED]: {
+    sheet: "Promotions",
+    sync: async (p, data) => {
+      if (typeof p.syncPromotion === "function") {
+        await p.syncPromotion(data)
+      }
+    },
+  },
+  [EventTypes.COUPON_CREATED]: {
+    sheet: "Coupons",
+    sync: async (p, data) => {
+      if (typeof p.syncCoupon === "function") {
+        await p.syncCoupon(data)
+      }
+    },
+  },
+  [EventTypes.COUPON_UPDATED]: {
+    sheet: "Coupons",
+    sync: async (p, data) => {
+      if (typeof p.syncCoupon === "function") {
+        await p.syncCoupon(data)
+      }
+    },
+  },
+  [EventTypes.PRICE_CHANGED]: {
+    sheet: "PriceHistory",
+    sync: async (p, data) => {
+      if (typeof p.syncPriceHistory === "function") {
+        await p.syncPriceHistory(data)
+      }
+    },
+  },
 }
 
 /**

@@ -22,6 +22,9 @@ export interface SyncProvider {
   syncPurchaseReturn?(data: unknown): Promise<void>
   syncExpense(data: unknown): Promise<void>
   syncCashierShift?(data: unknown): Promise<void>
+  syncPromotion?(data: unknown): Promise<void>
+  syncCoupon?(data: unknown): Promise<void>
+  syncPriceHistory?(data: unknown): Promise<void>
   /** End-of-day batch: many rows for one sheet in a single request when supported. */
   syncBatch?(sheet: string, rows: unknown[]): Promise<void>
   syncDailyClose?(data: unknown): Promise<void>

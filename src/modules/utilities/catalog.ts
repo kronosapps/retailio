@@ -24,6 +24,7 @@ export type UtilityToolId =
   | "report-expense"
   | "expense-create"
   | "erp-chain"
+  | "pricing"
   | "gst"
   | "tcs"
   | "form-27eq"
@@ -175,6 +176,14 @@ export const UTILITY_TOOLS: UtilityTool[] = [
     title: "ERP chain",
     description: "Purchase → sale event spine & journal health",
     path: "/utilities/erp-chain",
+    roles: ["admin", "manager"],
+  },
+  {
+    id: "pricing",
+    group: "daily",
+    title: "Pricing",
+    description: "Promotions, coupons, price history & why-this-price",
+    path: "/utilities/pricing",
     roles: ["admin", "manager"],
   },
   {
