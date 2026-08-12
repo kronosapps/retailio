@@ -121,6 +121,26 @@ const AccountStatementPage = lazy(() =>
     default: m.AccountStatementPage,
   }))
 )
+const AccountingHubPage = lazy(() =>
+  import("@/pages/utilities/AccountingPages").then((m) => ({
+    default: m.AccountingHubPage,
+  }))
+)
+const ChartOfAccountsPage = lazy(() =>
+  import("@/pages/utilities/AccountingPages").then((m) => ({
+    default: m.ChartOfAccountsPage,
+  }))
+)
+const ManualJournalPage = lazy(() =>
+  import("@/pages/utilities/AccountingPages").then((m) => ({
+    default: m.ManualJournalPage,
+  }))
+)
+const ProfitAndLossPage = lazy(() =>
+  import("@/pages/utilities/AccountingPages").then((m) => ({
+    default: m.ProfitAndLossPage,
+  }))
+)
 
 const UtilityItemReportPage = lazy(() =>
   import("@/pages/utilities/AnalysisPages").then((m) => ({
@@ -232,7 +252,14 @@ export default function App() {
                 path="all-transactions"
                 element={<AllTransactionsPage />}
               />
+              <Route path="accounting" element={<AccountingHubPage />} />
+              <Route
+                path="chart-of-accounts"
+                element={<ChartOfAccountsPage />}
+              />
+              <Route path="manual-journal" element={<ManualJournalPage />} />
               <Route path="trial-balance" element={<TrialBalancePage />} />
+              <Route path="profit-loss" element={<ProfitAndLossPage />} />
               <Route path="balance-sheet" element={<BalanceSheetPage />} />
               <Route path="cash-flow" element={<CashFlowPage />} />
               <Route

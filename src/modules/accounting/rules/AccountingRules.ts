@@ -561,4 +561,44 @@ export class AccountingRules {
       restockCogsPaisa: payload.restockCogsPaisa,
     })
   }
+
+  /** Lightweight manual journal — must already be balanced. */
+  static fromManual(input: {
+    id?: string
+    description: string
+    date?: string
+    lines: JournalLine[]
+    operatorId?: string | null
+    operatorName?: string | null
+    storeId?: string | null
+  }): JournalEntry {
+    const lines = input.lines
+      .map((l) =>
+        journalLine(l.accountCode, l.debitPaisa || 0, l.creditPaisa || 0)
+      )
+      .filter((l) => l.debitPaisa > 0 || l.creditPaisa > 0)
+    const now = new Date().toISOString()
+    const id = input.id || `je_manual_${Date.now()}`
+    const entry: JournalEntry = {
+      id,
+      date: (input.date || now).slice(0, 10),
+      createdAt: now,
+      description: input.description.trim() || "Manual journal",
+      referenceType: "manual",
+      referenceId: id,
+      operatorId: input.operatorId ?? null,
+      operatorName: input.operatorName ?? null,
+      paymentMethod: null,
+      lines,
+      source: "posted",
+      storeId: input.storeId ?? null,
+    }
+    if (!isBalanced(entry)) {
+      throw new Error("Manual journal is not balanced (Debit ≠ Credit).")
+    }
+    if (lines.length < 2) {
+      throw new Error("Manual journal needs at least two lines.")
+    }
+    return entry
+  }
 }

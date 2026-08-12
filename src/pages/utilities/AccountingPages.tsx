@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react"
+import { Link } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   AccountingService,
+  ACCOUNT_CODES,
   type AccountStatementResult,
   type BalanceSheetResult,
   type CashFlowResult,
   type DaybookRow,
+  type ProfitAndLossResult,
   type TrialBalanceResult,
 } from "@/modules/accounting"
 import { formatReportMoney } from "@/modules/reporting"
@@ -218,6 +223,343 @@ export function BalanceSheetPage() {
   )
 }
 
+export function ProfitAndLossPage() {
+  const [data, setData] = useState<ProfitAndLossResult | null>(null)
+  useEffect(() => {
+    void AccountingService.getProfitAndLoss().then(setData)
+  }, [])
+  if (!data) return <p className="text-sm text-muted-foreground">Loading…</p>
+  return (
+    <div className="space-y-4">
+      <Header title="Profit & Loss" subtitle={data.periodLabel} />
+      {data.notes.map((n) => (
+        <p key={n} className="text-xs text-muted-foreground">
+          {n}
+        </p>
+      ))}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Metric label="Gross profit" value={money(data.grossProfitPaisa)} />
+        <Metric label="Total income" value={money(data.totalIncomePaisa)} />
+        <Metric
+          label="Net profit"
+          value={money(data.netProfitPaisa)}
+          emphasize
+        />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Section
+          title="Income"
+          rows={[
+            ...data.income.map((r) => [
+              `${r.accountName} (${r.accountCode})`,
+              money(r.amountPaisa),
+            ]),
+            ["TOTAL INCOME", money(data.totalIncomePaisa)],
+          ]}
+        />
+        <Section
+          title="Expenses"
+          rows={[
+            ...data.expenses.map((r) => [
+              `${r.accountName} (${r.accountCode})`,
+              money(r.amountPaisa),
+            ]),
+            ["TOTAL EXPENSES", money(data.totalExpensesPaisa)],
+            ["NET PROFIT", money(data.netProfitPaisa)],
+          ]}
+        />
+      </div>
+    </div>
+  )
+}
+
+export function ChartOfAccountsPage() {
+  const accounts = AccountingService.listAccounts()
+  const byType = {
+    asset: accounts.filter((a) => a.type === "asset"),
+    liability: accounts.filter((a) => a.type === "liability"),
+    equity: accounts.filter((a) => a.type === "equity"),
+    income: accounts.filter((a) => a.type === "income"),
+    expense: accounts.filter((a) => a.type === "expense"),
+  }
+  return (
+    <div className="space-y-4">
+      <Header
+        title="Chart of Accounts"
+        note="Single-company retail CoA. Codes are fixed for posting rules (Sale → Payment → JE, Purchase → AP → JE, Expense → Cash/UPI → JE). No multi-company."
+      />
+      {(
+        [
+          ["Assets", byType.asset],
+          ["Liabilities", byType.liability],
+          ["Equity", byType.equity],
+          ["Income", byType.income],
+          ["Expenses", byType.expense],
+        ] as const
+      ).map(([title, rows]) => (
+        <AccountingTable
+          key={title}
+          title={title}
+          columns={["Code", "Account", "Normal balance"]}
+          rows={rows.map((a) => [a.code, a.name, a.normalBalance])}
+        />
+      ))}
+      <p className="text-xs text-muted-foreground">
+        Key codes: Cash {ACCOUNT_CODES.CASH} · UPI {ACCOUNT_CODES.UPI} · AR{" "}
+        {ACCOUNT_CODES.AR} · AP {ACCOUNT_CODES.AP} · Sales {ACCOUNT_CODES.SALES}{" "}
+        · COGS {ACCOUNT_CODES.COGS} · Expenses {ACCOUNT_CODES.EXPENSES}
+      </p>
+    </div>
+  )
+}
+
+type ManualLineDraft = {
+  accountCode: string
+  debit: string
+  credit: string
+}
+
+export function ManualJournalPage() {
+  const { userId, profile } = useAuth()
+  const accounts = AccountingService.listAccounts()
+  const [description, setDescription] = useState("")
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [lines, setLines] = useState<ManualLineDraft[]>([
+    { accountCode: ACCOUNT_CODES.EXPENSES, debit: "", credit: "" },
+    { accountCode: ACCOUNT_CODES.CASH, debit: "", credit: "" },
+  ])
+  const [error, setError] = useState<string | null>(null)
+  const [ok, setOk] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const debitTotal = lines.reduce(
+    (s, l) => s + Math.round((Number(l.debit) || 0) * 100),
+    0
+  )
+  const creditTotal = lines.reduce(
+    (s, l) => s + Math.round((Number(l.credit) || 0) * 100),
+    0
+  )
+
+  async function submit() {
+    setError(null)
+    setOk(null)
+    setBusy(true)
+    try {
+      const entry = await AccountingService.postManualJournal({
+        description,
+        date,
+        lines: lines.map((l) => ({
+          accountCode: l.accountCode,
+          debitPaisa: Math.round((Number(l.debit) || 0) * 100),
+          creditPaisa: Math.round((Number(l.credit) || 0) * 100),
+        })),
+        actorId: userId,
+        actorName: profile?.displayName || profile?.email || null,
+        storeId: profile?.storeId ?? null,
+      })
+      setOk(`Posted ${entry.id}`)
+      setDescription("")
+      setLines([
+        { accountCode: ACCOUNT_CODES.EXPENSES, debit: "", credit: "" },
+        { accountCode: ACCOUNT_CODES.CASH, debit: "", credit: "" },
+      ])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not post journal.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-4">
+      <Header
+        title="Manual Journal"
+        note="Lightweight adjusting entries. Debits must equal credits. Prefer automatic posting from Sale/Payment/Purchase/Expense when possible."
+      />
+      <div className="space-y-1">
+        <Label>Description</Label>
+        <Input
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="e.g. Owner drawing / adjustment"
+        />
+      </div>
+      <div className="space-y-1">
+        <Label>Date</Label>
+        <Input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Lines (₹)</Label>
+        {lines.map((line, i) => (
+          <div key={i} className="grid grid-cols-[1fr_5rem_5rem_auto] gap-2">
+            <select
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              value={line.accountCode}
+              onChange={(e) => {
+                const next = [...lines]
+                next[i] = { ...line, accountCode: e.target.value }
+                setLines(next)
+              }}
+            >
+              {accounts.map((a) => (
+                <option key={a.code} value={a.code}>
+                  {a.code} · {a.name}
+                </option>
+              ))}
+            </select>
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder="Debit"
+              value={line.debit}
+              onChange={(e) => {
+                const next = [...lines]
+                next[i] = { ...line, debit: e.target.value, credit: "" }
+                setLines(next)
+              }}
+            />
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder="Credit"
+              value={line.credit}
+              onChange={(e) => {
+                const next = [...lines]
+                next[i] = { ...line, credit: e.target.value, debit: "" }
+                setLines(next)
+              }}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={lines.length <= 2}
+              onClick={() => setLines(lines.filter((_, j) => j !== i))}
+            >
+              ✕
+            </Button>
+          </div>
+        ))}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            setLines([
+              ...lines,
+              { accountCode: ACCOUNT_CODES.CASH, debit: "", credit: "" },
+            ])
+          }
+        >
+          Add line
+        </Button>
+      </div>
+      <p
+        className={cn(
+          "text-xs",
+          debitTotal === creditTotal && debitTotal > 0
+            ? "text-muted-foreground"
+            : "text-amber-700"
+        )}
+      >
+        Debit {money(debitTotal)} · Credit {money(creditTotal)}
+        {debitTotal !== creditTotal ? " — not balanced" : ""}
+      </p>
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      {ok ? <p className="text-xs text-muted-foreground">{ok}</p> : null}
+      <Button
+        type="button"
+        disabled={busy || !description.trim() || debitTotal !== creditTotal}
+        onClick={() => void submit()}
+      >
+        {busy ? "Posting…" : "Post journal"}
+      </Button>
+    </div>
+  )
+}
+
+/** Hub: single-company accounting map + deep links. */
+export function AccountingHubPage() {
+  const links: { title: string; path: string; blurb: string }[] = [
+    {
+      title: "Chart of Accounts",
+      path: "/utilities/chart-of-accounts",
+      blurb: "Ledger codes for assets, liabilities, equity, income, expense",
+    },
+    {
+      title: "Daybook",
+      path: "/utilities/daybook",
+      blurb: "Chronological journals (posted + projected)",
+    },
+    {
+      title: "Manual Journal",
+      path: "/utilities/manual-journal",
+      blurb: "Balanced adjusting entries when ops pipelines do not cover it",
+    },
+    {
+      title: "Account Statement",
+      path: "/utilities/account-statement",
+      blurb: "One ledger account’s activity and closing balance",
+    },
+    {
+      title: "Trial Balance",
+      path: "/utilities/trial-balance",
+      blurb: "Debit / credit by account for the active FY",
+    },
+    {
+      title: "Profit & Loss",
+      path: "/utilities/profit-loss",
+      blurb: "Income, expenses, gross and net profit",
+    },
+    {
+      title: "Balance Sheet",
+      path: "/utilities/balance-sheet",
+      blurb: "Assets vs liabilities & equity (incl. period RE)",
+    },
+    {
+      title: "Cash Flow",
+      path: "/utilities/cash-flow",
+      blurb: "Operating cash / UPI from banking (lightweight)",
+    },
+  ]
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold">Accounting</h2>
+        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+          Lightweight single-company GL for retail ERP — not a multi-entity SaaS.
+          Operational flows post journals automatically:
+        </p>
+        <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-muted-foreground">
+          <li>Sale → Payment → Accounting entry (AR / cash / UPI + sales + COGS)</li>
+          <li>Purchase → Payable → Accounting entry (AP settle on supplier payment)</li>
+          <li>Expense → Cash/Bank → Accounting entry</li>
+        </ul>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {links.map((l) => (
+          <Link
+            key={l.path}
+            to={l.path}
+            className="rounded-lg border p-4 transition-colors hover:bg-muted/40"
+          >
+            <p className="font-medium">{l.title}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{l.blurb}</p>
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function CashFlowPage() {
   const { profile } = useAuth()
   const [data, setData] = useState<CashFlowResult | null>(null)
@@ -354,9 +696,22 @@ function Toolbar({ onExport }: { onExport?: () => void }) {
   )
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({
+  label,
+  value,
+  emphasize,
+}: {
+  label: string
+  value: string
+  emphasize?: boolean
+}) {
   return (
-    <div className="rounded-lg border px-3 py-2">
+    <div
+      className={cn(
+        "rounded-lg border px-3 py-2",
+        emphasize && "border-foreground/20 bg-muted/30"
+      )}
+    >
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="font-semibold tabular-nums">{value}</p>
     </div>

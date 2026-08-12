@@ -14,7 +14,11 @@ export type UtilityToolId =
   | "recycle-bin"
   | "daybook"
   | "all-transactions"
+  | "accounting"
+  | "chart-of-accounts"
+  | "manual-journal"
   | "trial-balance"
+  | "profit-loss"
   | "balance-sheet"
   | "cash-flow"
   | "account-statement"
@@ -99,11 +103,43 @@ export const UTILITY_TOOLS: UtilityTool[] = [
     roles: ["admin", "manager"],
   },
   {
+    id: "accounting",
+    group: "accounting",
+    title: "Accounting Hub",
+    description: "Single-company GL map, pipelines & reports",
+    path: "/utilities/accounting",
+    roles: ["admin", "manager"],
+  },
+  {
+    id: "chart-of-accounts",
+    group: "accounting",
+    title: "Chart of Accounts",
+    description: "Ledger codes for the retail CoA",
+    path: "/utilities/chart-of-accounts",
+    roles: ["admin", "manager"],
+  },
+  {
+    id: "manual-journal",
+    group: "accounting",
+    title: "Manual Journal",
+    description: "Post balanced adjusting entries",
+    path: "/utilities/manual-journal",
+    roles: ["admin"],
+  },
+  {
     id: "trial-balance",
     group: "accounting",
     title: "Trial Balance",
     description: "Debit/credit balances by account",
     path: "/utilities/trial-balance",
+    roles: ["admin", "manager"],
+  },
+  {
+    id: "profit-loss",
+    group: "accounting",
+    title: "Profit & Loss",
+    description: "Income, expenses, gross & net profit",
+    path: "/utilities/profit-loss",
     roles: ["admin", "manager"],
   },
   {
