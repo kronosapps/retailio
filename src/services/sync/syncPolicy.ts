@@ -14,6 +14,7 @@ export const LIVE_SHEET_EVENTS = new Set<EventType>([
   EventTypes.CATEGORY_UPDATED,
   EventTypes.SUPPLIER_CREATED,
   EventTypes.SUPPLIER_UPDATED,
+  EventTypes.GOODS_RECEIVED,
   EventTypes.EXPENSE_CREATED,
 ])
 

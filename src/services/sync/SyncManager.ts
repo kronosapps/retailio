@@ -59,6 +59,14 @@ const ROUTES: Partial<Record<string, SheetRoute>> = {
     sheet: "Suppliers",
     sync: (p, data) => p.syncSupplier(data),
   },
+  [EventTypes.GOODS_RECEIVED]: {
+    sheet: "GoodsReceipts",
+    sync: async (p, data) => {
+      if (typeof p.syncGoodsReceipt === "function") {
+        await p.syncGoodsReceipt(data)
+      }
+    },
+  },
   [EventTypes.EXPENSE_CREATED]: {
     sheet: "Expenses",
     sync: (p, data) => p.syncExpense(data),

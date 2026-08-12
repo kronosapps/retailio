@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { Link } from "react-router-dom"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -84,6 +85,8 @@ export function StockActionDialogs({ sku, mode, onClose, onDone }: Props) {
   async function submitAdd(values: AddValues) {
     setError(null)
     try {
+      // Prefer Purchasing → Goods Received for supplier purchases (GRN reference).
+      // This dialog remains for quick/opening adjustments with a free-text reference.
       await InventoryService.addStock({
         sku,
         quantity: parseQty(values.quantity),
@@ -137,6 +140,19 @@ export function StockActionDialogs({ sku, mode, onClose, onDone }: Props) {
         <p className="text-sm text-muted-foreground">
           {product?.name || sku} · On hand: <strong>{current}</strong>
         </p>
+        {mode === "add" ? (
+          <p className="text-xs text-muted-foreground">
+            For supplier purchases, prefer{" "}
+            <Link
+              to="/purchasing/goods-received"
+              className="underline underline-offset-2"
+              onClick={onClose}
+            >
+              Purchasing → Goods Received
+            </Link>{" "}
+            so stock is tied to a GRN.
+          </p>
+        ) : null}
 
         {mode === "add" ? (
           <form className="space-y-3" onSubmit={addForm.handleSubmit(submitAdd)}>

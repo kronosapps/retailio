@@ -202,7 +202,7 @@ Canonical docs: [`ARCHITECTURE.md`](./ARCHITECTURE.md), [`DEVELOPER_GUIDE.md`](.
 ### Expenses / Suppliers / Purchasing
 
 - Expenses: Utilities → Add Expense / Expense Reports.
-- **Purchasing (Phase 1):** `/purchasing/suppliers` — supplier master via `SupplierService` → `SupplierRepository` (local + Firestore + `SUPPLIER_CREATED` / `SUPPLIER_UPDATED` → Sheets). Later: PO → GRN → Invoice → AP → Payment.
+- **Purchasing:** `/purchasing/suppliers` + `/purchasing/goods-received` — supplier master; ad-hoc GRN posts stock via `PurchaseReceivingService` → `InventoryService.addStock`. Later: PO → Invoice → AP → Payment.
 
 ---
 

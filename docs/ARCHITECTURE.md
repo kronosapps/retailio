@@ -51,14 +51,15 @@ No layer may skip another layer.
 
 ## Firestore collections
 
-`products` · `customers` · `suppliers` · `inventory` · `inventory_movements` · `categories` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events`
+`products` · `customers` · `suppliers` · `goods_receipts` · `inventory` · `inventory_movements` · `categories` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events`
 
-### Purchasing (Phase 1)
+### Purchasing (Phases 1 + 3)
 
-- Nav: `/purchasing` (admin/manager) — shell for future PO/GRN/AP.
+- Nav: `/purchasing` (admin/manager) — Suppliers, Goods Received (PO/AP later).
 - **Suppliers:** `SupplierService` → `SupplierRepository` → `suppliers` + `retailos.suppliers.v1`.
-- Events: `SUPPLIER_CREATED` / `SUPPLIER_UPDATED` (live Sheets).
-- Stock still must not appear from supplier create; GRN (later phase) will call `InventoryService.addStock`.
+- **Goods Received (ad-hoc GRN):** `PurchaseReceivingService` → `goods_receipts` → for each line `InventoryService.addStock({ type: "PURCHASE", referenceId: grnId })`.
+- Events: `SUPPLIER_CREATED` / `SUPPLIER_UPDATED`, `GOODS_RECEIVED` (live Sheets `GoodsReceipts`).
+- Stock must not appear from supplier create alone; purchase stock-in is explained by a posted GRN.
 
 Repositories own exactly one collection each (see `src/repositories/`).
 
@@ -159,6 +160,7 @@ Supported types (`src/events/EventTypes.ts`):
 - `CUSTOMER_CREATED` / `CUSTOMER_UPDATED`
 - `REFUND_CREATED` / `REFUND_UPDATED` / `PAYMENT_REFUNDED`
 - `SUPPLIER_CREATED` / `SUPPLIER_UPDATED`
+- `GOODS_RECEIVED`
 - `EXPENSE_CREATED`
 
 Flow: repository write → `EventPublisher.publish` → `EventBus` → `SyncManager` enqueues → provider.

@@ -49,8 +49,9 @@
 ## Purchasing / Suppliers
 
 1. Supplier CRUD → `SupplierService` → `SupplierRepository` (never Firestore from UI).
-2. Route: `/purchasing/suppliers` (admin/manager). Shell ready for PO/GRN/invoices later.
-3. Do not increase stock when creating a supplier — only future Goods Received may call `InventoryService.addStock`.
+2. Ad-hoc GRN → `PurchaseReceivingService.receiveAdHoc` → `GoodsReceiptRepository` + `InventoryService.addStock` (`PURCHASE`, `referenceId = grn.id`).
+3. Routes: `/purchasing/suppliers`, `/purchasing/goods-received` (admin/manager).
+4. Do not increase stock when creating a supplier. Prefer GRN for supplier purchases; Inventory “Add stock” remains for quick/opening adjustments.
 
 ## Utilities
 

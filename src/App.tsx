@@ -11,6 +11,7 @@ import { CustomersPage } from "@/pages/CustomersPage"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { PurchasingPage } from "@/pages/PurchasingPage"
 import {
+  PurchasingGoodsReceivedPage,
   PurchasingIndexRedirect,
   PurchasingSuppliersPage,
 } from "@/pages/purchasing/PurchasingSuppliersPage"
@@ -165,6 +166,10 @@ export default function App() {
             <Route path="/purchasing" element={<PurchasingPage />}>
               <Route index element={<PurchasingIndexRedirect />} />
               <Route path="suppliers" element={<PurchasingSuppliersPage />} />
+              <Route
+                path="goods-received"
+                element={<PurchasingGoodsReceivedPage />}
+              />
             </Route>
             <Route path="/transactions" element={<TransactionsPage />} />
             <Route path="/reports" element={<ReportsPage />} />

@@ -1,21 +1,23 @@
 import { NavLink, Outlet } from "react-router-dom"
 import { useEffect } from "react"
 
+import { PurchaseReceivingService } from "@/modules/purchasing"
 import { SupplierService } from "@/modules/supplier"
 import { cn } from "@/lib/utils"
 
 const TABS = [
-  { to: "/purchasing/suppliers", label: "Suppliers", end: false },
-  // Later phases: Purchase Orders, Goods Received, Invoices, Payments, Statements
+  { to: "/purchasing/suppliers", label: "Suppliers" },
+  { to: "/purchasing/goods-received", label: "Goods Received" },
 ] as const
 
 /**
- * Purchasing shell — Phase 1: Suppliers.
- * Future tabs: POs, GRN, Purchase Invoices, Returns, Payments, Statements.
+ * Purchasing shell — Suppliers + Goods Received (ad-hoc GRN).
+ * Later: Purchase Orders, Invoices, Returns, Payments, Statements.
  */
 export function PurchasingPage() {
   useEffect(() => {
     void SupplierService.hydrate()
+    void PurchaseReceivingService.hydrate()
   }, [])
 
   return (
@@ -23,8 +25,8 @@ export function PurchasingPage() {
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Purchasing</h1>
         <p className="text-sm text-muted-foreground">
-          Suppliers and purchase workflow. Stock will enter inventory only via
-          Goods Received in a later phase — not from expenses.
+          Suppliers and goods received. Posted GRNs are the purchase path into
+          inventory — not expenses.
         </p>
       </header>
 
