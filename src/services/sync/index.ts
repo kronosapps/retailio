@@ -6,3 +6,8 @@ export {
   GoogleSheetsSyncProvider,
   googleSheetsSyncProvider,
 } from "./GoogleSheetsSyncProvider"
+export { SyncService, type SyncCenterSnapshot } from "./SyncService"
+export {
+  syncIdempotencyKey,
+  sheetUpsertKeyField,
+} from "./syncIdempotency"

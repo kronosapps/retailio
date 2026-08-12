@@ -35,6 +35,7 @@ export type UtilityToolId =
   | "expense-create"
   | "erp-chain"
   | "audit-log"
+  | "sync-center"
   | "pricing"
   | "gst"
   | "tcs"
@@ -268,6 +269,14 @@ export const UTILITY_TOOLS: UtilityTool[] = [
     title: "Audit log",
     description: "Who changed prices, stock, discounts, refunds, settings",
     path: "/utilities/audit",
+    roles: ["admin", "manager"],
+  },
+  {
+    id: "sync-center",
+    group: "daily",
+    title: "Sync Center",
+    description: "Pending, failed, dead letter, retry & sync errors",
+    path: "/utilities/sync",
     roles: ["admin", "manager"],
   },
   {

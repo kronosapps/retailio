@@ -190,6 +190,11 @@ Canonical docs: [`ARCHITECTURE.md`](./ARCHITECTURE.md), [`DEVELOPER_GUIDE.md`](.
 - `auditEngine` + `AuditService` — store mutation trail (login, price, stock, discount, refund, banking, staff, settings).
 - UI: Utilities → Audit log (`/utilities/audit`). Docs: [`AUDIT.md`](./AUDIT.md).
 
+### Offline sync reliability
+
+- Queue lifecycle + dead letter + Sync Center (`/utilities/sync`). Payment transition idempotency + Sheets upsert keys.
+- Docs: [`SYNC.md`](./SYNC.md), script: [`GOOGLE_SHEETS_SYNC.md`](./GOOGLE_SHEETS_SYNC.md).
+
 ### Banking (admin)
 
 - Route `/banking`; module `src/modules/banking/`.
