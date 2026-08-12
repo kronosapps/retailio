@@ -199,7 +199,10 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
         if (!next) onClose()
       }}
     >
-      <DialogContent className="max-h-[min(92vh,820px)] max-w-md overflow-y-auto sm:max-w-lg" showCloseButton={false}>
+      <DialogContent
+        className="h-[100dvh] max-h-[100dvh] w-full max-w-full gap-4 overflow-y-auto rounded-none p-4 sm:h-auto sm:max-h-[min(92vh,820px)] sm:max-w-lg sm:rounded-xl sm:p-6"
+        showCloseButton={false}
+      >
         <DialogHeader>
           <div className="flex items-start justify-between gap-3">
             <div>

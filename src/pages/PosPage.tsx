@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react"
-import { ArrowLeft, Minus, Percent, Plus, Stamp, Trash2 } from "lucide-react"
+import { ArrowLeft, Percent, ShoppingCart, Stamp } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -37,6 +42,7 @@ import {
   type PosCartLine,
   type PosSessionId,
 } from "@/modules/pos"
+import { PosCartPanel } from "@/modules/pos/components/PosCartPanel"
 import { ReceiptDialog } from "@/modules/receipt"
 import { ProductService } from "@/modules/products"
 import { getLoyaltyRewardSummary, loyaltyConfig } from "@/data/loyalty"
@@ -169,6 +175,7 @@ export function PosPage() {
   )
   const [invoiceTick, setInvoiceTick] = useState(0)
   const [switchBlocked, setSwitchBlocked] = useState(false)
+  const [cartSheetOpen, setCartSheetOpen] = useState(false)
 
   const {
     cart,
@@ -450,6 +457,26 @@ export function PosPage() {
     }
   }
 
+  const cartPanelProps = {
+    activeSessionId: store.activeSessionId,
+    sessions: store.sessions,
+    cart,
+    itemCount,
+    nextInvoiceId,
+    totals,
+    lastInvoiceId,
+    chargeError,
+    paymentOpen,
+    switchBlockedMessage,
+    onSwitchSession: switchSession,
+    onClearCart: clearCart,
+    onSetQty: setQty,
+    onCharge: () => {
+      setCartSheetOpen(false)
+      void chargeOrder()
+    },
+  }
+
   return (
     <>
       <PaymentDialog />
@@ -461,254 +488,14 @@ export function PosPage() {
           }
         }}
       />
-      <div className="grid h-full w-full grid-cols-1 grid-rows-[minmax(0,38%)_minmax(0,1fr)] lg:grid-cols-[minmax(280px,32%)_minmax(0,1fr)] lg:grid-rows-1">
-        {/* Current order */}
-        <aside className="flex min-h-0 flex-col border-b border-border bg-sidebar text-sidebar-foreground lg:border-r lg:border-b-0">
-          <div className="space-y-2 px-4 py-3">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <h2 className="text-base font-semibold">Current order</h2>
-                <p className="text-xs text-muted-foreground">
-                  Session {store.activeSessionId} · Invoice {nextInvoiceId}
-                  {itemCount === 0
-                    ? " · No items yet"
-                    : ` · ${itemCount} item${itemCount === 1 ? "" : "s"}`}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={cart.length === 0}
-                onClick={clearCart}
-              >
-                <Trash2 data-icon="inline-start" />
-                Clear
-              </Button>
-            </div>
-
-            <div
-              className="grid grid-cols-3 gap-1.5"
-              role="tablist"
-              aria-label="POS sessions"
-            >
-              {SESSION_IDS.map((id) => {
-                const lane = store.sessions[id]
-                const count = sessionItemCount(lane)
-                const active = id === store.activeSessionId
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    disabled={paymentOpen && !active}
-                    onClick={() => switchSession(id)}
-                    className={cn(
-                      "relative flex min-h-9 flex-col items-center justify-center rounded-md px-1 py-1.5 text-xs font-medium transition-colors",
-                      active
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-foreground hover:bg-muted/80",
-                      paymentOpen && !active && "cursor-not-allowed opacity-50"
-                    )}
-                  >
-                    <span>Session {id}</span>
-                    {count > 0 ? (
-                      <span
-                        className={cn(
-                          "mt-0.5 rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
-                          active
-                            ? "bg-primary-foreground/20 text-primary-foreground"
-                            : "bg-background text-foreground"
-                        )}
-                      >
-                        {count}
-                      </span>
-                    ) : null}
-                  </button>
-                )
-              })}
-            </div>
-            {switchBlockedMessage ? (
-              <p className="text-center text-[11px] text-destructive">
-                {switchBlockedMessage}
-              </p>
-            ) : null}
-          </div>
-
-          <Separator />
-
-          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-            {cart.length === 0 ? (
-              <div className="flex h-full min-h-28 items-center justify-center rounded-lg border border-dashed border-border px-4 text-center text-sm text-muted-foreground">
-                Tap menu items to build the ticket
-              </div>
-            ) : (
-              <ul className="space-y-2">
-                {cart.map((line) => (
-                  <li
-                    key={line.item.id}
-                    className="flex items-center gap-2 rounded-lg bg-background px-2.5 py-2 ring-1 ring-border/60"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {line.item.name}
-                        {line.isLoyaltyReward ? (
-                          <span className="ml-1 text-xs font-normal text-muted-foreground">
-                            (Loyalty free)
-                          </span>
-                        ) : null}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {line.isLoyaltyReward
-                          ? `${line.item.weight} · Free`
-                          : `${line.item.weight} · ${formatMoney(line.item.price)} each`}
-                      </p>
-                    </div>
-
-                    {line.isLoyaltyReward ? (
-                      <p className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">
-                        Free
-                      </p>
-                    ) : (
-                      <>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon-sm"
-                            className="size-9"
-                            onClick={() => setQty(line.item.id, line.qty - 1)}
-                            aria-label={`Decrease ${line.item.name} ${line.item.weight}`}
-                          >
-                            <Minus />
-                          </Button>
-                          <span className="w-6 text-center text-sm font-semibold tabular-nums">
-                            {line.qty}
-                          </span>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon-sm"
-                            className="size-9"
-                            onClick={() => setQty(line.item.id, line.qty + 1)}
-                            aria-label={`Increase ${line.item.name} ${line.item.weight}`}
-                          >
-                            <Plus />
-                          </Button>
-                        </div>
-
-                        <p className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">
-                          {formatMoney(line.item.price * line.qty)}
-                        </p>
-                      </>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="space-y-2 border-t border-border p-3">
-            <div className="space-y-1.5 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Subtotal</span>
-                <span className="tabular-nums">
-                  {formatMoney(totals.grossSubtotal)}
-                </span>
-              </div>
-              {totals.friendsFamilyDiscount > 0 ? (
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span>Friends & Family ({totals.friendsFamilyPercent}%)</span>
-                  <span className="tabular-nums">
-                    −{formatMoney(totals.friendsFamilyDiscount)}
-                  </span>
-                </div>
-              ) : null}
-              {totals.occasionDiscount > 0 ? (
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span>
-                    {totals.occasionName ?? "Occasion"} ({totals.occasionPercent}
-                    %)
-                  </span>
-                  <span className="tabular-nums">
-                    −{formatMoney(totals.occasionDiscount)}
-                  </span>
-                </div>
-              ) : null}
-              {totals.loyaltyDiscount > 0 ? (
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span>{totals.loyaltyLabel ?? "Loyalty"}</span>
-                  <span className="tabular-nums">
-                    −{formatMoney(totals.loyaltyDiscount)}
-                  </span>
-                </div>
-              ) : null}
-              {cart.length > 0 && totals.gstAmount > 0 ? (
-                <>
-                  <Separator className="my-1" />
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span>Taxable value</span>
-                    <span className="tabular-nums">
-                      {formatMoney(totals.taxableAmount)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span>
-                      {totals.sgstLabel} ({totals.sgstPercent}%)
-                    </span>
-                    <span className="tabular-nums">
-                      {formatMoney(totals.sgstAmount)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span>
-                      {totals.cgstLabel} ({totals.cgstPercent}%)
-                    </span>
-                    <span className="tabular-nums">
-                      {formatMoney(totals.cgstAmount)}
-                    </span>
-                  </div>
-                </>
-              ) : null}
-              <div className="flex items-center justify-between font-semibold">
-                <span>Total</span>
-                <span className="tabular-nums">{formatMoney(totals.total)}</span>
-              </div>
-              {cart.length > 0 && totals.gstAmount > 0 ? (
-                <p className="text-[11px] text-muted-foreground">
-                  Inclusive of {totals.sgstLabel} {totals.sgstPercent}% +{" "}
-                  {totals.cgstLabel} {totals.cgstPercent}% — charge unchanged
-                </p>
-              ) : null}
-            </div>
-
-            {lastInvoiceId && cart.length === 0 ? (
-              <p className="rounded-md bg-muted px-3 py-2 text-center text-xs text-muted-foreground">
-                Recorded as{" "}
-                <span className="font-medium text-foreground">
-                  {lastInvoiceId}
-                </span>
-              </p>
-            ) : null}
-            {chargeError ? (
-              <p className="text-center text-xs text-destructive">{chargeError}</p>
-            ) : null}
-
-            <Button
-              type="button"
-              size="lg"
-              className="h-12 w-full text-base"
-              disabled={cart.length === 0}
-              onClick={() => void chargeOrder()}
-            >
-              Charge {formatMoney(totals.total)}
-            </Button>
-          </div>
+      <div className="relative flex h-full w-full flex-col lg:grid lg:grid-cols-[minmax(280px,32%)_minmax(0,1fr)]">
+        {/* Current order — desktop sidebar */}
+        <aside className="hidden min-h-0 flex-col border-border bg-sidebar text-sidebar-foreground lg:flex lg:h-full lg:border-r">
+          <PosCartPanel {...cartPanelProps} />
         </aside>
 
         {/* Menu / Discounts / Loyalty (shared panel) */}
-        <section className="flex min-h-0 min-w-0 flex-col">
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
           <div className="shrink-0 space-y-2 border-b border-border px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -1052,13 +839,7 @@ export function PosPage() {
                     <h3 className="mb-2 text-sm font-semibold tracking-tight sm:text-base">
                       {item.name}
                     </h3>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                        gap: "0.5rem",
-                      }}
-                    >
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                       {item.weights.map((weightOption) => (
                         <WeightTile
                           key={
@@ -1081,15 +862,7 @@ export function PosPage() {
                         Products
                       </h3>
                     ) : null}
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns:
-                          "repeat(auto-fill, minmax(10.5rem, 1fr))",
-                        gap: "0.75rem",
-                        width: "100%",
-                      }}
-                    >
+                    <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
                       {singleWeightItems.map((item) => (
                         <SingleProductCard
                           key={item.id}
@@ -1104,7 +877,57 @@ export function PosPage() {
             )}
           </div>
         </section>
+
+        {/* Mobile sticky cart bar */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 lg:hidden">
+          <div
+            className="pointer-events-auto flex items-center gap-2 border-t border-border bg-background/95 px-3 py-2 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] backdrop-blur supports-backdrop-filter:bg-background/85"
+            style={{
+              paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setCartSheetOpen(true)}
+              className="flex min-h-12 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 text-left active:scale-[0.99]"
+            >
+              <ShoppingCart className="size-5 shrink-0" />
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold">
+                  {itemCount === 0
+                    ? "Cart empty"
+                    : `${itemCount} item${itemCount === 1 ? "" : "s"}`}
+                </span>
+                <span className="block text-xs text-muted-foreground tabular-nums">
+                  {formatMoney(totals.total)}
+                </span>
+              </span>
+            </button>
+            <Button
+              type="button"
+              size="lg"
+              className="h-12 shrink-0 px-5 text-base"
+              disabled={cart.length === 0}
+              onClick={() => void chargeOrder()}
+            >
+              Charge
+            </Button>
+          </div>
+        </div>
       </div>
+
+      <Sheet open={cartSheetOpen} onOpenChange={setCartSheetOpen}>
+        <SheetContent
+          side="bottom"
+          className="flex h-[min(92dvh,900px)] flex-col gap-0 p-0 sm:max-h-[85dvh]"
+          showCloseButton
+        >
+          <SheetHeader className="sr-only">
+            <SheetTitle>Current order</SheetTitle>
+          </SheetHeader>
+          <PosCartPanel {...cartPanelProps} className="min-h-0 flex-1" />
+        </SheetContent>
+      </Sheet>
     </>
   )
 }

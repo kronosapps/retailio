@@ -251,7 +251,7 @@ function PaymentDialogSession({
         }}
       >
         <DialogContent
-          className="max-h-[min(92vh,900px)] max-w-3xl overflow-y-auto sm:max-w-3xl"
+          className="h-[100dvh] max-h-[100dvh] w-full max-w-full gap-4 overflow-y-auto rounded-none p-4 sm:h-auto sm:max-h-[min(92vh,900px)] sm:max-w-3xl sm:rounded-xl sm:p-6"
           showCloseButton={false}
         >
           <DialogHeader>
@@ -266,7 +266,7 @@ function PaymentDialogSession({
             </div>
           </DialogHeader>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="relative space-y-1.5">
               <Label htmlFor="pay-customer">Customer name</Label>
               <Input
@@ -328,7 +328,7 @@ function PaymentDialogSession({
                   disabled={busy || payment?.status === "Paid"}
                   onClick={() => void setMethod(item)}
                   className={cn(
-                    "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
+                    "min-h-11 rounded-md border px-4 py-2 text-sm font-medium transition-colors",
                     method === item
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-border hover:bg-muted"
@@ -343,7 +343,12 @@ function PaymentDialogSession({
           {method === "UPI" ? (
             <div className="rounded-xl border border-border bg-muted/30 p-4">
               <div className="flex flex-col items-center gap-4 lg:flex-row lg:items-start">
-                <PaymentQRCode dataUrl={qrDataUrl} size={260} />
+                <div className="sm:hidden">
+                  <PaymentQRCode dataUrl={qrDataUrl} size={180} />
+                </div>
+                <div className="hidden sm:block">
+                  <PaymentQRCode dataUrl={qrDataUrl} size={260} />
+                </div>
                 <div className="min-w-0 flex-1 space-y-3">
                   <div>
                     <p className="text-xs text-muted-foreground">Amount</p>
@@ -580,6 +585,7 @@ function PaymentDialogSession({
             <Button
               type="button"
               variant="outline"
+              className="min-h-11"
               onClick={() => void cancelPayment()}
               disabled={busy}
             >
@@ -588,7 +594,7 @@ function PaymentDialogSession({
             <Button
               type="button"
               size="lg"
-              className="min-w-40"
+              className="min-h-12 min-w-40"
               disabled={!canMarkPaid || busy}
               onClick={onPrimaryAction}
             >
@@ -606,7 +612,10 @@ function PaymentDialogSession({
           if (!next) closeConfirm()
         }}
       >
-        <DialogContent className="sm:max-w-md" showCloseButton={!busy}>
+        <DialogContent
+          className="h-[100dvh] max-h-[100dvh] w-full max-w-full rounded-none p-4 sm:h-auto sm:max-h-[min(92vh,900px)] sm:max-w-md sm:rounded-xl sm:p-6"
+          showCloseButton={!busy}
+        >
           <DialogHeader>
             <DialogTitle>Confirm UPI payment</DialogTitle>
             <DialogDescription>
@@ -672,7 +681,10 @@ function PaymentDialogSession({
           if (!next) closeCashTender()
         }}
       >
-        <DialogContent className="sm:max-w-md" showCloseButton={!busy}>
+        <DialogContent
+          className="h-[100dvh] max-h-[100dvh] w-full max-w-full rounded-none p-4 sm:h-auto sm:max-h-[min(92vh,900px)] sm:max-w-md sm:rounded-xl sm:p-6"
+          showCloseButton={!busy}
+        >
           <DialogHeader>
             <DialogTitle>Collect cash</DialogTitle>
             <DialogDescription>
