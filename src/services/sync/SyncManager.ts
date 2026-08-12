@@ -1,4 +1,5 @@
 import { EventSubscriber } from "@/events/EventSubscriber"
+import { EventPublisher } from "@/events/EventPublisher"
 import { EventTypes, type DomainEvent } from "@/events/EventTypes"
 
 import { googleSheetsSyncProvider } from "./GoogleSheetsSyncProvider"
@@ -431,6 +432,18 @@ export class SyncManager {
         if (fresh) await this.processItem({ ...fresh, retries })
       } else {
         syncQueue.moveToDeadLetter({ ...item, retries }, message)
+        await EventPublisher.publish(
+          EventTypes.SYNC_FAILED,
+          {
+            queueId: item.id,
+            eventType: item.eventType,
+            eventId: item.eventId,
+            sheet: item.sheet,
+            error: message,
+            retries,
+          },
+          null
+        )
       }
     }
   }

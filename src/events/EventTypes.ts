@@ -62,6 +62,8 @@ export const EventTypes = {
   COUPON_CREATED: "COUPON_CREATED",
   COUPON_UPDATED: "COUPON_UPDATED",
   PRICE_CHANGED: "PRICE_CHANGED",
+  /** Sync queue item moved to dead letter after max retries. */
+  SYNC_FAILED: "SYNC_FAILED",
 } as const
 
 export type EventType = (typeof EventTypes)[keyof typeof EventTypes]

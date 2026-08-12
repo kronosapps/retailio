@@ -182,6 +182,8 @@ Canonical docs: [`ARCHITECTURE.md`](./ARCHITECTURE.md), [`DEVELOPER_GUIDE.md`](.
 ### Notifications
 
 - `notificationEngine` started at bootstrap; queue/retry patterns; docs in [`NOTIFICATION_ENGINE.md`](./NOTIFICATION_ENGINE.md).
+- Staff soft alerts (`in_app`) for stock, discounts/refunds, cash variance, sync/payment failures, pending POs, AR/AP — bell inbox in App + POS layouts.
+- Follow-ups: [`NOTIFICATIONS_TODO.md`](./NOTIFICATIONS_TODO.md).
 
 ### Banking (admin)
 

@@ -14,6 +14,7 @@ type NotificationDoc = {
   customerPhone?: string | null
   storeId?: string | null
   channel?: string
+  audience?: string
   status?: string
   messageType?: string
   templateName?: string | null
@@ -95,6 +96,14 @@ export async function processNotification(notificationId: string): Promise<void>
     notification.status === "Delivered" ||
     notification.status === "Read" ||
     notification.status === "Cancelled"
+  ) {
+    return
+  }
+
+  // Staff soft alerts — client-delivered; never send via WhatsApp.
+  if (
+    notification.channel === "in_app" ||
+    notification.audience === "staff"
   ) {
     return
   }

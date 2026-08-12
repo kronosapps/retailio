@@ -1,10 +1,12 @@
 import { EventSubscriber } from "@/events/EventSubscriber"
 import { EventTypes, type DomainEvent } from "@/events/EventTypes"
 import { notificationRepository } from "@/repositories/NotificationRepository"
+import { AlertService } from "./AlertService"
 
 type PaymentReceivedPayload = {
   paymentId?: string
   invoiceNumber?: string
+  invoiceId?: string
   customerName?: string
   customerId?: string | null
   customerPhone?: string | null
@@ -16,19 +18,26 @@ type RefundPayload = {
   paymentId?: string | null
   customerId?: string | null
   customerName?: string
+  customerPhone?: string | null
   amount?: number
+  amountPaisa?: number
+  refundId?: string
 }
+
+const AGING_INTERVAL_MS = 15 * 60 * 1000
 
 /**
  * In-process Notification Engine.
- * Subscribes to domain events and queues channel-agnostic notifications.
- * Delivery (WhatsApp / SMS / Email) happens in Cloud Functions — not here.
+ * - Customer WhatsApp/SMS queue from payment events
+ * - Staff soft alerts from business triggers (AlertService)
  *
+ * Delivery (WhatsApp) happens in Cloud Functions — not here.
  * Payment Module never imports this module.
  */
 export class NotificationEngine {
   private subscriber = new EventSubscriber()
   private started = false
+  private agingTimer: ReturnType<typeof setInterval> | null = null
 
   start() {
     if (this.started) return
@@ -36,18 +45,67 @@ export class NotificationEngine {
 
     this.subscriber.on(EventTypes.PAYMENT_RECEIVED, (event) => {
       void this.onPaymentReceived(event)
+      void AlertService.onPaymentReceived(event)
     })
     this.subscriber.on(EventTypes.PAYMENT_REFUNDED, (event) => {
       void this.onPaymentRefunded(event)
+      void AlertService.onPaymentRefunded(event)
     })
     this.subscriber.on(EventTypes.ORDER_CANCELLED, (event) => {
       void this.onOrderCancelled(event)
     })
-    // Future: INVOICE_CREATED → optional invoice WhatsApp
+    this.subscriber.on(EventTypes.PAYMENT_FAILED, (event) => {
+      void AlertService.onPaymentFailed(event)
+    })
+    this.subscriber.on(EventTypes.SHIFT_CLOSED, (event) => {
+      void AlertService.onShiftClosed(event)
+    })
+    this.subscriber.on(EventTypes.SYNC_FAILED, (event) => {
+      void AlertService.onSyncFailed(event)
+    })
+    this.subscriber.on(EventTypes.INVENTORY_CHANGED, (event) => {
+      void AlertService.onInventoryChanged(event)
+    })
+    this.subscriber.on(EventTypes.STOCK_ADJUSTED, (event) => {
+      void AlertService.onInventoryChanged(event)
+    })
+    this.subscriber.on(EventTypes.PURCHASE_ORDER_ISSUED, (event) => {
+      void AlertService.onPurchaseChanged(event)
+    })
+    this.subscriber.on(EventTypes.PURCHASE_ORDER_UPDATED, (event) => {
+      void AlertService.onPurchaseChanged(event)
+    })
+    this.subscriber.on(EventTypes.GOODS_RECEIVED, (event) => {
+      void AlertService.onPurchaseChanged(event)
+    })
+    this.subscriber.on(EventTypes.PURCHASE_INVOICE_POSTED, (event) => {
+      void AlertService.onPurchaseChanged(event)
+    })
+    this.subscriber.on(EventTypes.SUPPLIER_PAYMENT_RECORDED, (event) => {
+      void AlertService.onPurchaseChanged(event)
+    })
+    this.subscriber.on(EventTypes.CUSTOMER_AR_SETTLED, (event) => {
+      void AlertService.onCustomerArChanged(event)
+    })
+    this.subscriber.on(EventTypes.CUSTOMER_UPDATED, (event) => {
+      void AlertService.onCustomerArChanged(event)
+    })
+    this.subscriber.on(EventTypes.CREDIT_NOTE_ISSUED, (event) => {
+      void AlertService.onCustomerArChanged(event)
+    })
+
+    void AlertService.runAgingScans()
+    this.agingTimer = setInterval(() => {
+      void AlertService.runAgingScans()
+    }, AGING_INTERVAL_MS)
   }
 
   stop() {
     this.subscriber.dispose()
+    if (this.agingTimer) {
+      clearInterval(this.agingTimer)
+      this.agingTimer = null
+    }
     this.started = false
   }
 
@@ -55,7 +113,7 @@ export class NotificationEngine {
     const payload = event.payload as PaymentReceivedPayload
     if (payload.status && payload.status !== "Paid") return
 
-    const invoiceId = payload.invoiceNumber
+    const invoiceId = payload.invoiceNumber || payload.invoiceId
     if (!invoiceId) return
 
     const phone = (payload.customerPhone || "").replace(/\D/g, "")
@@ -82,9 +140,7 @@ export class NotificationEngine {
   }
 
   private async onPaymentRefunded(event: DomainEvent) {
-    const payload = event.payload as RefundPayload & {
-      customerPhone?: string | null
-    }
+    const payload = event.payload as RefundPayload
     if (!payload.invoiceId) return
     const phone = (payload.customerPhone || "").replace(/\D/g, "")
     if (phone.length < 8) return

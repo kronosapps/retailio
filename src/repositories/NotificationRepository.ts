@@ -9,11 +9,14 @@ import {
 import { EventPublisher } from "@/events/EventPublisher"
 import { EventTypes } from "@/events/EventTypes"
 import type {
+  NotificationAudience,
   NotificationLog,
   NotificationMessageType,
+  NotificationPriority,
   NotificationRecord,
   NotificationStatus,
 } from "@/modules/notifications/types/notification"
+import { isStaffAlertType } from "@/modules/notifications/types/notification"
 import { createId } from "@/utils/id"
 
 import { COLLECTIONS } from "@/core/firebase/collections"
@@ -33,10 +36,15 @@ export type QueueNotificationInput = {
   messageType?: NotificationMessageType
   channel?: NotificationRecord["channel"]
   templateName?: string | null
-  /** Free-text body stored in meta for CRM messages. */
+  /** Free-text body stored in meta for CRM messages / staff alerts. */
   body?: string | null
+  title?: string | null
+  audience?: NotificationAudience
+  priority?: NotificationPriority
+  dedupeKey?: string | null
   /** Force a new notification even if one exists for the invoice. */
   forceNew?: boolean
+  meta?: Record<string, unknown>
 }
 
 /**
@@ -89,6 +97,12 @@ export class NotificationRepository {
         ? `ntf_${input.paymentId}`
         : createId("ntf")
     const messageType = input.messageType ?? "receipt"
+    const channel = input.channel ?? "whatsapp"
+    const isInApp =
+      channel === "in_app" ||
+      input.audience === "staff" ||
+      isStaffAlertType(messageType)
+
     const record: NotificationRecord = {
       notificationId,
       invoiceId,
@@ -97,28 +111,53 @@ export class NotificationRepository {
       customerName: input.customerName.trim() || "Walk-in",
       customerPhone: input.customerPhone,
       storeId: input.storeId ?? null,
-      channel: input.channel ?? "whatsapp",
-      status: "Queued",
+      channel: isInApp ? "in_app" : channel,
+      // In-app staff alerts are delivered locally — CF no-ops this channel.
+      status: isInApp ? "Delivered" : "Queued",
       messageType,
-      templateName:
-        input.templateName ??
-        (messageType === "offer" ||
-        messageType === "reminder" ||
-        messageType === "campaign"
-          ? `${messageType}_notification`
-          : "receipt_notification"),
+      templateName: isInApp
+        ? null
+        : (input.templateName ??
+          (messageType === "offer" ||
+          messageType === "reminder" ||
+          messageType === "campaign"
+            ? `${messageType}_notification`
+            : "receipt_notification")),
       receiptUrl: null,
       messageId: null,
       createdAt: now,
-      sentAt: null,
+      sentAt: isInApp ? now : null,
       updatedAt: now,
       retryCount: 0,
       nextRetryAt: null,
       error: null,
-      meta: input.body ? { body: input.body } : undefined,
+      audience: input.audience ?? (isInApp ? "staff" : "customer"),
+      priority: input.priority ?? (isInApp ? "medium" : undefined),
+      title: input.title ?? null,
+      dedupeKey: input.dedupeKey ?? null,
+      readAt: null,
+      meta: {
+        ...(input.meta || {}),
+        ...(input.body ? { body: input.body } : {}),
+      },
     }
 
     return this.persist(record, "created")
+  }
+
+  /** Mark a staff alert as read (soft inbox). */
+  async markRead(notificationId: string): Promise<NotificationRecord | null> {
+    const existing = getLocalNotification(notificationId)
+    if (!existing) return null
+    if (existing.readAt) return existing
+    const now = new Date().toISOString()
+    const next: NotificationRecord = {
+      ...existing,
+      readAt: now,
+      status: existing.channel === "in_app" ? "Read" : existing.status,
+      updatedAt: now,
+    }
+    return this.persist(next, "updated")
   }
 
   async updateStatus(
@@ -134,6 +173,7 @@ export class NotificationRepository {
         | "retryCount"
         | "nextRetryAt"
         | "templateName"
+        | "readAt"
       >
     >
   ): Promise<NotificationRecord | null> {
