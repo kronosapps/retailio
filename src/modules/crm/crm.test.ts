@@ -151,8 +151,25 @@ describe("CRM — customer profile & loyalty", () => {
     const { CrmService } = await import("@/modules/crm/CrmService")
     const { PricingService } = await import("@/modules/pricing/PricingService")
     const { maxRedeemablePoints } = await import("@/data/loyalty")
+    const { savePromoSettings } = await import("@/data/promoSettings")
 
     expect(maxRedeemablePoints(1_000_000, 1670)).toBe(1500)
+
+    const today = new Date().toISOString().slice(0, 10)
+    savePromoSettings({
+      occasion: {
+        id: "fest",
+        name: "Festival",
+        percent: 10,
+        active: true,
+        startsOn: today,
+        endsOn: today,
+      },
+      masters: {
+        pointsRedeemEnabled: true,
+        orderPromotionsEnabled: true,
+      },
+    })
 
     const customer = await CustomerService.create({
       name: "Arun",
@@ -163,6 +180,8 @@ describe("CRM — customer profile & loyalty", () => {
       loyaltyPoints: 1670,
       totalSpendPaisa: 3_000_000,
       visitCount: 10,
+      welcomePromoGranted: false,
+      welcomePromoPointsRemaining: 0,
     })
 
     const priced = PricingService.priceOrder({
@@ -175,22 +194,23 @@ describe("CRM — customer profile & loyalty", () => {
           listUnitPaisa: 10000,
         },
       ],
+      applyOccasion: true,
       pointsToRedeem: 1670,
       availablePoints: 1670,
       customerSegments: ["vip", "regular"],
     })
-    // 1000 pts = ₹10 → 1 pt = 1 paisa; step 500 → 1500 pts = ₹15
+    // Festival 10% then points: 10000 → 9000; 1500 pts = ₹15 → total 7500
     expect(priced.totals.pointsRedeemed).toBe(1500)
     expect(priced.totals.pointsDiscount).toBe(1500)
-    expect(priced.totals.total).toBe(8500)
+    expect(priced.totals.total).toBe(7500)
 
     await CrmService.recordPaidPurchase({
       customerId: customer.id,
-      purchasePaisa: 8500,
+      purchasePaisa: 7500,
       pointsRedeemed: 1500,
     })
     const afterPoints = CustomerService.getById(customer.id)!
-    expect(afterPoints.loyaltyPoints).toBe(1670 + 85 - 1500)
+    expect(afterPoints.loyaltyPoints).toBe(1670 + 75 - 1500)
     expect(afterPoints.loyaltyPointsRedeemed).toBe(1500)
 
     await CrmService.bumpOutstanding({
@@ -206,7 +226,6 @@ describe("CRM — customer profile & loyalty", () => {
     })
     expect(CustomerService.getById(customer.id)!.outstandingPaisa).toBe(5000)
 
-    const today = new Date().toISOString().slice(0, 10)
     await PricingService.saveCoupon({
       code: "VIP10",
       discountType: "PERCENT",

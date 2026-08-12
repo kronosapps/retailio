@@ -70,12 +70,14 @@ export type RecordPurchaseLoyaltyInput = {
   redeemedLoyalty?: boolean
   /** Points spent on this sale (deducted after earn). */
   pointsRedeemed?: number
-  /** Sale lines for punch eligibility (SKU / qty rules). */
+  /** Sale lines for punch eligibility (SKU / qty / category / grams). */
   lines?: {
     itemId: string
     sku?: string | null
     qty: number
     isLoyaltyReward?: boolean
+    category?: string | null
+    unitSize?: number | null
   }[]
   actorId?: string | null
 }

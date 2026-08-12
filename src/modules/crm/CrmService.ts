@@ -8,7 +8,10 @@ import {
   pointsFromSpendPaisa,
   loyaltyConfig,
 } from "@/data/loyalty"
-import { isSalePunchEligible } from "@/data/promoSettings"
+import {
+  getPromoSettings,
+  isSalePunchEligible,
+} from "@/data/promoSettings"
 import type { CrmAuditRecord } from "@/data/crmAudit"
 import { EventPublisher } from "@/events/EventPublisher"
 import { EventTypes } from "@/events/EventTypes"
@@ -31,7 +34,7 @@ import type {
 } from "./types"
 
 export class CrmError extends Error {
-  code: "VALIDATION" | "NOT_FOUND" | "INSUFFICIENT"
+  code: "VALIDATION" | "NOT_FOUND" | "INSUFFICIENT" | "CONFLICT"
 
   constructor(code: CrmError["code"], message: string) {
     super(message)
@@ -543,6 +546,16 @@ export class CrmService {
       punchStamped = punches > punchesBefore
     }
 
+    const promoBefore = Math.max(
+      0,
+      Math.floor(existing.welcomePromoPointsRemaining || 0)
+    )
+    const promoRedeemed =
+      existing.welcomePromoGranted && redeemed > 0
+        ? Math.min(redeemed, promoBefore)
+        : 0
+    const promoRemaining = Math.max(0, promoBefore - promoRedeemed)
+
     const next = await customerRepository.save(
       {
         ...existing,
@@ -553,6 +566,9 @@ export class CrmService {
         ),
         loyaltyPointsRedeemed:
           (existing.loyaltyPointsRedeemed || 0) + redeemed,
+        welcomePromoPointsRemaining: existing.welcomePromoGranted
+          ? promoRemaining
+          : existing.welcomePromoPointsRemaining || 0,
         updatedBy: input.actorId ?? existing.updatedBy,
       },
       false
@@ -575,7 +591,10 @@ export class CrmService {
         customerId: next.id,
         customerName: next.name,
         kind: "POINTS_REDEEMED",
-        message: `Redeemed ${redeemed} points`,
+        message:
+          promoRedeemed > 0
+            ? `Redeemed ${redeemed} points (${promoRedeemed} welcome promo)`
+            : `Redeemed ${redeemed} points`,
         delta: -redeemed,
         balanceAfter: next.loyaltyPoints,
         actorId: input.actorId ?? null,
@@ -615,6 +634,85 @@ export class CrmService {
       pointsRedeemed: redeemed,
       pointsBalanceAfter: next.loyaltyPoints,
     }
+  }
+
+  /**
+   * POS phone onboarding for a new customer — name, email, DOB + welcome 1000 pts
+   * (500 redeemable on this order, 500 on the next; earned unlock after 2 visits).
+   */
+  static async onboardAtPos(input: {
+    phone: string
+    name: string
+    email: string
+    birthday: string
+    storeId?: string | null
+    actorId?: string | null
+  }): Promise<CustomerRecord> {
+    const phone = normalizeCustomerPhone(input.phone)
+    if (!phone || phone.length < 10) {
+      throw new CrmError("VALIDATION", "Enter a valid 10-digit mobile number.")
+    }
+    const name = input.name.trim()
+    if (!name) throw new CrmError("VALIDATION", "Name is required.")
+    const email = input.email.trim().toLowerCase()
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new CrmError("VALIDATION", "Enter a valid email address.")
+    }
+    const birthday = input.birthday.trim().slice(0, 10)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(birthday)) {
+      throw new CrmError("VALIDATION", "Enter date of birth (YYYY-MM-DD).")
+    }
+
+    const existing = customerRepository.findByPhone(phone, input.storeId)
+    if (existing) {
+      throw new CrmError(
+        "CONFLICT",
+        "This phone is already registered. Attach the existing customer."
+      )
+    }
+
+    const welcome = getPromoSettings().welcomePromo
+    const grant =
+      welcome.enabled !== false
+        ? Math.max(0, Math.floor(welcome.grantPoints || 1000))
+        : 0
+
+    const created = await customerRepository.create(
+      {
+        name,
+        phone,
+        email,
+        birthday,
+        storeId: input.storeId ?? null,
+        createdBy: input.actorId ?? null,
+      },
+      input.actorId ?? null
+    )
+
+    const next = await customerRepository.save(
+      {
+        ...created,
+        loyaltyPoints: grant,
+        welcomePromoGranted: grant > 0,
+        welcomePromoPointsRemaining: grant,
+      },
+      false
+    )
+
+    if (grant > 0) {
+      await crmAuditRepository.append({
+        customerId: next.id,
+        customerName: next.name,
+        kind: "WELCOME_PROMO_GRANTED",
+        message: `Welcome promo ${grant} points (up to ${welcome.redeemPerVisit} redeemable now, rest next order · first ${welcome.visitLimit} visits)`,
+        delta: grant,
+        balanceAfter: next.loyaltyPoints,
+        actorId: input.actorId ?? null,
+        storeId: next.storeId,
+      })
+    }
+
+    return next
   }
 
   /**

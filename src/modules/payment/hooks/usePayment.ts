@@ -12,6 +12,7 @@ import { isWalkInName } from "@/data/customers"
 import { useAuth } from "@/providers/AuthProvider"
 import { invoiceRepository } from "@/repositories/InvoiceRepository"
 import { paymentRepository } from "@/repositories/PaymentRepository"
+import { productRepository } from "@/repositories/ProductRepository"
 
 import { manualUpiProvider } from "../providers/ManualUPIProvider"
 import {
@@ -361,12 +362,19 @@ export function usePayment() {
             purchasePaisa: invoice.amountPaisa,
             redeemedLoyalty,
             pointsRedeemed: sale?.totals.pointsRedeemed || 0,
-            lines: sale?.lines.map((l) => ({
-              itemId: l.itemId,
-              sku: l.sku,
-              qty: l.qty,
-              isLoyaltyReward: l.isLoyaltyReward,
-            })),
+            lines: sale?.lines.map((l) => {
+              const product =
+                productRepository.getById(l.sku || l.itemId) ||
+                productRepository.getById(l.itemId)
+              return {
+                itemId: l.itemId,
+                sku: l.sku,
+                qty: l.qty,
+                isLoyaltyReward: l.isLoyaltyReward,
+                category: product?.category ?? null,
+                unitSize: product?.unitSize ?? null,
+              }
+            }),
             actorId: userId,
           })
           if (loyaltyResult) {

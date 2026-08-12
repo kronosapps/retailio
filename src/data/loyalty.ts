@@ -115,3 +115,77 @@ export function formatRedeemMappingLabel() {
   const e = getEffectiveLoyalty()
   return `${e.redeemPoints} pts = ₹${e.redeemRupees}`
 }
+
+export type WelcomePointsCustomer = {
+  loyaltyPoints: number
+  visitCount: number
+  welcomePromoGranted?: boolean
+  welcomePromoPointsRemaining?: number
+}
+
+/**
+ * Points the cashier may redeem on this ticket.
+ * Welcome promo: only promo tranche (≤500/visit for first 2 visits).
+ * Earned points unlock after 2 paid visits AND welcome promo is fully used.
+ * Same stacking rules as regular points apply at PricingService.
+ */
+export function getRedeemableLoyaltyPoints(
+  customer: WelcomePointsCustomer
+): number {
+  const wallet = Math.max(0, Math.floor(customer.loyaltyPoints || 0))
+  if (!customer.welcomePromoGranted) return wallet
+
+  const remaining = Math.max(
+    0,
+    Math.floor(customer.welcomePromoPointsRemaining || 0)
+  )
+  const visits = Math.max(0, Math.floor(customer.visitCount || 0))
+  const promo = getPromoSettings().welcomePromo
+  const perVisit = Math.max(0, Math.floor(promo.redeemPerVisit || 500))
+  const visitLimit = Math.max(1, Math.floor(promo.visitLimit || 2))
+
+  if (visits >= visitLimit && remaining <= 0) {
+    return wallet
+  }
+
+  const visitCap = visits < visitLimit ? perVisit : remaining
+  return Math.min(wallet, remaining, visitCap)
+}
+
+/** True while welcome promo locks earned-point redemption. */
+export function isWelcomePromoLockActive(
+  customer: WelcomePointsCustomer
+): boolean {
+  if (!customer.welcomePromoGranted) return false
+  const remaining = Math.max(
+    0,
+    Math.floor(customer.welcomePromoPointsRemaining || 0)
+  )
+  const visits = Math.max(0, Math.floor(customer.visitCount || 0))
+  const visitLimit = Math.max(
+    1,
+    Math.floor(getPromoSettings().welcomePromo.visitLimit || 2)
+  )
+  return visits < visitLimit || remaining > 0
+}
+
+export function describeWelcomePromoStatus(
+  customer: WelcomePointsCustomer
+): string | null {
+  if (!customer.welcomePromoGranted) return null
+  const remaining = Math.max(
+    0,
+    Math.floor(customer.welcomePromoPointsRemaining || 0)
+  )
+  const visits = Math.max(0, Math.floor(customer.visitCount || 0))
+  const promo = getPromoSettings().welcomePromo
+  const perVisit = promo.redeemPerVisit
+  const visitLimit = promo.visitLimit
+  if (visits >= visitLimit && remaining <= 0) {
+    return "Welcome promo complete — earned points are redeemable."
+  }
+  if (visits < visitLimit) {
+    return `Welcome promo: up to ${perVisit} pts this visit (${remaining} promo left · visit ${visits + 1}/${visitLimit}). Earned points unlock after ${visitLimit} visits when promo is used.`
+  }
+  return `Welcome promo leftover: ${remaining} pts. Earned points unlock after promo is fully used.`
+}

@@ -42,6 +42,13 @@ export type CustomerRecord = {
   loyaltyPoints: number
   /** Lifetime points redeemed (running total). */
   loyaltyPointsRedeemed: number
+  /**
+   * Welcome / new-customer promo: remaining points from the 1000 grant
+   * that still count as promo (not yet redeemed). Part of loyaltyPoints wallet.
+   */
+  welcomePromoPointsRemaining: number
+  /** True after POS onboarding granted the welcome 1000 points. */
+  welcomePromoGranted: boolean
   /** Manual tags (VIP, etc.); auto-segments are derived at read time. */
   tags: string[]
   /** Free-text offer / campaign note shown on CRM profile. */
@@ -163,6 +170,19 @@ function normalizeCustomer(raw: CustomerRecord): CustomerRecord {
           )
         )
       : 0,
+    welcomePromoPointsRemaining: Number.isFinite(
+      (raw as Partial<CustomerRecord>).welcomePromoPointsRemaining
+    )
+      ? Math.max(
+          0,
+          Math.floor(
+            (raw as Partial<CustomerRecord>).welcomePromoPointsRemaining || 0
+          )
+        )
+      : 0,
+    welcomePromoGranted: Boolean(
+      (raw as Partial<CustomerRecord>).welcomePromoGranted
+    ),
     tags: Array.isArray((raw as Partial<CustomerRecord>).tags)
       ? ((raw as Partial<CustomerRecord>).tags || [])
           .map((t) => String(t).trim())
@@ -310,6 +330,8 @@ export function buildCustomerRecord(
     loyaltyPunches: 0,
     loyaltyPoints: 0,
     loyaltyPointsRedeemed: 0,
+    welcomePromoPointsRemaining: 0,
+    welcomePromoGranted: false,
     tags: Array.isArray(input.tags)
       ? input.tags.map((t) => t.trim()).filter(Boolean)
       : [],

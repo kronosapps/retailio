@@ -490,9 +490,31 @@ export function PricingPage() {
                     Math.round(Number(settings.punchRules.minBillPaisa) || 0)
                   ),
                   skuScope: settings.punchRules.skuScope,
+                  categoryScope: settings.punchRules.categoryScope,
+                  minUnitGrams: Math.max(
+                    0,
+                    Math.floor(Number(settings.punchRules.minUnitGrams) || 0)
+                  ),
                   minQty: Math.max(
                     1,
                     Math.floor(Number(settings.punchRules.minQty) || 1)
+                  ),
+                },
+                welcomePromo: {
+                  enabled: settings.welcomePromo.enabled !== false,
+                  grantPoints: Math.max(
+                    0,
+                    Math.floor(Number(settings.welcomePromo.grantPoints) || 0)
+                  ),
+                  redeemPerVisit: Math.max(
+                    0,
+                    Math.floor(
+                      Number(settings.welcomePromo.redeemPerVisit) || 0
+                    )
+                  ),
+                  visitLimit: Math.max(
+                    1,
+                    Math.floor(Number(settings.welcomePromo.visitLimit) || 2)
                   ),
                 },
                 earnPaisaPerPoint: settings.earnPaisaPerPoint,
@@ -628,8 +650,9 @@ export function PricingPage() {
 
             <p className="pt-2 text-sm font-medium">Punch stamp rules</p>
             <p className="text-xs text-muted-foreground">
-              Digital punches mirror the physical card. Sale must meet min bill
-              and/or buy enough of selected SKUs.
+              Digital punches mirror the physical card (fallback when guest is
+              not registered). Default: Halwa category packs 500g and above.
+              Manage SKUs and categories below.
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
@@ -669,8 +692,52 @@ export function PricingPage() {
                   }
                 />
               </div>
+              <div className="space-y-1">
+                <Label>Min pack size (grams)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={settings.punchRules.minUnitGrams}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      punchRules: {
+                        ...s.punchRules,
+                        minUnitGrams: Math.max(
+                          0,
+                          Math.floor(Number(e.target.value) || 0)
+                        ),
+                      },
+                    }))
+                  }
+                  placeholder="500"
+                />
+              </div>
               <div className="space-y-1 sm:col-span-2">
-                <Label>SKU scope (blank = any product)</Label>
+                <Label>Category scope (comma list)</Label>
+                <Input
+                  value={settings.punchRules.categoryScope.join(", ")}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      punchRules: {
+                        ...s.punchRules,
+                        categoryScope: e.target.value
+                          .split(",")
+                          .map((x) => x.trim())
+                          .filter(Boolean),
+                      },
+                    }))
+                  }
+                  placeholder="Halwa"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Matches category names containing these words (e.g. Halwa →
+                  Madugula Halwa). Combined with SKU list via OR.
+                </p>
+              </div>
+              <div className="space-y-1 sm:col-span-2">
+                <Label>SKU scope (optional extras)</Label>
                 <Input
                   value={settings.punchRules.skuScope.join(", ")}
                   onChange={(e) =>
@@ -685,7 +752,79 @@ export function PricingPage() {
                       },
                     }))
                   }
-                  placeholder="SKU1, SKU2"
+                  placeholder="MH-BL-0500, MH-BL-0101"
+                />
+              </div>
+            </div>
+
+            <p className="pt-2 text-sm font-medium">Welcome promo (new POS customers)</p>
+            <p className="text-xs text-muted-foreground">
+              Onboard with phone → name, email, DOB. Grant promo points for the
+              first {settings.welcomePromo.visitLimit} visits (
+              {settings.welcomePromo.redeemPerVisit} redeemable per visit).
+              Earned points unlock after those visits when promo is used up.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="space-y-1">
+                <Label>Grant points</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={100}
+                  value={settings.welcomePromo.grantPoints}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      welcomePromo: {
+                        ...s.welcomePromo,
+                        grantPoints: Math.max(
+                          0,
+                          Math.floor(Number(e.target.value) || 0)
+                        ),
+                      },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Redeem / visit</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={100}
+                  value={settings.welcomePromo.redeemPerVisit}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      welcomePromo: {
+                        ...s.welcomePromo,
+                        redeemPerVisit: Math.max(
+                          0,
+                          Math.floor(Number(e.target.value) || 0)
+                        ),
+                      },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Visit limit</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={settings.welcomePromo.visitLimit}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      welcomePromo: {
+                        ...s.welcomePromo,
+                        visitLimit: Math.max(
+                          1,
+                          Math.floor(Number(e.target.value) || 2)
+                        ),
+                      },
+                    }))
+                  }
                 />
               </div>
             </div>

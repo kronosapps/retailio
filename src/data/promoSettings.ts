@@ -5,6 +5,7 @@
 
 import discountDefaults from "./discounts.json"
 import loyaltyDefaults from "./loyalty.json"
+import { getLocalProduct } from "./products"
 
 const STORAGE_KEY = "retailos.promo_settings.v1"
 
@@ -51,10 +52,31 @@ export type PromoMasterSwitches = {
 export type PunchRules = {
   /** Minimum payable / bill in paisa (0 = no min). */
   minBillPaisa: number
-  /** Empty = any product. Otherwise only these SKUs count toward punch qty. */
+  /** Empty = ignore SKU list. Otherwise these SKUs count (OR with category). */
   skuScope: string[]
+  /**
+   * Category substrings (case-insensitive), e.g. "Halwa" matches
+   * "Madugula Halwa". Empty = ignore category filter.
+   */
+  categoryScope: string[]
+  /**
+   * Minimum pack size in grams (unitSize). 0 = no size filter.
+   * Default 500 → 500g / 1kg packs only.
+   */
+  minUnitGrams: number
   /** Min qty of qualifying products (default 1). */
   minQty: number
+}
+
+/** New-customer POS onboarding welcome points. */
+export type WelcomePromoSettings = {
+  enabled: boolean
+  /** Total promo points granted on register (default 1000). */
+  grantPoints: number
+  /** Max promo points redeemable per visit during the promo window. */
+  redeemPerVisit: number
+  /** Promo window length in paid visits (default 2). */
+  visitLimit: number
 }
 
 export type OccasionSettings = {
@@ -78,6 +100,7 @@ export type PromoSettings = {
   masters: PromoMasterSwitches
   loyaltyRedeem: LoyaltyRedeemMapping
   punchRules: PunchRules
+  welcomePromo: WelcomePromoSettings
   /** Earn: paisa spent per 1 point. */
   earnPaisaPerPoint: number
   punchesRequired: number
@@ -116,7 +139,16 @@ function defaults(): PromoSettings {
     punchRules: {
       minBillPaisa: 0,
       skuScope: [],
+      /** Default: Halwa category packs 500g and above. */
+      categoryScope: ["Halwa"],
+      minUnitGrams: 500,
       minQty: 1,
+    },
+    welcomePromo: {
+      enabled: true,
+      grantPoints: 1000,
+      redeemPerVisit: 500,
+      visitLimit: 2,
     },
     earnPaisaPerPoint: loyalty.points?.paisaPerPoint ?? 100,
     punchesRequired: loyalty.punchesRequired,
@@ -147,7 +179,26 @@ function read(): PromoSettings {
       version: 1,
       masters,
       loyaltyRedeem: { ...base.loyaltyRedeem, ...parsed.loyaltyRedeem },
-      punchRules: { ...base.punchRules, ...parsed.punchRules },
+      punchRules: {
+        ...base.punchRules,
+        ...parsed.punchRules,
+        skuScope: Array.isArray(parsed.punchRules?.skuScope)
+          ? parsed.punchRules!.skuScope
+          : base.punchRules.skuScope,
+        categoryScope: Array.isArray(parsed.punchRules?.categoryScope)
+          ? parsed.punchRules!.categoryScope
+          : base.punchRules.categoryScope,
+        minUnitGrams: Number.isFinite(parsed.punchRules?.minUnitGrams)
+          ? Math.max(0, Math.floor(parsed.punchRules!.minUnitGrams || 0))
+          : base.punchRules.minUnitGrams,
+        minQty: Number.isFinite(parsed.punchRules?.minQty)
+          ? Math.max(1, Math.floor(parsed.punchRules!.minQty || 1))
+          : base.punchRules.minQty,
+      },
+      welcomePromo: {
+        ...base.welcomePromo,
+        ...parsed.welcomePromo,
+      },
       birthday: { ...base.birthday, ...parsed.birthday },
       occasion: { ...base.occasion, ...parsed.occasion },
       friendsAndFamily: {
@@ -177,7 +228,17 @@ export function savePromoSettings(
     version: 1,
     masters,
     loyaltyRedeem: { ...cur.loyaltyRedeem, ...patch.loyaltyRedeem },
-    punchRules: { ...cur.punchRules, ...patch.punchRules },
+    punchRules: {
+      ...cur.punchRules,
+      ...patch.punchRules,
+      skuScope: patch.punchRules?.skuScope ?? cur.punchRules.skuScope,
+      categoryScope:
+        patch.punchRules?.categoryScope ?? cur.punchRules.categoryScope,
+      minUnitGrams:
+        patch.punchRules?.minUnitGrams ?? cur.punchRules.minUnitGrams,
+      minQty: patch.punchRules?.minQty ?? cur.punchRules.minQty,
+    },
+    welcomePromo: { ...cur.welcomePromo, ...patch.welcomePromo },
     earnPaisaPerPoint: patch.earnPaisaPerPoint ?? cur.earnPaisaPerPoint,
     punchesRequired: patch.punchesRequired ?? cur.punchesRequired,
     percentReward: patch.percentReward ?? cur.percentReward,
@@ -208,6 +269,59 @@ export type PunchLineInput = {
   sku?: string | null
   qty: number
   isLoyaltyReward?: boolean
+  category?: string | null
+  /** Pack size in grams (catalog unitSize). */
+  unitSize?: number | null
+}
+
+function resolvePunchLineMeta(line: PunchLineInput): {
+  key: string
+  category: string
+  unitSize: number
+} {
+  const key = (line.sku || line.itemId || "").trim().toUpperCase()
+  let category = (line.category || "").trim()
+  let unitSize =
+    typeof line.unitSize === "number" && Number.isFinite(line.unitSize)
+      ? line.unitSize
+      : 0
+  if (!category || unitSize <= 0) {
+    const product = getLocalProduct(key) || getLocalProduct(line.itemId)
+    if (product) {
+      if (!category) category = product.category || ""
+      if (unitSize <= 0) unitSize = product.unitSize || 0
+    }
+  }
+  return { key, category, unitSize }
+}
+
+function lineMatchesPunchScope(
+  line: PunchLineInput,
+  rules: PunchRules
+): boolean {
+  const { key, category, unitSize } = resolvePunchLineMeta(line)
+  const minGrams = Math.max(0, Math.floor(rules.minUnitGrams || 0))
+  if (minGrams > 0 && unitSize < minGrams) return false
+
+  const skuScope = (rules.skuScope || [])
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean)
+  const catScope = (rules.categoryScope || [])
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+
+  if (skuScope.length === 0 && catScope.length === 0) {
+    return true
+  }
+
+  const skuOk = skuScope.length > 0 && skuScope.includes(key)
+  const catOk =
+    catScope.length > 0 &&
+    catScope.some((c) => category.toLowerCase().includes(c))
+
+  if (skuScope.length > 0 && catScope.length > 0) return skuOk || catOk
+  if (skuScope.length > 0) return skuOk
+  return catOk
 }
 
 /** Whether this sale earns a digital punch (same counter as physical card). */
@@ -224,9 +338,6 @@ export function isSalePunchEligible(
   if (spend < Math.max(0, rules.minBillPaisa || 0)) return false
 
   const lines = (input.lines || []).filter((l) => !l.isLoyaltyReward && l.qty > 0)
-  const scope = (rules.skuScope || [])
-    .map((s) => s.trim().toUpperCase())
-    .filter(Boolean)
   const minQty = Math.max(1, Math.floor(rules.minQty || 1))
 
   // No line detail (legacy callers): stamp on spend if min bill met.
@@ -234,16 +345,8 @@ export function isSalePunchEligible(
     return spend > 0
   }
 
-  if (scope.length === 0) {
-    const totalQty = lines.reduce((s, l) => s + l.qty, 0)
-    return spend > 0 && totalQty >= minQty
-  }
-
   const qualifyingQty = lines
-    .filter((l) => {
-      const key = (l.sku || l.itemId || "").trim().toUpperCase()
-      return scope.includes(key)
-    })
+    .filter((l) => lineMatchesPunchScope(l, rules))
     .reduce((s, l) => s + l.qty, 0)
   return qualifyingQty >= minQty
 }

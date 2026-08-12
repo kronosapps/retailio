@@ -25,6 +25,8 @@ import {
   loyaltyConfig,
   getLoyaltyRewardSummary,
   getEffectiveLoyalty,
+  getRedeemableLoyaltyPoints,
+  describeWelcomePromoStatus,
   maxRedeemablePoints,
   snapRedeemPoints,
   formatRedeemMappingLabel,
@@ -314,7 +316,15 @@ export function PosPage() {
     [attachedCustomer]
   )
 
-  const availablePoints = attachedCustomer?.loyaltyPoints ?? 0
+  const walletPoints = attachedCustomer?.loyaltyPoints ?? 0
+  const availablePoints = attachedCustomer
+    ? getRedeemableLoyaltyPoints(attachedCustomer)
+    : 0
+  const welcomeStatus = attachedCustomer
+    ? describeWelcomePromoStatus(attachedCustomer)
+    : null
+  const punchFallbackNote =
+    "No CRM customer — use physical punch card. Digital punches apply when registered; Halwa 500g+ packs qualify by default."
 
   const priced = useMemo(
     () =>
@@ -735,9 +745,15 @@ export function PosPage() {
             <p className="font-medium">{attachedCustomer.name}</p>
             <p className="text-[11px] text-muted-foreground">
               {attachedCustomer.phone || "No phone"} ·{" "}
-              {attachedCustomer.loyaltyPoints} pts · credit{" "}
-              {formatMoney(attachedCustomer.storeCreditPaisa)}
+              {walletPoints} pts
+              {availablePoints !== walletPoints
+                ? ` (${availablePoints} redeemable now)`
+                : ""}{" "}
+              · credit {formatMoney(attachedCustomer.storeCreditPaisa)}
             </p>
+            {welcomeStatus ? (
+              <p className="text-[11px] text-muted-foreground">{welcomeStatus}</p>
+            ) : null}
             <p className="text-[11px] text-muted-foreground">
               Redeem {formatRedeemMappingLabel()} · steps of {redeemStep}
             </p>
@@ -817,11 +833,18 @@ export function PosPage() {
         ) : (
           <CustomerAttachField
             storeId={profile?.storeId ?? null}
+            actorId={userId}
             onPick={(c) =>
               updateActivePosSession({
                 customerId: c.id,
                 customerName: c.name,
                 customerPhone: c.phone || "",
+                chargeError: null,
+              })
+            }
+            onSkipPunchFallback={() =>
+              updateActivePosSession({
+                chargeError: punchFallbackNote,
               })
             }
           />
@@ -1139,10 +1162,19 @@ export function PosPage() {
                           ? ` · ${attachedCustomer.loyaltyPunches}/${loyaltyEff.punchesRequired} punches`
                           : ""}
                         {loyaltyEff.pointsRedeemEnabled
-                          ? ` · ${attachedCustomer.loyaltyPoints} pts`
+                          ? ` · ${walletPoints} pts${
+                              availablePoints !== walletPoints
+                                ? ` (${availablePoints} redeemable)`
+                                : ""
+                            }`
                           : ""}{" "}
                         · credit {formatMoney(attachedCustomer.storeCreditPaisa)}
                       </p>
+                      {welcomeStatus ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {welcomeStatus}
+                        </p>
+                      ) : null}
                       <div className="mt-1 flex flex-wrap gap-1">
                         {CrmService.deriveSegments(attachedCustomer).map((s) => (
                           <span
@@ -1173,16 +1205,23 @@ export function PosPage() {
                   ) : (
                     <CustomerAttachField
                       storeId={profile?.storeId ?? null}
+                      actorId={userId}
                       onPick={(c) =>
                         updateActivePosSession({
                           customerId: c.id,
                           customerName: c.name,
                           customerPhone: c.phone || "",
                           pointsToRedeem: 0,
+                          chargeError: null,
                           loyaltyMode:
                             c.loyaltyPunches >= loyaltyEff.punchesRequired
                               ? loyaltyMode
                               : "off",
+                        })
+                      }
+                      onSkipPunchFallback={() =>
+                        updateActivePosSession({
+                          chargeError: punchFallbackNote,
                         })
                       }
                     />
