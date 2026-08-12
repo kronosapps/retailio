@@ -28,6 +28,7 @@ import type {
   DayCashierVarianceRow,
   DayClosingPreview,
   DayOpsDayRef,
+  DayStockException,
   OpenDayInput,
   ReopenDayInput,
   SodChecklist,
@@ -336,7 +337,7 @@ export class DayOpsService {
       const at = t.postedAt || t.updatedAt
       return isInRange(at, start, end)
     })
-    const stockExceptions = stockTakes
+    const stockExceptions: DayStockException[] = stockTakes
       .map((t) => ({
         id: t.id,
         label: t.takeNumber,
