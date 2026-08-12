@@ -23,7 +23,9 @@ export function journalLine(
 }
 
 export function tenderAccount(method: string | null | undefined): string {
-  return method === "UPI" ? ACCOUNT_CODES.UPI : ACCOUNT_CODES.CASH
+  if (method === "UPI") return ACCOUNT_CODES.UPI
+  if (method === "OnAccount") return ACCOUNT_CODES.AR
+  return ACCOUNT_CODES.CASH
 }
 
 export function isBalanced(entry: Pick<JournalEntry, "lines">): boolean {
@@ -479,6 +481,46 @@ export class AccountingRules {
       lines: [
         journalLine(ACCOUNT_CODES.CUSTOMER_CREDIT, amount, 0),
         journalLine(ACCOUNT_CODES.SALES, 0, amount),
+      ],
+      source: opts?.source ?? "posted",
+      eventId: opts?.eventId ?? null,
+      storeId: input.storeId ?? null,
+    }
+  }
+
+  /** Customer settles charge-account AR — Dr Cash/UPI / Cr AR. */
+  static fromArSettlement(
+    input: {
+      id: string
+      customerId: string
+      customerName?: string
+      amountPaisa: number
+      method: string
+      settledAt?: string
+      storeId?: string | null
+      actorId?: string | null
+    },
+    opts?: { eventId?: string | null; source?: JournalEntry["source"] }
+  ): JournalEntry | null {
+    const amount = Math.max(0, Math.round(input.amountPaisa))
+    if (amount <= 0) return null
+    const at = input.settledAt || new Date().toISOString()
+    const tender = tenderAccount(input.method === "UPI" ? "UPI" : "Cash")
+    return {
+      id: `je_ar_${input.id}`,
+      date: at.slice(0, 10),
+      createdAt: at,
+      description: `AR settlement${
+        input.customerName ? ` · ${input.customerName}` : ""
+      }`,
+      referenceType: "ar_settlement",
+      referenceId: input.id,
+      operatorId: input.actorId ?? null,
+      operatorName: null,
+      paymentMethod: input.method === "UPI" ? "UPI" : "Cash",
+      lines: [
+        journalLine(tender, amount, 0),
+        journalLine(ACCOUNT_CODES.AR, 0, amount),
       ],
       source: opts?.source ?? "posted",
       eventId: opts?.eventId ?? null,

@@ -10,7 +10,7 @@ export type PaymentStatus =
   | "PartiallyRefunded"
 
 /** Active tender types on POS. Legacy Card/Bank/Split may still exist in old rows. */
-export type PaymentMethod = "Cash" | "UPI"
+export type PaymentMethod = "Cash" | "UPI" | "OnAccount"
 
 export type PaymentLogEvent =
   | "SESSION_CREATED"
@@ -75,6 +75,7 @@ export type Payment = {
 export type PaymentSettlementInput =
   | { method: "UPI"; upiTxnLast4: string; storeCreditAppliedPaisa?: number }
   | { method: "Cash"; storeCreditAppliedPaisa?: number }
+  | { method: "OnAccount"; storeCreditAppliedPaisa?: number }
 
 /** Alias clarifying that Payment is a session record. */
 export type PaymentSession = Payment

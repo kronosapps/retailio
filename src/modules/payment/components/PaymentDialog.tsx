@@ -38,7 +38,7 @@ import {
 import { PaymentQRCode } from "./PaymentQRCode"
 import { PaymentStatus } from "./PaymentStatus"
 
-const METHODS: PaymentMethod[] = ["UPI", "Cash"]
+const METHODS: PaymentMethod[] = ["UPI", "Cash", "OnAccount"]
 const KEYPAD = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "00", "0", "⌫"] as const
 
 export function PaymentDialog() {
@@ -260,6 +260,10 @@ function PaymentDialogSession({
   function onPrimaryAction() {
     if (dueRupees === 0 && storeCreditAppliedPaisa > 0) {
       void markPaid({ method: "Cash", storeCreditAppliedPaisa })
+      return
+    }
+    if (method === "OnAccount") {
+      void markPaid({ method: "OnAccount", storeCreditAppliedPaisa })
       return
     }
     if (method === "Cash") openCashTender()
@@ -648,7 +652,11 @@ function PaymentDialogSession({
               disabled={!canMarkPaid || busy}
               onClick={onPrimaryAction}
             >
-              {method === "Cash" ? "Collect Cash" : "Mark as Paid"}
+              {method === "Cash"
+                ? "Collect Cash"
+                : method === "OnAccount"
+                  ? "Charge on account"
+                  : "Mark as Paid"}
             </Button>
           </DialogFooter>
         </DialogContent>

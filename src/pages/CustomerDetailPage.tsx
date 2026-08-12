@@ -48,6 +48,8 @@ export function CustomerDetailPage() {
   const [tags, setTags] = useState("")
   const [offerNote, setOfferNote] = useState("")
   const [outstandingRupees, setOutstandingRupees] = useState("")
+  const [settleRupees, setSettleRupees] = useState("")
+  const [settleMethod, setSettleMethod] = useState<"Cash" | "UPI">("Cash")
   const [points, setPoints] = useState("")
   const [punches, setPunches] = useState("")
 
@@ -128,6 +130,32 @@ export function CustomerDetailPage() {
       setTick((t) => t + 1)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update AR.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function settleAr(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setBusy(true)
+    try {
+      const rupees = Number(settleRupees)
+      if (!Number.isFinite(rupees) || rupees <= 0) {
+        throw new CrmError("VALIDATION", "Enter a positive settlement amount.")
+      }
+      await CrmService.settleOutstanding({
+        customerId,
+        amountPaisa: Math.round(rupees * 100),
+        method: settleMethod,
+        actorId: userId,
+      })
+      setSettleRupees("")
+      setTick((t) => t + 1)
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not settle outstanding."
+      )
     } finally {
       setBusy(false)
     }
@@ -326,6 +354,43 @@ export function CustomerDetailPage() {
               Update AR
             </Button>
           </form>
+
+          {c.outstandingPaisa > 0 ? (
+            <form
+              className="flex flex-wrap items-end gap-3 rounded-xl border border-border p-4"
+              onSubmit={(e) => void settleAr(e)}
+            >
+              <div className="min-w-[10rem] flex-1 space-y-1.5">
+                <Label htmlFor="crm-settle">Settle AR (₹)</Label>
+                <Input
+                  id="crm-settle"
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={settleRupees}
+                  onChange={(e) => setSettleRupees(e.target.value)}
+                  placeholder={`Max ${c.outstandingPaisa / 100}`}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="crm-settle-method">Method</Label>
+                <select
+                  id="crm-settle-method"
+                  className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                  value={settleMethod}
+                  onChange={(e) =>
+                    setSettleMethod(e.target.value as "Cash" | "UPI")
+                  }
+                >
+                  <option value="Cash">Cash</option>
+                  <option value="UPI">UPI</option>
+                </select>
+              </div>
+              <Button type="submit" disabled={busy}>
+                Collect settlement
+              </Button>
+            </form>
+          ) : null}
         </TabsContent>
 
         <TabsContent value="history" className="mt-4 space-y-2">

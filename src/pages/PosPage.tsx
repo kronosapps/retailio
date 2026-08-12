@@ -18,6 +18,13 @@ import {
   getActiveOccasionDiscount,
 } from "@/data/discounts"
 import { PricingService } from "@/modules/pricing"
+import { CustomerService } from "@/modules/customer"
+import { CrmService } from "@/modules/crm"
+import {
+  loyaltyConfig,
+  getLoyaltyRewardSummary,
+  maxRedeemablePoints,
+} from "@/data/loyalty"
 import { peekNextInvoiceId } from "@/data/invoices"
 import {
   buildPosCatalog,
@@ -45,7 +52,6 @@ import {
 import { PosCartPanel } from "@/modules/pos/components/PosCartPanel"
 import { ReceiptDialog } from "@/modules/receipt"
 import { ProductService } from "@/modules/products"
-import { getLoyaltyRewardSummary, loyaltyConfig } from "@/data/loyalty"
 import {
   LOYALTY_REWARD_ITEMS,
   getLoyaltyRewardItem,
@@ -182,6 +188,10 @@ export function PosPage() {
     applyOccasion,
     friendsFamilyPercent,
     couponCode,
+    customerId,
+    customerName,
+    customerPhone,
+    pointsToRedeem,
     discountTab,
     menuPanel,
     category,
@@ -262,6 +272,21 @@ export function PosPage() {
     [items]
   )
 
+  const attachedCustomer = useMemo(() => {
+    if (!customerId) return null
+    return CustomerService.getById(customerId)
+  }, [customerId, invoiceTick])
+
+  const customerSegments = useMemo(
+    () =>
+      attachedCustomer
+        ? CrmService.deriveSegments(attachedCustomer).map((s) => s.id)
+        : [],
+    [attachedCustomer]
+  )
+
+  const availablePoints = attachedCustomer?.loyaltyPoints ?? 0
+
   const priced = useMemo(
     () =>
       PricingService.priceOrder({
@@ -278,6 +303,9 @@ export function PosPage() {
         friendsFamilyPercent,
         redeemLoyaltyPercent: hasActiveLoyaltyPercent,
         couponCode: couponCode || null,
+        pointsToRedeem,
+        availablePoints,
+        customerSegments,
       }),
     [
       cart,
@@ -285,6 +313,9 @@ export function PosPage() {
       friendsFamilyPercent,
       hasActiveLoyaltyPercent,
       couponCode,
+      pointsToRedeem,
+      availablePoints,
+      customerSegments,
     ]
   )
   const totals = priced.totals
@@ -292,7 +323,22 @@ export function PosPage() {
     (applyOccasion && Boolean(activeOccasion)) ||
     friendsFamilyPercent > 0 ||
     Boolean(couponCode.trim()) ||
-    totals.promotionalDiscount > 0
+    totals.promotionalDiscount > 0 ||
+    totals.pointsDiscount > 0
+
+  const eligibleCoupons = useMemo(
+    () => CrmService.listEligibleCoupons(customerId),
+    [customerId, attachedCustomer]
+  )
+
+  const loyaltyReady =
+    Boolean(attachedCustomer) &&
+    (attachedCustomer?.loyaltyPunches ?? 0) >= loyaltyConfig.punchesRequired
+
+  const maxPointsForOrder = maxRedeemablePoints(
+    Math.max(0, totals.total + (totals.pointsDiscount || 0)),
+    availablePoints
+  )
 
   const itemCount = sessionItemCount(session)
   const nextInvoiceId = useMemo(() => {
@@ -406,7 +452,9 @@ export function PosPage() {
         cashierId: userId,
         cashierName: profile?.displayName || profile?.email || null,
         storeId: profile?.storeId ?? null,
-        customerName: "Walk-in",
+        customerName: customerName.trim() || "Walk-in",
+        customerId: customerId || null,
+        customerPhone: customerPhone.trim() || null,
         lines: priced.lines.map((line) => ({
           itemId: line.itemId,
           sku: line.sku || line.itemId,
@@ -429,6 +477,8 @@ export function PosPage() {
           loyaltyLabel: totals.loyaltyLabel,
           couponDiscount: totals.couponDiscount,
           couponCode: totals.couponCode,
+          pointsDiscount: totals.pointsDiscount,
+          pointsRedeemed: totals.pointsRedeemed,
           taxableAmount: totals.taxableAmount,
           gstAmount: totals.gstAmount,
           gstPercent: totals.gstPercent,
@@ -777,6 +827,76 @@ export function PosPage() {
               </div>
             ) : menuPanel === "loyalty" ? (
               <div className="mx-auto w-full max-w-xl space-y-4">
+                <div className="space-y-2 rounded-lg border border-border px-3 py-3">
+                  <p className="text-sm font-medium">Customer</p>
+                  <p className="text-xs text-muted-foreground">
+                    Attach a customer for punches, points, targeted coupons, and
+                    on-account.
+                  </p>
+                  {attachedCustomer ? (
+                    <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
+                      <p className="font-medium">{attachedCustomer.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {attachedCustomer.phone || "No phone"} ·{" "}
+                        {attachedCustomer.loyaltyPunches}/
+                        {loyaltyConfig.punchesRequired} punches ·{" "}
+                        {attachedCustomer.loyaltyPoints} pts · credit{" "}
+                        {formatMoney(attachedCustomer.storeCreditPaisa)}
+                      </p>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {CrmService.deriveSegments(attachedCustomer).map((s) => (
+                          <span
+                            key={s.id}
+                            className="rounded border border-border px-1.5 py-0.5 text-[10px]"
+                          >
+                            {s.label}
+                          </span>
+                        ))}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() =>
+                          updateActivePosSession({
+                            customerId: null,
+                            customerName: "",
+                            customerPhone: "",
+                            pointsToRedeem: 0,
+                          })
+                        }
+                      >
+                        Clear customer
+                      </Button>
+                    </div>
+                  ) : (
+                    <CustomerAttachField
+                      storeId={profile?.storeId ?? null}
+                      onPick={(c) =>
+                        updateActivePosSession({
+                          customerId: c.id,
+                          customerName: c.name,
+                          customerPhone: c.phone || "",
+                          pointsToRedeem: 0,
+                          loyaltyMode:
+                            c.loyaltyPunches >= loyaltyConfig.punchesRequired
+                              ? loyaltyMode
+                              : "off",
+                        })
+                      }
+                    />
+                  )}
+                </div>
+
+                {loyaltyReady && loyaltyMode === "off" ? (
+                  <p className="rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-xs">
+                    Loyalty ready — {attachedCustomer?.loyaltyPunches}/
+                    {loyaltyConfig.punchesRequired} punches. Choose a reward
+                    below.
+                  </p>
+                ) : null}
+
                 <div className="rounded-lg border border-border px-3 py-3">
                   <p className="text-sm font-medium">{loyaltyConfig.name}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -786,6 +906,67 @@ export function PosPage() {
                     Reward: {getLoyaltyRewardSummary()}
                   </p>
                 </div>
+
+                {attachedCustomer && availablePoints > 0 ? (
+                  <div className="space-y-2 rounded-lg border border-border px-3 py-3">
+                    <Label htmlFor="pos-points">
+                      Redeem points (max {maxPointsForOrder} ·{" "}
+                      {availablePoints} available)
+                    </Label>
+                    <Input
+                      id="pos-points"
+                      type="number"
+                      min={0}
+                      max={maxPointsForOrder}
+                      value={pointsToRedeem}
+                      onChange={(e) =>
+                        updateActivePosSession({
+                          pointsToRedeem: Math.max(
+                            0,
+                            Math.min(
+                              maxPointsForOrder,
+                              Math.floor(Number(e.target.value) || 0)
+                            )
+                          ),
+                        })
+                      }
+                      disabled={cart.length === 0}
+                    />
+                    {totals.pointsDiscount > 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        −{formatMoney(totals.pointsDiscount)} from points
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {eligibleCoupons.length > 0 ? (
+                  <div className="space-y-2 rounded-lg border border-border px-3 py-3">
+                    <p className="text-sm font-medium">Eligible offers</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {eligibleCoupons.slice(0, 6).map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className={cn(
+                            "rounded-md border px-2.5 py-1 text-xs",
+                            couponCode === c.code
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border hover:bg-muted"
+                          )}
+                          onClick={() =>
+                            updateActivePosSession({ couponCode: c.code })
+                          }
+                        >
+                          {c.code}
+                          {c.segmentScope?.length
+                            ? ` · ${c.segmentScope.join("/")}`
+                            : ""}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="space-y-2">
                   <Label className="text-sm">
@@ -985,5 +1166,51 @@ export function PosPage() {
         </SheetContent>
       </Sheet>
     </>
+  )
+}
+
+function CustomerAttachField({
+  storeId,
+  onPick,
+}: {
+  storeId: string | null
+  onPick: (c: import("@/modules/customer").CustomerRecord) => void
+}) {
+  const [query, setQuery] = useState("")
+  const hits = useMemo(() => {
+    if (query.trim().length < 1) return []
+    return CustomerService.search(query, storeId, 6)
+  }, [query, storeId])
+
+  return (
+    <div className="space-y-2">
+      <Input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search name or phone"
+      />
+      {hits.length > 0 ? (
+        <ul className="max-h-40 overflow-y-auto rounded-md border border-border">
+          {hits.map((c) => (
+            <li key={c.id}>
+              <button
+                type="button"
+                className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
+                onClick={() => {
+                  onPick(c)
+                  setQuery("")
+                }}
+              >
+                <span className="font-medium">{c.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {c.phone || "—"} · {c.loyaltyPunches}/
+                  {loyaltyConfig.punchesRequired} punches · {c.loyaltyPoints} pts
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   )
 }

@@ -85,6 +85,9 @@ export class AccountingEngine {
     this.subscriber.on(EventTypes.CREDIT_NOTE_APPLIED, (event) => {
       void this.onCreditNoteApplied(event)
     })
+    this.subscriber.on(EventTypes.CUSTOMER_AR_SETTLED, (event) => {
+      void this.onArSettled(event)
+    })
   }
 
   stop() {
@@ -474,6 +477,44 @@ export class AccountingEngine {
     } catch (err) {
       if (import.meta.env.DEV) {
         console.warn("[AccountingEngine] credit apply journal failed", err)
+      }
+    }
+  }
+
+  private async onArSettled(event: DomainEvent) {
+    const payload = event.payload as {
+      id?: string
+      customerId?: string
+      customerName?: string
+      amountPaisa?: number
+      method?: string
+      settledAt?: string
+      storeId?: string | null
+      actorId?: string | null
+    }
+    if (!payload?.id || typeof payload.amountPaisa !== "number") return
+    if (payload.amountPaisa <= 0) return
+
+    try {
+      if (journalRepository.getByReference("ar_settlement", payload.id)) return
+      const entry = AccountingRules.fromArSettlement(
+        {
+          id: payload.id,
+          customerId: payload.customerId || "",
+          customerName: payload.customerName,
+          amountPaisa: payload.amountPaisa,
+          method: payload.method === "UPI" ? "UPI" : "Cash",
+          settledAt: payload.settledAt,
+          storeId: payload.storeId ?? null,
+          actorId: payload.actorId ?? null,
+        },
+        { eventId: event.id, source: "posted" }
+      )
+      if (!entry) return
+      await journalRepository.savePosted(entry)
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn("[AccountingEngine] AR settlement journal failed", err)
       }
     }
   }

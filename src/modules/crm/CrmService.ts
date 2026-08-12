@@ -11,8 +11,10 @@ import { EventPublisher } from "@/events/EventPublisher"
 import { EventTypes } from "@/events/EventTypes"
 import { NotificationService } from "@/modules/notifications"
 import { PricingService } from "@/modules/pricing"
+import type { CouponRecord } from "@/modules/pricing/types"
 import { creditNoteRepository } from "@/repositories/CreditNoteRepository"
 import { customerRepository } from "@/repositories/CustomerRepository"
+import { createId } from "@/utils/id"
 
 import type {
   CrmCommunicationRow,
@@ -138,10 +140,12 @@ export class CrmService {
     const customer = customerRepository.getById(customerId)
     if (!customer) return null
     const unpaid = this.unpaidInvoicesPaisa(customerId)
-    const today = new Date().toISOString().slice(0, 10)
-    const openOffers = PricingService.listCoupons().filter(
-      (c) => c.active && c.startsOn <= today && c.endsOn >= today
-    )
+    const openOffers = customerId
+      ? this.listEligibleCoupons(customerId)
+      : PricingService.listCoupons().filter((c) => {
+          const today = new Date().toISOString().slice(0, 10)
+          return c.active && c.startsOn <= today && c.endsOn >= today
+        })
     return {
       customer,
       segments: this.deriveSegments(customer),
@@ -299,7 +303,7 @@ export class CrmService {
     return { appliedPaisa: available, customer: next }
   }
 
-  /** After Mark Paid — stamps punches and earns points. */
+  /** After Mark Paid — stamps punches, earns points, deducts redeemed points. */
   static async recordPaidPurchase(
     input: RecordPurchaseLoyaltyInput
   ): Promise<CustomerRecord | null> {
@@ -308,25 +312,120 @@ export class CrmService {
 
     const spend = Math.max(0, Math.round(input.purchasePaisa || 0))
     const earned = pointsFromSpendPaisa(spend)
+    const redeemed = Math.max(0, Math.floor(input.pointsRedeemed || 0))
     let punches = existing.loyaltyPunches
     if (input.redeemedLoyalty) {
       punches = 0
     } else if (spend > 0) {
-      punches = Math.min(
-        loyaltyConfig.punchesRequired,
-        punches + 1
-      )
+      punches = Math.min(loyaltyConfig.punchesRequired, punches + 1)
     }
 
     return customerRepository.save(
       {
         ...existing,
         loyaltyPunches: punches,
-        loyaltyPoints: existing.loyaltyPoints + earned,
+        loyaltyPoints: Math.max(
+          0,
+          existing.loyaltyPoints + earned - redeemed
+        ),
         updatedBy: input.actorId ?? existing.updatedBy,
       },
       false
     )
+  }
+
+  /** Charge sale to customer AR (OnAccount tender). */
+  static async bumpOutstanding(input: {
+    customerId: string
+    amountPaisa: number
+    actorId?: string | null
+  }): Promise<CustomerRecord> {
+    const existing = customerRepository.getById(input.customerId)
+    if (!existing) throw new CrmError("NOT_FOUND", "Customer not found.")
+    const add = Math.max(0, Math.round(input.amountPaisa))
+    return customerRepository.save(
+      {
+        ...existing,
+        outstandingPaisa: existing.outstandingPaisa + add,
+        updatedBy: input.actorId ?? existing.updatedBy,
+      },
+      false
+    )
+  }
+
+  /**
+   * Customer pays down charge-account AR (Cash/UPI).
+   * Publishes CUSTOMER_AR_SETTLED for Accounting + Banking.
+   */
+  static async settleOutstanding(input: {
+    customerId: string
+    amountPaisa: number
+    method: "Cash" | "UPI"
+    actorId?: string | null
+  }): Promise<{ customer: CustomerRecord; settlementId: string }> {
+    const existing = customerRepository.getById(input.customerId)
+    if (!existing) throw new CrmError("NOT_FOUND", "Customer not found.")
+    const amount = Math.max(0, Math.round(input.amountPaisa))
+    if (amount <= 0) {
+      throw new CrmError("VALIDATION", "Settlement amount must be positive.")
+    }
+    if (amount > existing.outstandingPaisa) {
+      throw new CrmError(
+        "INSUFFICIENT",
+        "Settlement exceeds charge-account outstanding."
+      )
+    }
+    const settlementId = createId("ars")
+    const settledAt = new Date().toISOString()
+    const customer = await customerRepository.save(
+      {
+        ...existing,
+        outstandingPaisa: existing.outstandingPaisa - amount,
+        updatedBy: input.actorId ?? existing.updatedBy,
+      },
+      false
+    )
+    await EventPublisher.publish(
+      EventTypes.CUSTOMER_AR_SETTLED,
+      {
+        id: settlementId,
+        customerId: customer.id,
+        customerName: customer.name,
+        amountPaisa: amount,
+        amount: amount / 100,
+        method: input.method,
+        paymentMethod: input.method,
+        settledAt,
+        storeId: customer.storeId,
+        actorId: input.actorId ?? null,
+      },
+      customer.storeId
+    )
+    return { customer, settlementId }
+  }
+
+  /** Active coupons the customer may use (segment-aware). */
+  static listEligibleCoupons(customerId: string | null): CouponRecord[] {
+    const today = new Date().toISOString().slice(0, 10)
+    const customer = customerId
+      ? customerRepository.getById(customerId)
+      : null
+    const segs = new Set<string>(
+      customer ? this.deriveSegments(customer).map((s) => s.id) : []
+    )
+    return PricingService.listCoupons().filter((c) => {
+      if (!c.active) return false
+      if (c.startsOn > today || c.endsOn < today) return false
+      if (
+        c.maxRedemptions != null &&
+        c.redemptionCount >= c.maxRedemptions
+      ) {
+        return false
+      }
+      if (!c.segmentScope?.length) return true
+      if (!customer) return false
+      return c.segmentScope.some((s) => segs.has(s))
+    })
   }
 
   static async adjustLoyaltyPoints(input: {

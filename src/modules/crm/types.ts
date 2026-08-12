@@ -65,5 +65,7 @@ export type RecordPurchaseLoyaltyInput = {
   purchasePaisa: number
   /** True when this sale redeemed punch % or free item. */
   redeemedLoyalty?: boolean
+  /** Points spent on this sale (deducted after earn). */
+  pointsRedeemed?: number
   actorId?: string | null
 }

@@ -55,6 +55,10 @@ export type RecordedSale = {
     couponCode?: string | null
     /** Store credit applied at payment (paisa). */
     storeCreditAppliedPaisa?: Paisa
+    /** Loyalty points redeemed (count). */
+    pointsRedeemed?: number
+    /** Paisa off from points. */
+    pointsDiscount?: Paisa
     taxableAmount: Paisa
     gstAmount: Paisa
     gstPercent: number

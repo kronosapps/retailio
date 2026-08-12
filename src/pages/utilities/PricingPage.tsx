@@ -51,6 +51,7 @@ export function PricingPage() {
   const [couponStarts, setCouponStarts] = useState(todayKey())
   const [couponEnds, setCouponEnds] = useState(plusDays(30))
   const [couponMin, setCouponMin] = useState("0")
+  const [couponSegments, setCouponSegments] = useState("")
 
   const [historySku, setHistorySku] = useState("")
   const [explainInvoiceId, setExplainInvoiceId] = useState("")
@@ -126,10 +127,15 @@ export function PricingPage() {
         startsOn: couponStarts,
         endsOn: couponEnds,
         minSubtotalRupees: Number(couponMin) || 0,
+        segmentScope: couponSegments
+          .split(/[,\s]+/)
+          .map((s) => s.trim())
+          .filter(Boolean),
         storeId: profile?.storeId ?? null,
         actorId: userId,
       })
       setCouponCode("")
+      setCouponSegments("")
       setTick((t) => t + 1)
     } catch (err) {
       setError(
@@ -184,6 +190,7 @@ export function PricingPage() {
         endsOn: row.endsOn,
         minSubtotalRupees: row.minSubtotalPaisa / 100,
         maxRedemptions: row.maxRedemptions,
+        segmentScope: row.segmentScope || [],
         notes: row.notes,
         storeId: row.storeId,
         actorId: userId,
@@ -465,6 +472,17 @@ export function PricingPage() {
                   onChange={(e) => setCouponMin(e.target.value)}
                 />
               </div>
+              <div className="space-y-1 sm:col-span-2">
+                <Label htmlFor="cpn-seg">
+                  Segment scope (blank = all; e.g. vip, regular, new)
+                </Label>
+                <Input
+                  id="cpn-seg"
+                  value={couponSegments}
+                  onChange={(e) => setCouponSegments(e.target.value)}
+                  placeholder="vip, regular"
+                />
+              </div>
             </div>
             <Button type="submit" disabled={busy}>
               Save coupon
@@ -499,6 +517,9 @@ export function PricingPage() {
                       used {row.redemptionCount}
                       {row.maxRedemptions != null
                         ? `/${row.maxRedemptions}`
+                        : ""}
+                      {row.segmentScope?.length
+                        ? ` · segments ${row.segmentScope.join(", ")}`
                         : ""}
                     </p>
                   </div>

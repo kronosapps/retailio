@@ -35,6 +35,8 @@ export function paymentMethodLabel(method: PaymentMethod | string): string {
       return "Bank Transfer"
     case "SplitPayment":
       return "Split Payment"
+    case "OnAccount":
+      return "On account"
     case "Cash":
     case "UPI":
     case "Card":

@@ -8,6 +8,7 @@ import {
 
 import { CustomerService } from "@/modules/customer"
 import { CrmService } from "@/modules/crm"
+import { isWalkInName } from "@/data/customers"
 import { useAuth } from "@/providers/AuthProvider"
 import { invoiceRepository } from "@/repositories/InvoiceRepository"
 import { paymentRepository } from "@/repositories/PaymentRepository"
@@ -252,6 +253,15 @@ export function usePayment() {
         }
       }
 
+      if (settlement.method === "OnAccount") {
+        const hasIdentity =
+          !isWalkInName(customerName) || Boolean(customerPhone.trim())
+        if (!hasIdentity) {
+          setError("On account requires a named customer or mobile number.")
+          return
+        }
+      }
+
       setBusy(true)
       setError(null)
       try {
@@ -281,6 +291,13 @@ export function usePayment() {
           purchasedAt: paidAt,
         })
 
+        if (settlement.method === "OnAccount" && !customer) {
+          throw new PaymentError(
+            "UNKNOWN",
+            "Could not resolve customer for on-account sale."
+          )
+        }
+
         let storeCreditAppliedPaisa = Math.max(
           0,
           Math.round(settlement.storeCreditAppliedPaisa || 0)
@@ -304,6 +321,11 @@ export function usePayment() {
           storeCreditAppliedPaisa = 0
         }
 
+        const tenderPaisa = Math.max(
+          0,
+          invoice.amountPaisa - storeCreditAppliedPaisa
+        )
+
         // Repository persists + publishes PAYMENT_RECEIVED → SyncManager → Sheets
         const paid = await paymentRepository.update(payment.paymentId, {
           status: "Paid",
@@ -312,7 +334,7 @@ export function usePayment() {
           customerId: customer?.id ?? null,
           customerPhone: customer?.phone ?? (customerPhone.trim() || null),
           remarks: remarks.trim() || payment.remarks,
-          paymentMethod: method,
+          paymentMethod: settlement.method,
           upiTxnLast4,
           cashReceiptNumber,
           cashReceiptId,
@@ -338,14 +360,24 @@ export function usePayment() {
             customerId: customer.id,
             purchasePaisa: invoice.amountPaisa,
             redeemedLoyalty,
+            pointsRedeemed: sale?.totals.pointsRedeemed || 0,
             actorId: userId,
           })
+          if (settlement.method === "OnAccount" && tenderPaisa > 0) {
+            await CrmService.bumpOutstanding({
+              customerId: customer.id,
+              amountPaisa: tenderPaisa,
+              actorId: userId,
+            })
+          }
         }
 
         const tallyRef =
           paid.paymentMethod === "UPI"
             ? `UPI …${paid.upiTxnLast4}`
-            : paid.cashReceiptId || `Cash #${paid.cashReceiptNumber}`
+            : paid.paymentMethod === "OnAccount"
+              ? "On account"
+              : paid.cashReceiptId || `Cash #${paid.cashReceiptNumber}`
 
         appendPaymentLog({
           paymentId: paid.paymentId,

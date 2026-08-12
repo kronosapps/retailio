@@ -59,11 +59,12 @@
 ## Customer CRM
 
 1. Directory CRUD → `CustomerService`; CRM aggregates → `CrmService.getProfile`.
-2. Detail route `/customers/:id` — purchases, credit notes, loyalty, segments, notifications.
-3. Mark Paid → `upsertFromCheckout` then `CrmService.recordPaidPurchase` (punches + points).
-4. Store credit at payment → `CrmService.applyStoreCredit` (FIFO credit notes + `CREDIT_NOTE_APPLIED`); tender amount to Banking/Till is net of credit.
-5. Sale journal splits Dr Cash/UPI (net) + Dr Customer Credits (applied) when `storeCreditAppliedPaisa` is set.
-6. Do not invent a parallel customer ledger outside `customers` / `credit_notes`.
+2. Detail route `/customers/:id` — purchases, credit notes, loyalty, segments, notifications, **AR settle**.
+3. Attach customer on POS Loyalty panel → punches/points/eligible coupons; `priceOrder` applies points + segment coupons.
+4. Mark Paid → `upsertFromCheckout` then `recordPaidPurchase` (punches + earn − redeem points).
+5. Store credit at payment → `applyStoreCredit`; **OnAccount** tender → `bumpOutstanding` (Banking skipped; GL Dr AR).
+6. Settle AR from CRM → `settleOutstanding` → `CUSTOMER_AR_SETTLED` (Banking + Accounting).
+7. Coupons may set `segmentScope` (vip/regular/…) at Utilities → Pricing.
 
 ### Bulk product import
 

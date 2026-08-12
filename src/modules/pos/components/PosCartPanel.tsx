@@ -29,6 +29,8 @@ export type PosCartTotals = {
   loyaltyLabel: string | null
   couponDiscount?: number
   couponCode?: string | null
+  pointsDiscount?: number
+  pointsRedeemed?: number
   taxableAmount: number
   gstAmount: number
   sgstLabel: string
@@ -252,6 +254,14 @@ export function PosCartPanel({
               <span>Coupon {totals.couponCode}</span>
               <span className="tabular-nums">
                 −{formatMoney(totals.couponDiscount ?? 0)}
+              </span>
+            </div>
+          ) : null}
+          {(totals.pointsDiscount ?? 0) > 0 ? (
+            <div className="flex items-center justify-between text-muted-foreground">
+              <span>Points (−{totals.pointsRedeemed ?? 0})</span>
+              <span className="tabular-nums">
+                −{formatMoney(totals.pointsDiscount ?? 0)}
               </span>
             </div>
           ) : null}

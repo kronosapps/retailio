@@ -303,6 +303,12 @@ const ROUTES: Partial<Record<string, SheetRoute>> = {
       }
     },
   },
+  [EventTypes.CUSTOMER_AR_SETTLED]: {
+    sheet: "Customers",
+    sync: async (p, data) => {
+      if (typeof p.syncCustomer === "function") await p.syncCustomer(data)
+    },
+  },
 }
 
 /**

@@ -242,11 +242,13 @@ Customer → lifetime spend → visits → outstanding → store credit → punc
 | Store credit | From credit-note returns; apply at POS payment (FIFO notes) |
 | Loyalty | Digital punches per paid visit; reset on POS redeem |
 | Points | Earn 1 per ₹1 spent (`loyalty.json` points config) |
-| Offers | Personal offer note + active store coupons |
+| Offers | Personal note + segment-targeted coupons (`segmentScope`) |
 | Segmentation | Derived: New / Regular / VIP / At risk / Credit / Loyalty ready |
 | Communication | Notification history for `customerId` |
+| Points redeem | 1 pt = ₹1 off at POS (Loyalty panel) |
+| On account | Payment method `OnAccount` → Dr AR; settle from CRM profile |
 
-Events: existing `CUSTOMER_*`, `CREDIT_NOTE_ISSUED`, **`CREDIT_NOTE_APPLIED`** (now published on redeem).
+Events: existing `CUSTOMER_*`, `CREDIT_NOTE_*`, **`CUSTOMER_AR_SETTLED`**.
 
 ---
 

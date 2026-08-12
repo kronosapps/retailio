@@ -145,4 +145,72 @@ describe("CRM — customer profile & loyalty", () => {
     })
     expect(redeemed?.loyaltyPunches).toBe(0)
   })
+
+  it("redeems points, bumps on-account AR, and settles", async () => {
+    const { CustomerService } = await import("@/modules/customer/CustomerService")
+    const { CrmService } = await import("@/modules/crm/CrmService")
+    const { PricingService } = await import("@/modules/pricing/PricingService")
+
+    const customer = await CustomerService.create({
+      name: "Arun",
+      phone: "9000000001",
+    })
+    await CustomerService.save({
+      ...customer,
+      loyaltyPoints: 500,
+      totalSpendPaisa: 3_000_000,
+      visitCount: 10,
+    })
+
+    const priced = PricingService.priceOrder({
+      lines: [
+        {
+          itemId: "X",
+          sku: "X",
+          name: "Item",
+          qty: 1,
+          listUnitPaisa: 10000,
+        },
+      ],
+      pointsToRedeem: 20,
+      availablePoints: 500,
+      customerSegments: ["vip", "regular"],
+    })
+    expect(priced.totals.pointsRedeemed).toBe(20)
+    expect(priced.totals.pointsDiscount).toBe(2000)
+    expect(priced.totals.total).toBe(8000)
+
+    await CrmService.recordPaidPurchase({
+      customerId: customer.id,
+      purchasePaisa: 8000,
+      pointsRedeemed: 20,
+    })
+    const afterPoints = CustomerService.getById(customer.id)!
+    expect(afterPoints.loyaltyPoints).toBe(560)
+
+    await CrmService.bumpOutstanding({
+      customerId: customer.id,
+      amountPaisa: 8000,
+    })
+    expect(CustomerService.getById(customer.id)!.outstandingPaisa).toBe(8000)
+
+    await CrmService.settleOutstanding({
+      customerId: customer.id,
+      amountPaisa: 3000,
+      method: "Cash",
+    })
+    expect(CustomerService.getById(customer.id)!.outstandingPaisa).toBe(5000)
+
+    const today = new Date().toISOString().slice(0, 10)
+    await PricingService.saveCoupon({
+      code: "VIP10",
+      discountType: "PERCENT",
+      discountValue: 10,
+      startsOn: today,
+      endsOn: today,
+      segmentScope: ["vip"],
+    })
+    const eligible = CrmService.listEligibleCoupons(customer.id)
+    expect(eligible.some((c) => c.code === "VIP10")).toBe(true)
+  })
 })
