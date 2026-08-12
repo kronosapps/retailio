@@ -4,6 +4,8 @@ Lightweight general ledger for RetailOS as a **single-company retail ERP** — n
 
 Status: foundation in place. UI under **Utilities → Accounting**.
 
+Day-2 hardening is parked in [`docs/ACCOUNTING_TODO.md`](./ACCOUNTING_TODO.md).
+
 ---
 
 ## Scope
@@ -86,3 +88,5 @@ Bootstrap starts `AccountingEngine` with other engines (`docs/ARCHITECTURE.md`).
 - Full IAS cash-flow (investing / financing)  
 - Statutory audited packs / CA export packs beyond Excel utilities  
 - Editable CoA UI (codes stay fixed for posting rules)
+
+See also the parked checklist in [`ACCOUNTING_TODO.md`](./ACCOUNTING_TODO.md).
