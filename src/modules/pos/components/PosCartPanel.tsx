@@ -1,4 +1,5 @@
 import { Minus, Plus, Trash2 } from "lucide-react"
+import type { ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -57,6 +58,8 @@ type PosCartPanelProps = {
   onClearCart: () => void
   onSetQty: (itemId: string, qty: number) => void
   onCharge: () => void
+  /** Customer attach before charge (CRM identity). */
+  customerSection?: ReactNode
   /** Extra classes on the root (e.g. sheet fill). */
   className?: string
 }
@@ -79,6 +82,7 @@ export function PosCartPanel({
   onClearCart,
   onSetQty,
   onCharge,
+  customerSection,
   className,
 }: PosCartPanelProps) {
   return (
@@ -159,6 +163,13 @@ export function PosCartPanel({
           </p>
         ) : null}
       </div>
+
+      {customerSection ? (
+        <>
+          <Separator />
+          <div className="space-y-2 px-4 py-3">{customerSection}</div>
+        </>
+      ) : null}
 
       <Separator />
 

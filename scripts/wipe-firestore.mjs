@@ -37,6 +37,7 @@ const COLLECTIONS_TO_WIPE = [
   "cashier_shifts",
   "sales_returns",
   "credit_notes",
+  "crm_audit",
   "promotions",
   "coupons",
   "price_history",

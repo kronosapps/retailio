@@ -11,6 +11,15 @@ export type CustomerRecord = {
   notes?: string
   /** Optional GSTIN for B2B classification (statutory scaffold). */
   gstin?: string
+  /** Address line (street / shop). */
+  address?: string
+  city?: string
+  state?: string
+  pin?: string
+  /** YYYY-MM-DD birthday for offers. */
+  birthday?: string | null
+  /** Free-form preferences (e.g. WhatsApp OK, veg only). */
+  preferences?: string | null
   storeId: string | null
   createdAt: string
   updatedAt: string
@@ -45,6 +54,12 @@ export type CreateCustomerInput = {
   email?: string
   notes?: string
   gstin?: string
+  address?: string
+  city?: string
+  state?: string
+  pin?: string
+  birthday?: string | null
+  preferences?: string | null
   tags?: string[]
   offerNote?: string | null
   storeId?: string | null
@@ -87,6 +102,18 @@ function normalizeCustomer(raw: CustomerRecord): CustomerRecord {
     email: raw.email?.trim() || undefined,
     notes: raw.notes?.trim() || undefined,
     gstin: raw.gstin?.trim().toUpperCase() || undefined,
+    address: raw.address?.trim() || undefined,
+    city: raw.city?.trim() || undefined,
+    state: raw.state?.trim() || undefined,
+    pin: raw.pin?.trim() || undefined,
+    birthday:
+      typeof (raw as Partial<CustomerRecord>).birthday === "string"
+        ? (raw as Partial<CustomerRecord>).birthday!.trim().slice(0, 10) || null
+        : ((raw as Partial<CustomerRecord>).birthday ?? null),
+    preferences:
+      typeof (raw as Partial<CustomerRecord>).preferences === "string"
+        ? (raw as Partial<CustomerRecord>).preferences!.trim() || null
+        : ((raw as Partial<CustomerRecord>).preferences ?? null),
     storeId: raw.storeId ?? null,
     createdBy: raw.createdBy ?? null,
     updatedBy: raw.updatedBy ?? null,
@@ -252,6 +279,12 @@ export function buildCustomerRecord(
     email: input.email?.trim() || undefined,
     notes: input.notes?.trim() || undefined,
     gstin: input.gstin?.trim().toUpperCase() || undefined,
+    address: input.address?.trim() || undefined,
+    city: input.city?.trim() || undefined,
+    state: input.state?.trim() || undefined,
+    pin: input.pin?.trim() || undefined,
+    birthday: input.birthday?.trim().slice(0, 10) || null,
+    preferences: input.preferences?.trim() || null,
     storeId: input.storeId ?? null,
     createdAt: now,
     updatedAt: now,

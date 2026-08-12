@@ -15,6 +15,10 @@ export class CustomerService {
     return customerRepository.list()
   }
 
+  static hydrate() {
+    return customerRepository.hydrate()
+  }
+
   static getById(id: string): CustomerRecord | null {
     return customerRepository.getById(id)
   }

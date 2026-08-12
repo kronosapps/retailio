@@ -22,6 +22,10 @@ export class NotificationService {
     return notificationRepository.list()
   }
 
+  static hydrate() {
+    return notificationRepository.hydrate()
+  }
+
   static getByInvoiceId(invoiceId: string): NotificationRecord | null {
     return notificationRepository.getByInvoiceId(invoiceId)
   }

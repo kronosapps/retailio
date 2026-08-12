@@ -34,6 +34,20 @@ export function CustomerDetailPage() {
   const [tick, setTick] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [hydrating, setHydrating] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    void CrmService.hydrateDeps().finally(() => {
+      if (!cancelled) {
+        setHydrating(false)
+        setTick((t) => t + 1)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [customerId])
 
   const profile = useMemo(() => {
     void tick
@@ -45,6 +59,12 @@ export function CustomerDetailPage() {
   const [email, setEmail] = useState("")
   const [notes, setNotes] = useState("")
   const [gstin, setGstin] = useState("")
+  const [address, setAddress] = useState("")
+  const [city, setCity] = useState("")
+  const [state, setState] = useState("")
+  const [pin, setPin] = useState("")
+  const [birthday, setBirthday] = useState("")
+  const [preferences, setPreferences] = useState("")
   const [tags, setTags] = useState("")
   const [offerNote, setOfferNote] = useState("")
   const [outstandingRupees, setOutstandingRupees] = useState("")
@@ -52,6 +72,10 @@ export function CustomerDetailPage() {
   const [settleMethod, setSettleMethod] = useState<"Cash" | "UPI">("Cash")
   const [points, setPoints] = useState("")
   const [punches, setPunches] = useState("")
+  const [commType, setCommType] = useState<"offer" | "reminder">("offer")
+  const [commBody, setCommBody] = useState("")
+  const [adjustNoteId, setAdjustNoteId] = useState<string | null>(null)
+  const [adjustBalanceRupees, setAdjustBalanceRupees] = useState("")
 
   useEffect(() => {
     if (!profile) return
@@ -61,6 +85,12 @@ export function CustomerDetailPage() {
     setEmail(c.email || "")
     setNotes(c.notes || "")
     setGstin(c.gstin || "")
+    setAddress(c.address || "")
+    setCity(c.city || "")
+    setState(c.state || "")
+    setPin(c.pin || "")
+    setBirthday(c.birthday || "")
+    setPreferences(c.preferences || "")
     setTags(c.tags.join(", "))
     setOfferNote(c.offerNote || "")
     setOutstandingRupees(String(c.outstandingPaisa / 100))
@@ -70,6 +100,12 @@ export function CustomerDetailPage() {
 
   if (!customerId) {
     return <p className="text-sm text-destructive">Missing customer id.</p>
+  }
+
+  if (hydrating && !profile) {
+    return (
+      <p className="text-sm text-muted-foreground">Loading customer…</p>
+    )
   }
 
   if (!profile) {
@@ -98,6 +134,12 @@ export function CustomerDetailPage() {
         email,
         notes,
         gstin,
+        address,
+        city,
+        state,
+        pin,
+        birthday: birthday || null,
+        preferences: preferences || null,
         tags: tags
           .split(",")
           .map((t) => t.trim())
@@ -184,6 +226,67 @@ export function CustomerDetailPage() {
     }
   }
 
+  async function sendComm(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setBusy(true)
+    try {
+      await CrmService.queueCustomerMessage({
+        customerId,
+        messageType: commType,
+        body: commBody,
+        actorId: userId,
+      })
+      setCommBody("")
+      setTick((t) => t + 1)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not queue message.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function voidNote(creditNoteId: string) {
+    setError(null)
+    setBusy(true)
+    try {
+      await CrmService.voidCreditNote({
+        creditNoteId,
+        actorId: userId,
+      })
+      setTick((t) => t + 1)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not void note.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function saveNoteAdjust(e: FormEvent) {
+    e.preventDefault()
+    if (!adjustNoteId) return
+    setError(null)
+    setBusy(true)
+    try {
+      const rupees = Number(adjustBalanceRupees)
+      if (!Number.isFinite(rupees) || rupees < 0) {
+        throw new CrmError("VALIDATION", "Balance must be ≥ 0.")
+      }
+      await CrmService.adjustCreditNote({
+        creditNoteId: adjustNoteId,
+        balancePaisa: Math.round(rupees * 100),
+        actorId: userId,
+      })
+      setAdjustNoteId(null)
+      setAdjustBalanceRupees("")
+      setTick((t) => t + 1)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not adjust note.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const c = profile.customer
 
   return (
@@ -202,6 +305,7 @@ export function CustomerDetailPage() {
           <p className="text-sm text-muted-foreground">
             {c.phone || "No phone"}
             {c.email ? ` · ${c.email}` : ""}
+            {c.city ? ` · ${c.city}` : ""}
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {profile.segments.map((s) => (
@@ -260,6 +364,7 @@ export function CustomerDetailPage() {
           <TabsTrigger value="loyalty">Loyalty</TabsTrigger>
           <TabsTrigger value="offers">Offers</TabsTrigger>
           <TabsTrigger value="comms">Comms</TabsTrigger>
+          <TabsTrigger value="audit">Audit</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="mt-4 space-y-4">
@@ -297,6 +402,57 @@ export function CustomerDetailPage() {
                 id="crm-gstin"
                 value={gstin}
                 onChange={(e) => setGstin(e.target.value.toUpperCase())}
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="crm-address">Address</Label>
+              <Input
+                id="crm-address"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="Street / shop"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="crm-city">City</Label>
+              <Input
+                id="crm-city"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="crm-state">State</Label>
+              <Input
+                id="crm-state"
+                value={state}
+                onChange={(e) => setState(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="crm-pin">PIN</Label>
+              <Input
+                id="crm-pin"
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="crm-birthday">Birthday</Label>
+              <Input
+                id="crm-birthday"
+                type="date"
+                value={birthday}
+                onChange={(e) => setBirthday(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="crm-prefs">Preferences</Label>
+              <Input
+                id="crm-prefs"
+                value={preferences}
+                onChange={(e) => setPreferences(e.target.value)}
+                placeholder="e.g. WhatsApp OK, veg only, evening delivery"
               />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
@@ -432,8 +588,8 @@ export function CustomerDetailPage() {
             </span>
           </p>
           <p className="text-xs text-muted-foreground">
-            Issued from sales returns (credit note settlement). Apply at POS
-            payment checkout.
+            Issued from sales returns. Apply at POS payment. Void / adjust
+            remaining balance here; apply remains POS-only.
           </p>
           <Separator />
           {profile.creditNotes.length === 0 ? (
@@ -452,7 +608,9 @@ export function CustomerDetailPage() {
                         "text-xs",
                         n.status === "OPEN"
                           ? "text-muted-foreground"
-                          : "text-destructive"
+                          : n.status === "VOID"
+                            ? "text-destructive"
+                            : "text-muted-foreground"
                       )}
                     >
                       {n.status}
@@ -462,10 +620,67 @@ export function CustomerDetailPage() {
                     {formatMoney(n.amountPaisa)} · remaining{" "}
                     {formatMoney(n.balancePaisa)} · {formatWhen(n.createdAt)}
                   </p>
+                  {n.status === "OPEN" && n.balancePaisa > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => {
+                          setAdjustNoteId(n.id)
+                          setAdjustBalanceRupees(String(n.balancePaisa / 100))
+                        }}
+                      >
+                        Adjust
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => void voidNote(n.id)}
+                      >
+                        Void
+                      </Button>
+                    </div>
+                  ) : null}
                 </li>
               ))}
             </ul>
           )}
+          {adjustNoteId ? (
+            <form
+              className="flex flex-wrap items-end gap-3 rounded-xl border border-border p-4"
+              onSubmit={(e) => void saveNoteAdjust(e)}
+            >
+              <div className="min-w-[10rem] flex-1 space-y-1.5">
+                <Label htmlFor="crm-cn-adj">Remaining balance (₹)</Label>
+                <Input
+                  id="crm-cn-adj"
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={adjustBalanceRupees}
+                  onChange={(e) => setAdjustBalanceRupees(e.target.value)}
+                />
+              </div>
+              <Button type="submit" disabled={busy}>
+                Save balance
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => {
+                  setAdjustNoteId(null)
+                  setAdjustBalanceRupees("")
+                }}
+              >
+                Cancel
+              </Button>
+            </form>
+          ) : null}
         </TabsContent>
 
         <TabsContent value="loyalty" className="mt-4 space-y-4">
@@ -542,7 +757,42 @@ export function CustomerDetailPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="comms" className="mt-4 space-y-2">
+        <TabsContent value="comms" className="mt-4 space-y-4">
+          <form
+            className="space-y-3 rounded-xl border border-border p-4"
+            onSubmit={(e) => void sendComm(e)}
+          >
+            <p className="text-sm font-medium">Send offer or reminder</p>
+            <p className="text-xs text-muted-foreground">
+              Queues WhatsApp for delivery (Cloud Functions). Needs a mobile on
+              the profile.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <select
+                className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                value={commType}
+                onChange={(e) =>
+                  setCommType(e.target.value as "offer" | "reminder")
+                }
+              >
+                <option value="offer">Offer</option>
+                <option value="reminder">Reminder</option>
+              </select>
+            </div>
+            <Input
+              value={commBody}
+              onChange={(e) => setCommBody(e.target.value)}
+              placeholder={
+                commType === "offer"
+                  ? "e.g. 10% off this weekend — show this message"
+                  : "e.g. Reminder: open balance due this week"
+              }
+            />
+            <Button type="submit" disabled={busy || !commBody.trim()}>
+              Queue message
+            </Button>
+          </form>
+
           {profile.communications.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No notification history for this customer yet.
@@ -566,6 +816,31 @@ export function CustomerDetailPage() {
                     {formatWhen(row.createdAt)} · {row.invoiceId}
                     {row.error ? ` · ${row.error}` : ""}
                   </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </TabsContent>
+
+        <TabsContent value="audit" className="mt-4 space-y-2">
+          {profile.audit.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No punch, point, credit, or AR adjustments recorded yet.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {profile.audit.map((row) => (
+                <li
+                  key={row.id}
+                  className="rounded-lg border border-border px-3 py-2 text-sm"
+                >
+                  <div className="flex flex-wrap justify-between gap-2">
+                    <span className="font-medium">{row.kind}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatWhen(row.createdAt)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{row.message}</p>
                 </li>
               ))}
             </ul>

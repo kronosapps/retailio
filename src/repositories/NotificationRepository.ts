@@ -16,12 +16,15 @@ import type {
 } from "@/modules/notifications/types/notification"
 import { createId } from "@/utils/id"
 
-import { upsertDocument } from "./firestoreHelpers"
+import { COLLECTIONS } from "@/core/firebase/collections"
 
-const COLLECTION = "notifications"
+import { listDocuments, upsertDocument } from "./firestoreHelpers"
+
+const COLLECTION = COLLECTIONS.NOTIFICATIONS
 
 export type QueueNotificationInput = {
-  invoiceId: string
+  /** Optional for CRM offer/reminder/campaign (use crm:{customerId}). */
+  invoiceId?: string
   paymentId?: string | null
   customerId?: string | null
   customerName: string
@@ -30,6 +33,8 @@ export type QueueNotificationInput = {
   messageType?: NotificationMessageType
   channel?: NotificationRecord["channel"]
   templateName?: string | null
+  /** Free-text body stored in meta for CRM messages. */
+  body?: string | null
   /** Force a new notification even if one exists for the invoice. */
   forceNew?: boolean
 }
@@ -60,8 +65,12 @@ export class NotificationRepository {
    * Writes Firestore doc with status Queued — CF sends via Meta API.
    */
   async queue(input: QueueNotificationInput): Promise<NotificationRecord> {
-    if (!input.forceNew) {
-      const existing = getLocalNotificationByInvoice(input.invoiceId)
+    const invoiceId =
+      input.invoiceId?.trim() ||
+      (input.customerId ? `crm:${input.customerId}` : createId("crmmsg"))
+
+    if (!input.forceNew && input.invoiceId) {
+      const existing = getLocalNotificationByInvoice(invoiceId)
       if (
         existing &&
         (existing.status === "Queued" ||
@@ -79,9 +88,10 @@ export class NotificationRepository {
       input.paymentId && !input.forceNew
         ? `ntf_${input.paymentId}`
         : createId("ntf")
+    const messageType = input.messageType ?? "receipt"
     const record: NotificationRecord = {
       notificationId,
-      invoiceId: input.invoiceId,
+      invoiceId,
       paymentId: input.paymentId ?? null,
       customerId: input.customerId ?? null,
       customerName: input.customerName.trim() || "Walk-in",
@@ -89,8 +99,14 @@ export class NotificationRepository {
       storeId: input.storeId ?? null,
       channel: input.channel ?? "whatsapp",
       status: "Queued",
-      messageType: input.messageType ?? "receipt",
-      templateName: input.templateName ?? "receipt_notification",
+      messageType,
+      templateName:
+        input.templateName ??
+        (messageType === "offer" ||
+        messageType === "reminder" ||
+        messageType === "campaign"
+          ? `${messageType}_notification`
+          : "receipt_notification"),
       receiptUrl: null,
       messageId: null,
       createdAt: now,
@@ -99,6 +115,7 @@ export class NotificationRepository {
       retryCount: 0,
       nextRetryAt: null,
       error: null,
+      meta: input.body ? { body: input.body } : undefined,
     }
 
     return this.persist(record, "created")
@@ -170,6 +187,22 @@ export class NotificationRepository {
   async mirrorFromRemote(record: NotificationRecord): Promise<NotificationRecord> {
     upsertLocalNotification(record)
     return record
+  }
+
+  /** Pull remote notification queue when Firestore is source of truth. */
+  async hydrate(): Promise<NotificationRecord[]> {
+    const remote = await listDocuments<NotificationRecord>(COLLECTION)
+    if (remote) {
+      for (const row of remote) {
+        const id = row?.notificationId || (row as { id?: string }).id
+        if (!id) continue
+        upsertLocalNotification({
+          ...row,
+          notificationId: id,
+        })
+      }
+    }
+    return this.list()
   }
 
   private async persist(

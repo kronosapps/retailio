@@ -26,6 +26,9 @@ export type NotificationMessageType =
   | "order_confirmation"
   | "payment_success"
   | "refund"
+  | "offer"
+  | "reminder"
+  | "campaign"
 
 export type NotificationRecord = {
   notificationId: string

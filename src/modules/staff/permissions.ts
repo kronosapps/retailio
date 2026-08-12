@@ -66,6 +66,10 @@ export function canAccessPath(
     return isManagerOrAbove(role)
   }
 
+  if (path === "/customers" || path.startsWith("/customers/")) {
+    return isManagerOrAbove(role)
+  }
+
   if (path === "/utilities" || path.startsWith("/utilities/")) {
     return canAccessUtilityPath(role, path)
   }

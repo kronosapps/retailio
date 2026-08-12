@@ -213,4 +213,61 @@ describe("CRM — customer profile & loyalty", () => {
     const eligible = CrmService.listEligibleCoupons(customer.id)
     expect(eligible.some((c) => c.code === "VIP10")).toBe(true)
   })
+
+  it("voids credit notes, queues messages, and exports segments", async () => {
+    const { CustomerService } = await import("@/modules/customer/CustomerService")
+    const { CrmService } = await import("@/modules/crm/CrmService")
+    const { creditNoteRepository } = await import(
+      "@/repositories/CreditNoteRepository"
+    )
+    const { crmAuditRepository } = await import(
+      "@/repositories/CrmAuditRepository"
+    )
+
+    const customer = await CustomerService.create({
+      name: "Neha",
+      phone: "9111222333",
+      address: "12 MG Road",
+      city: "Bengaluru",
+      birthday: "1990-05-01",
+      preferences: "WhatsApp OK",
+    })
+    await CustomerService.save({
+      ...CustomerService.getById(customer.id)!,
+      storeCreditPaisa: 10000,
+    })
+    const note = await creditNoteRepository.issue({
+      customerId: customer.id,
+      customerName: "Neha",
+      amountPaisa: 10000,
+    })
+
+    await CrmService.voidCreditNote({ creditNoteId: note.id })
+    expect(creditNoteRepository.getById(note.id)?.status).toBe("VOID")
+    expect(CustomerService.getById(customer.id)!.storeCreditPaisa).toBe(0)
+
+    await CrmService.updateProfile({
+      id: customer.id,
+      city: "Mysuru",
+      birthday: "1991-06-02",
+    })
+    expect(CustomerService.getById(customer.id)!.city).toBe("Mysuru")
+
+    const ntf = await CrmService.queueCustomerMessage({
+      customerId: customer.id,
+      messageType: "offer",
+      body: "Festival 10% this weekend",
+    })
+    expect(ntf.messageType).toBe("offer")
+    expect(ntf.invoiceId).toBe(`crm:${customer.id}`)
+
+    const csv = CrmService.exportSegmentCsv("new")
+    expect(csv).toContain("name")
+    expect(csv).toContain("Neha")
+
+    const audit = crmAuditRepository.list(customer.id)
+    expect(audit.some((a) => a.kind === "CREDIT_NOTE_VOIDED")).toBe(true)
+    expect(audit.some((a) => a.kind === "MESSAGE_QUEUED")).toBe(true)
+    expect(audit.some((a) => a.kind === "PROFILE_UPDATED")).toBe(true)
+  })
 })

@@ -51,7 +51,7 @@ No layer may skip another layer.
 
 ## Firestore collections
 
-`products` · `customers` · `suppliers` · `purchase_orders` · `goods_receipts` · `purchase_invoices` · `supplier_payments` · `inventory` · `inventory_movements` · `inventory_lots` · `stock_takes` · `cashier_shifts` · `sales_returns` · `credit_notes` · `categories` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events`
+`products` · `customers` · `suppliers` · `purchase_orders` · `goods_receipts` · `purchase_invoices` · `supplier_payments` · `inventory` · `inventory_movements` · `inventory_lots` · `stock_takes` · `cashier_shifts` · `sales_returns` · `credit_notes` · `crm_audit` · `categories` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events`
 
 ### Purchasing (Phases 1–5)
 
@@ -236,19 +236,25 @@ Customer → lifetime spend → visits → outstanding → store credit → punc
 
 | Capability | Behavior |
 |------------|----------|
-| Profile | Edit name/phone/email/GSTIN/tags/offer note |
+| Profile | Name/phone/email/GSTIN/address/city/state/PIN/birthday/preferences/tags/offer note |
 | Purchase history | Invoices matched by `customerId` or phone |
 | Outstanding | Manual charge-account AR + unpaid invoice totals |
-| Store credit | From credit-note returns; apply at POS payment (FIFO notes) |
+| Store credit | From credit-note returns; apply at POS; void/adjust remaining on CRM profile |
 | Loyalty | Digital punches per paid visit; reset on POS redeem |
 | Points | Earn 1 per ₹1 spent (`loyalty.json` points config) |
 | Offers | Personal note + segment-targeted coupons (`segmentScope`) |
 | Segmentation | Derived: New / Regular / VIP / At risk / Credit / Loyalty ready |
-| Communication | Notification history for `customerId` |
+| Communication | Queue offer/reminder from profile; timeline + segment campaigns |
+| Campaigns | Bulk queue + CSV export by segment on `/customers` |
+| Audit | Append-only `crm_audit` for punches/points/credit/AR/messages |
 | Points redeem | 1 pt = ₹1 off at POS (Loyalty panel) |
 | On account | Payment method `OnAccount` → Dr AR; settle from CRM profile |
+| POS attach | Customer on cart (and Loyalty) before charge |
+| Hydrate | `/customers` pulls customers, credit notes, notifications, audit |
 
-Events: existing `CUSTOMER_*`, `CREDIT_NOTE_*`, **`CUSTOMER_AR_SETTLED`**.
+Events: `CUSTOMER_*`, `CREDIT_NOTE_*` (incl. **VOIDED**), **`CUSTOMER_AR_SETTLED`**, **`CRM_AUDIT_RECORDED`**.
+
+Collections: `customers`, `credit_notes`, `notifications`, `crm_audit`.
 
 ---
 
@@ -272,7 +278,8 @@ Supported types (`src/events/EventTypes.ts`):
 - `EXPENSE_CREATED`
 - `SHIFT_OPENED` / `SHIFT_CLOSED` / `TILL_MOVEMENT`
 - `SALE_RETURN_CREATED` / `SALE_RETURN_POSTED` / `SALE_RETURN_UPDATED`
-- `CREDIT_NOTE_ISSUED` / `CREDIT_NOTE_APPLIED`
+- `CREDIT_NOTE_ISSUED` / `CREDIT_NOTE_APPLIED` / `CREDIT_NOTE_VOIDED`
+- `CUSTOMER_AR_SETTLED` / `CRM_AUDIT_RECORDED`
 - `SALE_CANCELLED`
 
 Flow: repository write → `EventPublisher.publish` → `EventBus` → engines + `SyncManager` enqueues → provider.

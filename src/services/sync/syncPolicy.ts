@@ -35,13 +35,15 @@ export const LIVE_SHEET_EVENTS = new Set<EventType>([
   EventTypes.SALE_RETURN_UPDATED,
   EventTypes.CREDIT_NOTE_ISSUED,
   EventTypes.CREDIT_NOTE_APPLIED,
+  EventTypes.CREDIT_NOTE_VOIDED,
+  EventTypes.CUSTOMER_AR_SETTLED,
+  EventTypes.CRM_AUDIT_RECORDED,
   EventTypes.SALE_CANCELLED,
   EventTypes.PROMOTION_CREATED,
   EventTypes.PROMOTION_UPDATED,
   EventTypes.COUPON_CREATED,
   EventTypes.COUPON_UPDATED,
   EventTypes.PRICE_CHANGED,
-  EventTypes.CUSTOMER_AR_SETTLED,
 ])
 
 /**

@@ -19,7 +19,7 @@ import {
 } from "@/data/discounts"
 import { PricingService } from "@/modules/pricing"
 import { CustomerService } from "@/modules/customer"
-import { CrmService } from "@/modules/crm"
+import { CrmService, CustomerAttachField } from "@/modules/crm"
 import {
   loyaltyConfig,
   getLoyaltyRewardSummary,
@@ -541,6 +541,48 @@ export function PosPage() {
       setCartSheetOpen(false)
       void chargeOrder()
     },
+    customerSection: (
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-muted-foreground">Customer</p>
+        {attachedCustomer ? (
+          <div className="rounded-md bg-muted/50 px-2.5 py-2 text-sm">
+            <p className="font-medium">{attachedCustomer.name}</p>
+            <p className="text-[11px] text-muted-foreground">
+              {attachedCustomer.phone || "No phone"} ·{" "}
+              {attachedCustomer.loyaltyPoints} pts · credit{" "}
+              {formatMoney(attachedCustomer.storeCreditPaisa)}
+            </p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mt-1 h-7 px-2 text-xs"
+              onClick={() =>
+                updateActivePosSession({
+                  customerId: null,
+                  customerName: "",
+                  customerPhone: "",
+                  pointsToRedeem: 0,
+                })
+              }
+            >
+              Clear
+            </Button>
+          </div>
+        ) : (
+          <CustomerAttachField
+            storeId={profile?.storeId ?? null}
+            onPick={(c) =>
+              updateActivePosSession({
+                customerId: c.id,
+                customerName: c.name,
+                customerPhone: c.phone || "",
+              })
+            }
+          />
+        )}
+      </div>
+    ),
   }
 
   return (
@@ -1166,51 +1208,5 @@ export function PosPage() {
         </SheetContent>
       </Sheet>
     </>
-  )
-}
-
-function CustomerAttachField({
-  storeId,
-  onPick,
-}: {
-  storeId: string | null
-  onPick: (c: import("@/modules/customer").CustomerRecord) => void
-}) {
-  const [query, setQuery] = useState("")
-  const hits = useMemo(() => {
-    if (query.trim().length < 1) return []
-    return CustomerService.search(query, storeId, 6)
-  }, [query, storeId])
-
-  return (
-    <div className="space-y-2">
-      <Input
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search name or phone"
-      />
-      {hits.length > 0 ? (
-        <ul className="max-h-40 overflow-y-auto rounded-md border border-border">
-          {hits.map((c) => (
-            <li key={c.id}>
-              <button
-                type="button"
-                className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted"
-                onClick={() => {
-                  onPick(c)
-                  setQuery("")
-                }}
-              >
-                <span className="font-medium">{c.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {c.phone || "—"} · {c.loyaltyPunches}/
-                  {loyaltyConfig.punchesRequired} punches · {c.loyaltyPoints} pts
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
   )
 }

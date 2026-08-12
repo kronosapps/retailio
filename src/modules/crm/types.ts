@@ -4,6 +4,7 @@
 
 import type { CustomerRecord } from "@/data/customers"
 import type { CreditNoteRecord } from "@/data/creditNotes"
+import type { CrmAuditRecord } from "@/data/crmAudit"
 import type { CouponRecord } from "@/modules/pricing/types"
 import type { Paisa } from "@/lib/money"
 
@@ -55,9 +56,11 @@ export type CrmProfile = {
   purchases: CrmPurchaseRow[]
   creditNotes: CreditNoteRecord[]
   communications: CrmCommunicationRow[]
-  /** Active store coupons (not customer-targeted yet). */
+  /** Active store coupons (segment-aware). */
   openOffers: CouponRecord[]
   offerNote: string | null
+  /** Recent CRM audit ledger rows. */
+  audit: CrmAuditRecord[]
 }
 
 export type RecordPurchaseLoyaltyInput = {

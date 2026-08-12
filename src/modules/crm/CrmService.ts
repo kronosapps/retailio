@@ -7,12 +7,14 @@ import {
   loyaltyConfig,
   pointsFromSpendPaisa,
 } from "@/data/loyalty"
+import type { CrmAuditRecord } from "@/data/crmAudit"
 import { EventPublisher } from "@/events/EventPublisher"
 import { EventTypes } from "@/events/EventTypes"
 import { NotificationService } from "@/modules/notifications"
 import { PricingService } from "@/modules/pricing"
 import type { CouponRecord } from "@/modules/pricing/types"
 import { creditNoteRepository } from "@/repositories/CreditNoteRepository"
+import { crmAuditRepository } from "@/repositories/CrmAuditRepository"
 import { customerRepository } from "@/repositories/CustomerRepository"
 import { createId } from "@/utils/id"
 
@@ -21,6 +23,7 @@ import type {
   CrmProfile,
   CrmPurchaseRow,
   CustomerSegment,
+  CustomerSegmentId,
   RecordPurchaseLoyaltyInput,
 } from "./types"
 
@@ -54,11 +57,29 @@ function isUnpaidStatus(status: string | null | undefined) {
   return status === "Pending" || status === "Expired" || status === "Failed"
 }
 
+function formatPaisa(paisa: number) {
+  return `₹${(paisa / 100).toFixed(2)}`
+}
+
 /**
  * Customer CRM — profile aggregates, store credit apply, loyalty punches/points.
  * UI → CrmService → repositories (never Firestore from React).
  */
 export class CrmService {
+  /** Hydrate CRM cloud deps when Firestore is source of truth. */
+  static async hydrateDeps(): Promise<void> {
+    await Promise.all([
+      customerRepository.hydrate(),
+      creditNoteRepository.hydrate(),
+      NotificationService.hydrate(),
+      crmAuditRepository.hydrate(),
+    ])
+  }
+
+  static listAudit(customerId: string): CrmAuditRecord[] {
+    return crmAuditRepository.list(customerId)
+  }
+
   static deriveSegments(customer: CustomerRecord): CustomerSegment[] {
     const segs = loyaltyConfig.segments
     const vipMin = segs?.vipMinSpendPaisa ?? 2_500_000
@@ -164,6 +185,7 @@ export class CrmService {
       communications: this.listCommunications(customerId),
       openOffers,
       offerNote: customer.offerNote,
+      audit: this.listAudit(customerId).slice(0, 100),
     }
   }
 
@@ -174,6 +196,12 @@ export class CrmService {
     email?: string
     notes?: string
     gstin?: string
+    address?: string
+    city?: string
+    state?: string
+    pin?: string
+    birthday?: string | null
+    preferences?: string | null
     tags?: string[]
     offerNote?: string | null
     actorId?: string | null
@@ -183,7 +211,7 @@ export class CrmService {
     if (input.name != null && !input.name.trim()) {
       throw new CrmError("VALIDATION", "Name is required.")
     }
-    return customerRepository.save(
+    const next = await customerRepository.save(
       {
         ...existing,
         name: input.name?.trim() || existing.name,
@@ -203,6 +231,30 @@ export class CrmService {
           input.gstin === undefined
             ? existing.gstin
             : input.gstin.trim().toUpperCase() || undefined,
+        address:
+          input.address === undefined
+            ? existing.address
+            : input.address.trim() || undefined,
+        city:
+          input.city === undefined
+            ? existing.city
+            : input.city.trim() || undefined,
+        state:
+          input.state === undefined
+            ? existing.state
+            : input.state.trim() || undefined,
+        pin:
+          input.pin === undefined
+            ? existing.pin
+            : input.pin.trim() || undefined,
+        birthday:
+          input.birthday === undefined
+            ? existing.birthday
+            : input.birthday?.trim().slice(0, 10) || null,
+        preferences:
+          input.preferences === undefined
+            ? existing.preferences
+            : input.preferences?.trim() || null,
         tags:
           input.tags === undefined
             ? existing.tags
@@ -215,6 +267,15 @@ export class CrmService {
       },
       false
     )
+    await crmAuditRepository.append({
+      customerId: next.id,
+      customerName: next.name,
+      kind: "PROFILE_UPDATED",
+      message: "Profile updated",
+      actorId: input.actorId ?? null,
+      storeId: next.storeId,
+    })
+    return next
   }
 
   static async adjustOutstanding(input: {
@@ -228,14 +289,27 @@ export class CrmService {
     if (!Number.isFinite(input.outstandingPaisa) || input.outstandingPaisa < 0) {
       throw new CrmError("VALIDATION", "Outstanding must be ≥ 0.")
     }
-    return customerRepository.save(
+    const target = Math.round(input.outstandingPaisa)
+    const delta = target - existing.outstandingPaisa
+    const next = await customerRepository.save(
       {
         ...existing,
-        outstandingPaisa: Math.round(input.outstandingPaisa),
+        outstandingPaisa: target,
         updatedBy: input.actorId ?? existing.updatedBy,
       },
       false
     )
+    await crmAuditRepository.append({
+      customerId: next.id,
+      customerName: next.name,
+      kind: "AR_ADJUSTED",
+      message: `Charge-account AR set to ${formatPaisa(target)}`,
+      delta,
+      balanceAfter: next.outstandingPaisa,
+      actorId: input.actorId ?? null,
+      storeId: next.storeId,
+    })
+    return next
   }
 
   /**
@@ -300,7 +374,143 @@ export class CrmService {
       false
     )
 
+    await crmAuditRepository.append({
+      customerId: next.id,
+      customerName: next.name,
+      kind: "STORE_CREDIT_APPLIED",
+      message: `Applied ${formatPaisa(available)} store credit${
+        input.invoiceId ? ` on ${input.invoiceId}` : ""
+      }`,
+      delta: -available,
+      balanceAfter: next.storeCreditPaisa,
+      referenceId: input.invoiceId ?? null,
+      actorId: input.actorId ?? null,
+      storeId: next.storeId,
+    })
+
     return { appliedPaisa: available, customer: next }
+  }
+
+  /** Void an open credit note and reverse unused store credit. */
+  static async voidCreditNote(input: {
+    creditNoteId: string
+    actorId?: string | null
+    reason?: string | null
+  }) {
+    const note = creditNoteRepository.getById(input.creditNoteId)
+    if (!note) throw new CrmError("NOT_FOUND", "Credit note not found.")
+    if (note.status === "VOID") {
+      throw new CrmError("VALIDATION", "Credit note already void.")
+    }
+    if (note.status === "APPLIED" && note.balancePaisa <= 0) {
+      throw new CrmError(
+        "VALIDATION",
+        "Fully applied credit notes cannot be voided."
+      )
+    }
+    const customer = customerRepository.getById(note.customerId)
+    if (!customer) throw new CrmError("NOT_FOUND", "Customer not found.")
+
+    const reverse = Math.max(0, note.balancePaisa)
+    const voided = await creditNoteRepository.save({
+      ...note,
+      status: "VOID",
+      balancePaisa: 0,
+      reason: input.reason?.trim() || note.reason,
+    })
+
+    const next = await customerRepository.save(
+      {
+        ...customer,
+        storeCreditPaisa: Math.max(0, customer.storeCreditPaisa - reverse),
+        updatedBy: input.actorId ?? customer.updatedBy,
+      },
+      false
+    )
+
+    await EventPublisher.publish(
+      EventTypes.CREDIT_NOTE_VOIDED,
+      {
+        id: voided.id,
+        creditNoteNumber: voided.creditNoteNumber,
+        customerId: next.id,
+        customerName: next.name,
+        amountPaisa: reverse,
+        storeId: next.storeId,
+      },
+      next.storeId
+    )
+
+    await crmAuditRepository.append({
+      customerId: next.id,
+      customerName: next.name,
+      kind: "CREDIT_NOTE_VOIDED",
+      message: `Voided ${voided.creditNoteNumber} (−${formatPaisa(reverse)})`,
+      delta: -reverse,
+      balanceAfter: next.storeCreditPaisa,
+      referenceId: voided.id,
+      actorId: input.actorId ?? null,
+      storeId: next.storeId,
+    })
+
+    return { creditNote: voided, customer: next }
+  }
+
+  /** Adjust remaining balance on an OPEN credit note (and wallet). */
+  static async adjustCreditNote(input: {
+    creditNoteId: string
+    balancePaisa: number
+    actorId?: string | null
+  }) {
+    const note = creditNoteRepository.getById(input.creditNoteId)
+    if (!note) throw new CrmError("NOT_FOUND", "Credit note not found.")
+    if (note.status !== "OPEN") {
+      throw new CrmError("VALIDATION", "Only open credit notes can be adjusted.")
+    }
+    if (!Number.isFinite(input.balancePaisa) || input.balancePaisa < 0) {
+      throw new CrmError("VALIDATION", "Balance must be ≥ 0.")
+    }
+    if (input.balancePaisa > note.amountPaisa) {
+      throw new CrmError(
+        "VALIDATION",
+        "Balance cannot exceed original credit amount."
+      )
+    }
+    const customer = customerRepository.getById(note.customerId)
+    if (!customer) throw new CrmError("NOT_FOUND", "Customer not found.")
+
+    const target = Math.round(input.balancePaisa)
+    const delta = target - note.balancePaisa
+    const status = target <= 0 ? "APPLIED" : "OPEN"
+    const adjusted = await creditNoteRepository.save({
+      ...note,
+      balancePaisa: target,
+      status,
+      appliedAt: status === "APPLIED" ? new Date().toISOString() : note.appliedAt,
+    })
+
+    const next = await customerRepository.save(
+      {
+        ...customer,
+        storeCreditPaisa: Math.max(0, customer.storeCreditPaisa + delta),
+        updatedBy: input.actorId ?? customer.updatedBy,
+      },
+      false
+    )
+
+    await crmAuditRepository.append({
+      customerId: next.id,
+      customerName: next.name,
+      kind: "CREDIT_NOTE_ADJUSTED",
+      message: `Adjusted ${adjusted.creditNoteNumber} to ${formatPaisa(target)}`,
+      delta,
+      balanceAfter: next.storeCreditPaisa,
+      referenceId: adjusted.id,
+      actorId: input.actorId ?? null,
+      storeId: next.storeId,
+    })
+
+    return { creditNote: adjusted, customer: next }
   }
 
   /** After Mark Paid — stamps punches, earns points, deducts redeemed points. */
@@ -313,14 +523,15 @@ export class CrmService {
     const spend = Math.max(0, Math.round(input.purchasePaisa || 0))
     const earned = pointsFromSpendPaisa(spend)
     const redeemed = Math.max(0, Math.floor(input.pointsRedeemed || 0))
-    let punches = existing.loyaltyPunches
+    const punchesBefore = existing.loyaltyPunches
+    let punches = punchesBefore
     if (input.redeemedLoyalty) {
       punches = 0
     } else if (spend > 0) {
       punches = Math.min(loyaltyConfig.punchesRequired, punches + 1)
     }
 
-    return customerRepository.save(
+    const next = await customerRepository.save(
       {
         ...existing,
         loyaltyPunches: punches,
@@ -332,6 +543,56 @@ export class CrmService {
       },
       false
     )
+
+    if (earned > 0) {
+      await crmAuditRepository.append({
+        customerId: next.id,
+        customerName: next.name,
+        kind: "POINTS_EARNED",
+        message: `Earned ${earned} points on purchase`,
+        delta: earned,
+        balanceAfter: next.loyaltyPoints,
+        actorId: input.actorId ?? null,
+        storeId: next.storeId,
+      })
+    }
+    if (redeemed > 0) {
+      await crmAuditRepository.append({
+        customerId: next.id,
+        customerName: next.name,
+        kind: "POINTS_REDEEMED",
+        message: `Redeemed ${redeemed} points`,
+        delta: -redeemed,
+        balanceAfter: next.loyaltyPoints,
+        actorId: input.actorId ?? null,
+        storeId: next.storeId,
+      })
+    }
+    if (input.redeemedLoyalty && punchesBefore > 0) {
+      await crmAuditRepository.append({
+        customerId: next.id,
+        customerName: next.name,
+        kind: "PUNCHES_RESET",
+        message: "Punch card reset after loyalty redeem",
+        delta: -punchesBefore,
+        balanceAfter: next.loyaltyPunches,
+        actorId: input.actorId ?? null,
+        storeId: next.storeId,
+      })
+    } else if (punches > punchesBefore) {
+      await crmAuditRepository.append({
+        customerId: next.id,
+        customerName: next.name,
+        kind: "PUNCHES_STAMPED",
+        message: `Punch stamped (${next.loyaltyPunches}/${loyaltyConfig.punchesRequired})`,
+        delta: 1,
+        balanceAfter: next.loyaltyPunches,
+        actorId: input.actorId ?? null,
+        storeId: next.storeId,
+      })
+    }
+
+    return next
   }
 
   /** Charge sale to customer AR (OnAccount tender). */
@@ -343,7 +604,7 @@ export class CrmService {
     const existing = customerRepository.getById(input.customerId)
     if (!existing) throw new CrmError("NOT_FOUND", "Customer not found.")
     const add = Math.max(0, Math.round(input.amountPaisa))
-    return customerRepository.save(
+    const next = await customerRepository.save(
       {
         ...existing,
         outstandingPaisa: existing.outstandingPaisa + add,
@@ -351,6 +612,19 @@ export class CrmService {
       },
       false
     )
+    if (add > 0) {
+      await crmAuditRepository.append({
+        customerId: next.id,
+        customerName: next.name,
+        kind: "AR_BUMPED",
+        message: `On-account charge ${formatPaisa(add)}`,
+        delta: add,
+        balanceAfter: next.outstandingPaisa,
+        actorId: input.actorId ?? null,
+        storeId: next.storeId,
+      })
+    }
+    return next
   }
 
   /**
@@ -401,6 +675,17 @@ export class CrmService {
       },
       customer.storeId
     )
+    await crmAuditRepository.append({
+      customerId: customer.id,
+      customerName: customer.name,
+      kind: "AR_SETTLED",
+      message: `Settled ${formatPaisa(amount)} via ${input.method}`,
+      delta: -amount,
+      balanceAfter: customer.outstandingPaisa,
+      referenceId: settlementId,
+      actorId: input.actorId ?? null,
+      storeId: customer.storeId,
+    })
     return { customer, settlementId }
   }
 
@@ -438,14 +723,27 @@ export class CrmService {
     if (!Number.isFinite(input.loyaltyPoints) || input.loyaltyPoints < 0) {
       throw new CrmError("VALIDATION", "Points must be ≥ 0.")
     }
-    return customerRepository.save(
+    const target = Math.floor(input.loyaltyPoints)
+    const delta = target - existing.loyaltyPoints
+    const next = await customerRepository.save(
       {
         ...existing,
-        loyaltyPoints: Math.floor(input.loyaltyPoints),
+        loyaltyPoints: target,
         updatedBy: input.actorId ?? existing.updatedBy,
       },
       false
     )
+    await crmAuditRepository.append({
+      customerId: next.id,
+      customerName: next.name,
+      kind: "POINTS_ADJUSTED",
+      message: `Points set to ${target}`,
+      delta,
+      balanceAfter: next.loyaltyPoints,
+      actorId: input.actorId ?? null,
+      storeId: next.storeId,
+    })
+    return next
   }
 
   static async adjustLoyaltyPunches(input: {
@@ -458,17 +756,151 @@ export class CrmService {
     if (!Number.isFinite(input.loyaltyPunches) || input.loyaltyPunches < 0) {
       throw new CrmError("VALIDATION", "Punches must be ≥ 0.")
     }
-    return customerRepository.save(
+    const target = Math.min(
+      loyaltyConfig.punchesRequired,
+      Math.floor(input.loyaltyPunches)
+    )
+    const delta = target - existing.loyaltyPunches
+    const next = await customerRepository.save(
       {
         ...existing,
-        loyaltyPunches: Math.min(
-          loyaltyConfig.punchesRequired,
-          Math.floor(input.loyaltyPunches)
-        ),
+        loyaltyPunches: target,
         updatedBy: input.actorId ?? existing.updatedBy,
       },
       false
     )
+    await crmAuditRepository.append({
+      customerId: next.id,
+      customerName: next.name,
+      kind: "PUNCHES_ADJUSTED",
+      message: `Punches set to ${target}`,
+      delta,
+      balanceAfter: next.loyaltyPunches,
+      actorId: input.actorId ?? null,
+      storeId: next.storeId,
+    })
+    return next
+  }
+
+  /** Queue offer or reminder WhatsApp for one customer (CRM Comms). */
+  static async queueCustomerMessage(input: {
+    customerId: string
+    messageType: "offer" | "reminder"
+    body: string
+    actorId?: string | null
+  }) {
+    const customer = customerRepository.getById(input.customerId)
+    if (!customer) throw new CrmError("NOT_FOUND", "Customer not found.")
+    const body = input.body.trim()
+    if (!body) throw new CrmError("VALIDATION", "Message body is required.")
+    if (!customer.phone) {
+      throw new CrmError("VALIDATION", "Customer needs a mobile number.")
+    }
+
+    const notification = await NotificationService.queue({
+      customerId: customer.id,
+      customerName: customer.name,
+      customerPhone: customer.phone,
+      storeId: customer.storeId,
+      messageType: input.messageType,
+      body,
+      forceNew: true,
+    })
+
+    await crmAuditRepository.append({
+      customerId: customer.id,
+      customerName: customer.name,
+      kind: "MESSAGE_QUEUED",
+      message: `Queued ${input.messageType}: ${body.slice(0, 80)}`,
+      referenceId: notification.notificationId,
+      actorId: input.actorId ?? null,
+      storeId: customer.storeId,
+    })
+
+    return notification
+  }
+
+  /** Queue campaign message to every customer in a segment (with phone). */
+  static async queueSegmentCampaign(input: {
+    segmentId: CustomerSegmentId
+    body: string
+    actorId?: string | null
+    storeId?: string | null
+  }) {
+    const body = input.body.trim()
+    if (!body) throw new CrmError("VALIDATION", "Campaign body is required.")
+
+    const recipients = this.listBySegment(input.segmentId).filter((c) =>
+      Boolean(c.phone)
+    )
+    let queued = 0
+    for (const customer of recipients) {
+      const notification = await NotificationService.queue({
+        customerId: customer.id,
+        customerName: customer.name,
+        customerPhone: customer.phone ?? null,
+        storeId: customer.storeId ?? input.storeId ?? null,
+        messageType: "campaign",
+        body,
+        forceNew: true,
+      })
+      await crmAuditRepository.append({
+        customerId: customer.id,
+        customerName: customer.name,
+        kind: "CAMPAIGN_QUEUED",
+        message: `Campaign (${input.segmentId}): ${body.slice(0, 60)}`,
+        referenceId: notification.notificationId,
+        actorId: input.actorId ?? null,
+        storeId: customer.storeId,
+      })
+      queued += 1
+    }
+    return { queued, skipped: this.listBySegment(input.segmentId).length - queued }
+  }
+
+  /** CSV export for a segment (or all when segmentId is null). */
+  static exportSegmentCsv(segmentId: CustomerSegmentId | "all"): string {
+    const rows =
+      segmentId === "all"
+        ? customerRepository.list()
+        : this.listBySegment(segmentId)
+    const header = [
+      "id",
+      "name",
+      "phone",
+      "email",
+      "city",
+      "visits",
+      "spendPaisa",
+      "points",
+      "storeCreditPaisa",
+      "outstandingPaisa",
+      "segments",
+      "birthday",
+    ]
+    const lines = [header.join(",")]
+    for (const c of rows) {
+      const segs = this.deriveSegments(c)
+        .map((s) => s.id)
+        .join("|")
+      lines.push(
+        [
+          c.id,
+          csvEscape(c.name),
+          csvEscape(c.phone || ""),
+          csvEscape(c.email || ""),
+          csvEscape(c.city || ""),
+          String(c.visitCount),
+          String(c.totalSpendPaisa),
+          String(c.loyaltyPoints),
+          String(c.storeCreditPaisa),
+          String(c.outstandingPaisa),
+          csvEscape(segs),
+          csvEscape(c.birthday || ""),
+        ].join(",")
+      )
+    }
+    return lines.join("\n")
   }
 
   static listBySegment(segmentId: CustomerSegment["id"]): CustomerRecord[] {
@@ -476,4 +908,11 @@ export class CrmService {
       .list()
       .filter((c) => this.deriveSegments(c).some((s) => s.id === segmentId))
   }
+}
+
+function csvEscape(value: string): string {
+  if (/[",\n]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`
+  }
+  return value
 }

@@ -25,6 +25,7 @@ export const COLLECTIONS = {
   PROMOTIONS: "promotions",
   COUPONS: "coupons",
   PRICE_HISTORY: "price_history",
+  CRM_AUDIT: "crm_audit",
   CATEGORIES: "categories",
   EXPENSES: "expenses",
   JOURNAL_ENTRIES: "journal_entries",

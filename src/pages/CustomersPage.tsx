@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom"
-import { useMemo, useState, type FormEvent } from "react"
-import { Trash2, UserPlus } from "lucide-react"
+import { useEffect, useMemo, useState, type FormEvent } from "react"
+import { Download, Megaphone, Trash2, UserPlus } from "lucide-react"
 
 import { MobileListCard, ResponsiveList } from "@/components/ResponsiveList"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -12,7 +12,7 @@ import {
   CustomerService,
   type CustomerRecord,
 } from "@/modules/customer"
-import { CrmService, type CustomerSegmentId } from "@/modules/crm"
+import { CrmError, CrmService, type CustomerSegmentId } from "@/modules/crm"
 import { useAuth } from "@/providers/AuthProvider"
 
 type FormState = {
@@ -29,6 +29,16 @@ const EMPTY_FORM: FormState = {
   notes: "",
 }
 
+function downloadCsv(filename: string, csv: string) {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export function CustomersPage() {
   const { userId, profile } = useAuth()
   const [items, setItems] = useState<CustomerRecord[]>(() =>
@@ -40,6 +50,18 @@ export function CustomersPage() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [campaignBody, setCampaignBody] = useState("")
+  const [campaignMsg, setCampaignMsg] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void CrmService.hydrateDeps().then(() => {
+      if (!cancelled) refresh()
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   function refresh() {
     setItems(CustomerService.list())
@@ -105,6 +127,45 @@ export function CustomersPage() {
       )
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  function onExport() {
+    const csv = CrmService.exportSegmentCsv(segment)
+    const label = segment === "all" ? "all" : segment
+    downloadCsv(`customers-${label}.csv`, csv)
+  }
+
+  async function onCampaign(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setCampaignMsg(null)
+    if (segment === "all") {
+      setError("Pick a segment before sending a campaign.")
+      return
+    }
+    setBusy(true)
+    try {
+      const result = await CrmService.queueSegmentCampaign({
+        segmentId: segment,
+        body: campaignBody,
+        actorId: userId,
+        storeId: profile?.storeId ?? null,
+      })
+      setCampaignBody("")
+      setCampaignMsg(
+        `Queued ${result.queued} message${result.queued === 1 ? "" : "s"}${
+          result.skipped ? ` · skipped ${result.skipped} without phone` : ""
+        }.`
+      )
+    } catch (err) {
+      setError(
+        err instanceof CrmError || err instanceof Error
+          ? err.message
+          : "Could not queue campaign."
+      )
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -213,8 +274,49 @@ export function CustomersPage() {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search name or phone"
           />
+          <Button type="button" variant="outline" size="sm" onClick={onExport}>
+            <Download data-icon="inline-start" />
+            Export CSV
+          </Button>
         </div>
       </div>
+
+      <form
+        className="flex flex-col gap-3 rounded-xl border border-border p-4 sm:flex-row sm:items-end"
+        onSubmit={(e) => void onCampaign(e)}
+      >
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <Label htmlFor="crm-campaign" className="flex items-center gap-1.5">
+            <Megaphone className="size-3.5" />
+            Segment campaign
+          </Label>
+          <Input
+            id="crm-campaign"
+            value={campaignBody}
+            onChange={(e) => setCampaignBody(e.target.value)}
+            placeholder={
+              segment === "all"
+                ? "Select a segment first, then write a message"
+                : `Message all “${segment}” customers with a phone`
+            }
+            disabled={segment === "all"}
+          />
+          {campaignMsg ? (
+            <p className="text-xs text-muted-foreground">{campaignMsg}</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Queues WhatsApp campaign notifications for the filtered segment.
+            </p>
+          )}
+        </div>
+        <Button
+          type="submit"
+          variant="outline"
+          disabled={busy || segment === "all" || !campaignBody.trim()}
+        >
+          Queue campaign
+        </Button>
+      </form>
 
       {filtered.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
