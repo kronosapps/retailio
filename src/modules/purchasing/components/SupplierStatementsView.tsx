@@ -9,6 +9,7 @@ import { ExcelReportExporter } from "@/modules/reporting/exporters/ExcelReportEx
 import {
   SupplierInvoiceService,
   SupplierPaymentService,
+  PurchaseReturnService,
 } from "@/modules/purchasing"
 import { SupplierService } from "@/modules/supplier"
 import { cn } from "@/lib/utils"
@@ -16,7 +17,7 @@ import { cn } from "@/lib/utils"
 type StatementRow = {
   date: string
   sortKey: string
-  type: "Invoice" | "Payment"
+  type: "Invoice" | "Payment" | "Return"
   reference: string
   debitPaisa: number
   creditPaisa: number
@@ -51,6 +52,12 @@ export function SupplierStatementsView() {
           i.status === "PAID")
     )
     const payments = SupplierPaymentService.listForSupplier(activeSupplierId)
+    const returns = PurchaseReturnService.list().filter(
+      (r) =>
+        r.supplierId === activeSupplierId &&
+        r.status === "POSTED" &&
+        r.purchaseInvoiceId
+    )
 
     const events: Array<Omit<StatementRow, "balancePaisa">> = []
     for (const inv of invoices) {
@@ -71,6 +78,16 @@ export function SupplierStatementsView() {
         reference: pay.paymentNumber,
         debitPaisa: 0,
         creditPaisa: pay.amountPaisa,
+      })
+    }
+    for (const ret of returns) {
+      events.push({
+        date: (ret.postedAt || ret.returnedAt).slice(0, 10),
+        sortKey: ret.postedAt || ret.createdAt,
+        type: "Return",
+        reference: ret.returnNumber,
+        debitPaisa: 0,
+        creditPaisa: ret.totalPaisa,
       })
     }
     events.sort((a, b) => a.sortKey.localeCompare(b.sortKey))
@@ -160,8 +177,8 @@ export function SupplierStatementsView() {
         <div>
           <h2 className="text-lg font-semibold">Supplier Statements</h2>
           <p className="text-sm text-muted-foreground">
-            Posted invoices increase AP; payments reduce it. Closing balance is
-            amount still payable.
+            Posted invoices increase AP; payments and returns reduce it.
+            Closing balance is amount still payable.
           </p>
         </div>
         <Button

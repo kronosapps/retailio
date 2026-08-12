@@ -359,4 +359,62 @@ describe("SupplierInvoice + SupplierPayment (AP)", () => {
       })
     ).rejects.toBeInstanceOf(SupplierInvoiceError)
   })
+
+  it("posts purchase return: stock out, AP credit, blocks over-return", async () => {
+    const { InventoryService } = await import(
+      "@/modules/inventory/InventoryService"
+    )
+    const { SupplierInvoiceService } = await import(
+      "@/modules/purchasing/SupplierInvoiceService"
+    )
+    const {
+      PurchaseReturnService,
+      PurchaseReturnError,
+    } = await import("@/modules/purchasing/PurchaseReturnService")
+    const { EventPublisher } = await import("@/events/EventPublisher")
+    const { EventTypes } = await import("@/events/EventTypes")
+
+    const { grn } = await seedPostedGrn()
+    const inv = await SupplierInvoiceService.createFromGrns({
+      goodsReceiptIds: [grn.id],
+      actorId: "t",
+      issueAndPost: true,
+    })
+
+    const stockBefore = InventoryService.getCurrentStock("AP-SKU-1")
+    const ret = await PurchaseReturnService.createAndPost({
+      purchaseInvoiceId: inv.id,
+      lines: [{ sku: "AP-SKU-1", quantity: 1 }],
+      reason: "Damaged",
+      actorId: "t",
+      storeId: "store-1",
+    })
+
+    expect(ret.status).toBe("POSTED")
+    expect(ret.returnNumber).toMatch(/^PRN-/)
+    expect(InventoryService.getCurrentStock("AP-SKU-1")).toBe(stockBefore - 1)
+    expect(
+      InventoryService.getMovementHistory("AP-SKU-1").some(
+        (m) => m.referenceId === ret.id && m.type === "PURCHASE_RETURN"
+      )
+    ).toBe(true)
+
+    const updated = SupplierInvoiceService.getById(inv.id)!
+    expect(updated.amountCreditedPaisa).toBe(5000) // 1 * ₹50
+    expect(SupplierInvoiceService.remainingPayablePaisa(updated)).toBe(5000)
+
+    expect(EventPublisher.publish).toHaveBeenCalledWith(
+      EventTypes.PURCHASE_RETURN_POSTED,
+      expect.objectContaining({ id: ret.id, status: "POSTED" }),
+      "store-1"
+    )
+
+    await expect(
+      PurchaseReturnService.createAndPost({
+        purchaseInvoiceId: inv.id,
+        lines: [{ sku: "AP-SKU-1", quantity: 2 }],
+        actorId: "t",
+      })
+    ).rejects.toBeInstanceOf(PurchaseReturnError)
+  })
 })

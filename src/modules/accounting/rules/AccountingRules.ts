@@ -1,5 +1,6 @@
 import type { RecordedSale } from "@/data/invoices"
 import type { PurchaseInvoiceRecord } from "@/data/purchaseInvoices"
+import type { PurchaseReturnRecord } from "@/data/purchaseReturns"
 import type { SupplierPaymentRecord } from "@/data/supplierPayments"
 import { rupeesToPaisa } from "@/lib/money"
 import type { ExpenseRecord } from "@/repositories/ExpenseRepository"
@@ -186,6 +187,35 @@ export class AccountingRules {
       source: opts?.source ?? "posted",
       eventId: opts?.eventId ?? null,
       storeId: payment.storeId,
+    }
+  }
+
+  /** Posted purchase return → Dr Accounts Payable / Cr Inventory (debit note). */
+  static fromPurchaseReturn(
+    ret: PurchaseReturnRecord,
+    opts?: { eventId?: string | null; source?: JournalEntry["source"] }
+  ): JournalEntry | null {
+    // Unbilled GRN-only returns have no AP to reverse.
+    if (!ret.purchaseInvoiceId || ret.totalPaisa <= 0) return null
+    const amount = Math.max(0, Math.round(ret.totalPaisa))
+    const date = (ret.postedAt || ret.returnedAt || ret.createdAt).slice(0, 10)
+    return {
+      id: `je_prn_${ret.id}`,
+      date,
+      createdAt: ret.postedAt || ret.createdAt,
+      description: `Purchase return ${ret.returnNumber}`,
+      referenceType: "purchase_return",
+      referenceId: ret.id,
+      operatorId: ret.updatedBy ?? ret.createdBy,
+      operatorName: null,
+      paymentMethod: null,
+      lines: [
+        journalLine(ACCOUNT_CODES.AP, amount, 0),
+        journalLine(ACCOUNT_CODES.INVENTORY, 0, amount),
+      ],
+      source: opts?.source ?? "posted",
+      eventId: opts?.eventId ?? null,
+      storeId: ret.storeId,
     }
   }
 

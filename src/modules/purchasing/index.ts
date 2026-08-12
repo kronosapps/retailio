@@ -24,3 +24,9 @@ export {
   type PayInvoiceInput,
   type SupplierPaymentRecord,
 } from "./SupplierPaymentService"
+export {
+  PurchaseReturnService,
+  PurchaseReturnError,
+  type CreatePurchaseReturnFromSourceInput,
+  type PurchaseReturnRecord,
+} from "./PurchaseReturnService"

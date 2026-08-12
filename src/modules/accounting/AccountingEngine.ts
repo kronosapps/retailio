@@ -1,10 +1,12 @@
 import type { PurchaseInvoiceRecord } from "@/data/purchaseInvoices"
+import type { PurchaseReturnRecord } from "@/data/purchaseReturns"
 import type { SupplierPaymentRecord } from "@/data/supplierPayments"
 import { EventSubscriber } from "@/events/EventSubscriber"
 import { EventTypes, type DomainEvent } from "@/events/EventTypes"
 import { invoiceRepository } from "@/repositories/InvoiceRepository"
 import { journalRepository } from "@/repositories/JournalRepository"
 import type { ExpenseRecord } from "@/repositories/ExpenseRepository"
+import { purchaseReturnRepository } from "@/repositories/PurchaseReturnRepository"
 import { supplierInvoiceRepository } from "@/repositories/SupplierInvoiceRepository"
 import { supplierPaymentRepository } from "@/repositories/SupplierPaymentRepository"
 
@@ -60,6 +62,9 @@ export class AccountingEngine {
     })
     this.subscriber.on(EventTypes.SUPPLIER_PAYMENT_RECORDED, (event) => {
       void this.onSupplierPayment(event)
+    })
+    this.subscriber.on(EventTypes.PURCHASE_RETURN_POSTED, (event) => {
+      void this.onPurchaseReturnPosted(event)
     })
   }
 
@@ -237,6 +242,35 @@ export class AccountingEngine {
     } catch (err) {
       if (import.meta.env.DEV) {
         console.warn("[AccountingEngine] supplier payment journal failed", err)
+      }
+    }
+  }
+
+  private async onPurchaseReturnPosted(event: DomainEvent) {
+    const payload = event.payload as { id?: string }
+    const returnId = payload?.id
+    if (!returnId) return
+
+    try {
+      if (journalRepository.getByReference("purchase_return", returnId)) {
+        return
+      }
+
+      const ret =
+        purchaseReturnRepository.getById(returnId) ||
+        (payload as PurchaseReturnRecord)
+      if (!ret?.id) return
+      if (ret.status !== "POSTED") return
+
+      const entry = AccountingRules.fromPurchaseReturn(ret, {
+        eventId: event.id,
+        source: "posted",
+      })
+      if (!entry) return
+      await journalRepository.savePosted(entry)
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn("[AccountingEngine] purchase return journal failed", err)
       }
     }
   }

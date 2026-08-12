@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import {
   PurchaseOrderService,
   PurchaseReceivingService,
+  PurchaseReturnService,
   SupplierInvoiceService,
   SupplierPaymentService,
 } from "@/modules/purchasing"
@@ -16,11 +17,13 @@ const TABS = [
   { to: "/purchasing/goods-received", label: "Goods Received" },
   { to: "/purchasing/invoices", label: "Purchase Invoices" },
   { to: "/purchasing/payments", label: "Supplier Payments" },
+  { to: "/purchasing/returns", label: "Returns" },
   { to: "/purchasing/statements", label: "Statements" },
+  { to: "/purchasing/match", label: "Match" },
 ] as const
 
 /**
- * Purchasing shell — Suppliers through AP / payments / statements.
+ * Purchasing shell — Suppliers through AP / payments / returns / match.
  */
 export function PurchasingPage() {
   useEffect(() => {
@@ -29,6 +32,7 @@ export function PurchasingPage() {
     void PurchaseReceivingService.hydrate()
     void SupplierInvoiceService.hydrate()
     void SupplierPaymentService.hydrate()
+    void PurchaseReturnService.hydrate()
   }, [])
 
   return (
@@ -36,8 +40,9 @@ export function PurchasingPage() {
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Purchasing</h1>
         <p className="text-sm text-muted-foreground">
-          Suppliers, orders, goods received, invoices, and payments. Posted GRNs
-          stock inventory; posted invoices create AP — not expenses.
+          Suppliers, orders, goods received, invoices, payments, and returns.
+          Posted GRNs stock inventory; posted invoices create AP; returns
+          reverse stock and AP.
         </p>
       </header>
 

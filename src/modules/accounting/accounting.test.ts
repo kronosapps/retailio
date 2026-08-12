@@ -95,6 +95,23 @@ describe("AccountingRules", () => {
     } as never)
     expect(isBalanced(spay)).toBe(true)
     expect(spay.referenceType).toBe("supplier_payment")
+
+    const prn = AccountingRules.fromPurchaseReturn({
+      id: "prn-1",
+      returnNumber: "PRN-1",
+      purchaseInvoiceId: "pin-1",
+      totalPaisa: 8000,
+      postedAt: "2026-04-06T10:00:00.000Z",
+      returnedAt: "2026-04-06T10:00:00.000Z",
+      createdAt: "2026-04-06T09:00:00.000Z",
+      updatedBy: "t",
+      createdBy: "t",
+      storeId: "s1",
+      status: "POSTED",
+    } as never)
+    expect(prn).not.toBeNull()
+    expect(isBalanced(prn!)).toBe(true)
+    expect(prn!.referenceType).toBe("purchase_return")
   })
 })
 

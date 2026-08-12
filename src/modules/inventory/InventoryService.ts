@@ -186,7 +186,10 @@ export class InventoryService {
     actorId?: string | null
     actorName?: string | null
     storeId?: string | null
-    type?: Extract<InventoryMovementType, "SALE" | "DAMAGE" | "WASTAGE" | "ADJUSTMENT_OUT">
+    type?: Extract<
+      InventoryMovementType,
+      "SALE" | "DAMAGE" | "WASTAGE" | "ADJUSTMENT_OUT" | "PURCHASE_RETURN"
+    >
   }) {
     const qty = Number(input.quantity)
     if (!Number.isFinite(qty) || qty <= 0) {

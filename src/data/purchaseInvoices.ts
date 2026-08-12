@@ -35,6 +35,8 @@ export type PurchaseInvoiceRecord = {
   subtotalPaisa: number
   totalPaisa: number
   amountPaidPaisa: number
+  /** Debit notes / purchase returns applied against this invoice. */
+  amountCreditedPaisa: number
   status: PurchaseInvoiceStatus
   storeId: string | null
   createdAt: string
@@ -148,6 +150,7 @@ export function normalizePurchaseInvoice(
     subtotalPaisa: raw.subtotalPaisa != null ? Number(raw.subtotalPaisa) : subtotal,
     totalPaisa: raw.totalPaisa != null ? Number(raw.totalPaisa) : subtotal,
     amountPaidPaisa: Math.max(0, Number(raw.amountPaidPaisa) || 0),
+    amountCreditedPaisa: Math.max(0, Number(raw.amountCreditedPaisa) || 0),
     status: raw.status || "DRAFT",
     storeId: raw.storeId ?? null,
     createdAt: raw.createdAt || now,
@@ -192,14 +195,22 @@ export function nextPurchaseInvoiceNumber(date = new Date()): string {
 }
 
 export function remainingPayablePaisa(inv: PurchaseInvoiceRecord): number {
-  return Math.max(0, inv.totalPaisa - inv.amountPaidPaisa)
+  return Math.max(
+    0,
+    inv.totalPaisa - inv.amountPaidPaisa - (inv.amountCreditedPaisa || 0)
+  )
 }
 
 export function deriveInvoicePaymentStatus(
-  inv: Pick<PurchaseInvoiceRecord, "totalPaisa" | "amountPaidPaisa" | "status">
+  inv: Pick<
+    PurchaseInvoiceRecord,
+    "totalPaisa" | "amountPaidPaisa" | "amountCreditedPaisa" | "status"
+  >
 ): PurchaseInvoiceStatus {
   if (inv.status === "DRAFT" || inv.status === "CANCELLED") return inv.status
-  if (inv.amountPaidPaisa <= 0) return "POSTED"
-  if (inv.amountPaidPaisa >= inv.totalPaisa) return "PAID"
+  const settled =
+    (inv.amountPaidPaisa || 0) + (inv.amountCreditedPaisa || 0)
+  if (settled <= 0) return "POSTED"
+  if (settled >= inv.totalPaisa) return "PAID"
   return "PARTIAL"
 }

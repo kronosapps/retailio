@@ -14,8 +14,10 @@ import {
   PurchasingGoodsReceivedPage,
   PurchasingIndexRedirect,
   PurchasingInvoicesPage,
+  PurchasingMatchPage,
   PurchasingOrdersPage,
   PurchasingPaymentsPage,
+  PurchasingReturnsPage,
   PurchasingStatementsPage,
   PurchasingSuppliersPage,
 } from "@/pages/purchasing/PurchasingSuppliersPage"
@@ -177,10 +179,12 @@ export default function App() {
               />
               <Route path="invoices" element={<PurchasingInvoicesPage />} />
               <Route path="payments" element={<PurchasingPaymentsPage />} />
+              <Route path="returns" element={<PurchasingReturnsPage />} />
               <Route
                 path="statements"
                 element={<PurchasingStatementsPage />}
               />
+              <Route path="match" element={<PurchasingMatchPage />} />
             </Route>
             <Route path="/transactions" element={<TransactionsPage />} />
             <Route path="/reports" element={<ReportsPage />} />

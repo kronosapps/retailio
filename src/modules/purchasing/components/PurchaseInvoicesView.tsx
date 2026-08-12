@@ -210,6 +210,9 @@ export function PurchaseInvoicesView() {
                       <div>
                         {inv.billDate} · Total {formatMoney(inv.totalPaisa)} ·
                         Paid {formatMoney(inv.amountPaidPaisa)}
+                        {(inv.amountCreditedPaisa || 0) > 0
+                          ? ` · Credit ${formatMoney(inv.amountCreditedPaisa)}`
+                          : ""}
                       </div>
                     </>
                   }

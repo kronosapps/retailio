@@ -8,6 +8,7 @@ export const INVENTORY_MOVEMENT_TYPES = [
   "PURCHASE",
   "SALE",
   "RETURN",
+  "PURCHASE_RETURN",
   "DAMAGE",
   "WASTAGE",
   "ADJUSTMENT_IN",
@@ -22,6 +23,7 @@ export const MOVEMENT_STOCK_EFFECT: Record<InventoryMovementType, 1 | -1> = {
   PURCHASE: 1,
   SALE: -1,
   RETURN: 1,
+  PURCHASE_RETURN: -1,
   DAMAGE: -1,
   WASTAGE: -1,
   ADJUSTMENT_IN: 1,
@@ -171,6 +173,8 @@ export function movementTypeLabel(type: InventoryMovementType): string {
       return "Sale"
     case "RETURN":
       return "Return"
+    case "PURCHASE_RETURN":
+      return "Purchase Return"
     case "DAMAGE":
       return "Damage"
     case "WASTAGE":

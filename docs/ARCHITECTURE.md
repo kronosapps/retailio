@@ -55,7 +55,7 @@ No layer may skip another layer.
 
 ### Purchasing (Phases 1–5)
 
-- Nav: `/purchasing` (admin/manager) — Suppliers, POs, Goods Received, Purchase Invoices, Supplier Payments, Statements (returns later).
+- Nav: `/purchasing` (admin/manager) — Suppliers, POs, Goods Received, Purchase Invoices, Supplier Payments, Returns, Statements, Match.
 - **Suppliers:** `SupplierService` → `SupplierRepository` → `suppliers` + `retailos.suppliers.v1`.
 - **Purchase Orders:** `PurchaseOrderService` → `PurchaseOrderRepository` → `purchase_orders`. Draft → Issue; does **not** change stock.
 - **Goods Received:** `PurchaseReceivingService` → `goods_receipts` → `InventoryService.addStock({ type: "PURCHASE", referenceId: grnId })`.

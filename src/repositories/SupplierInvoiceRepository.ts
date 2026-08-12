@@ -73,6 +73,7 @@ export class SupplierInvoiceRepository {
       subtotalPaisa: total,
       totalPaisa: total,
       amountPaidPaisa: 0,
+      amountCreditedPaisa: 0,
       status: "DRAFT",
       storeId: input.storeId ?? null,
       createdAt: now,

@@ -249,6 +249,55 @@ export class SupplierInvoiceService {
     )
   }
 
+  /** Apply a debit-note / purchase-return credit (called by PurchaseReturnService). */
+  static async applyCredit(
+    invoiceId: string,
+    amountPaisa: number,
+    actorId: string | null = null
+  ): Promise<PurchaseInvoiceRecord> {
+    const existing = supplierInvoiceRepository.getById(invoiceId)
+    if (!existing) {
+      throw new SupplierInvoiceError("NOT_FOUND", "Purchase invoice not found.")
+    }
+    if (
+      existing.status !== "POSTED" &&
+      existing.status !== "PARTIAL" &&
+      existing.status !== "PAID"
+    ) {
+      throw new SupplierInvoiceError(
+        "INVALID_STATUS",
+        "Credits can only be applied to posted invoices."
+      )
+    }
+    const remaining = remainingPayablePaisa(existing)
+    if (amountPaisa <= 0) {
+      throw new SupplierInvoiceError(
+        "VALIDATION",
+        "Credit amount must be positive."
+      )
+    }
+    // Debit notes may exceed remaining payable (creates supplier credit / negative AP).
+    void remaining
+
+    const amountCreditedPaisa =
+      (existing.amountCreditedPaisa || 0) + amountPaisa
+    const status = deriveInvoicePaymentStatus({
+      ...existing,
+      amountCreditedPaisa,
+      status: existing.status,
+    })
+
+    return supplierInvoiceRepository.save(
+      {
+        ...existing,
+        amountCreditedPaisa,
+        status,
+        updatedBy: actorId,
+      },
+      "updated"
+    )
+  }
+
   /** Apply a payment amount (called by SupplierPaymentService). */
   static async applyPayment(
     invoiceId: string,

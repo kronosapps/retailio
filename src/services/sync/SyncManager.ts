@@ -123,6 +123,30 @@ const ROUTES: Partial<Record<string, SheetRoute>> = {
       }
     },
   },
+  [EventTypes.PURCHASE_RETURN_CREATED]: {
+    sheet: "PurchaseReturns",
+    sync: async (p, data) => {
+      if (typeof p.syncPurchaseReturn === "function") {
+        await p.syncPurchaseReturn(data)
+      }
+    },
+  },
+  [EventTypes.PURCHASE_RETURN_POSTED]: {
+    sheet: "PurchaseReturns",
+    sync: async (p, data) => {
+      if (typeof p.syncPurchaseReturn === "function") {
+        await p.syncPurchaseReturn(data)
+      }
+    },
+  },
+  [EventTypes.PURCHASE_RETURN_UPDATED]: {
+    sheet: "PurchaseReturns",
+    sync: async (p, data) => {
+      if (typeof p.syncPurchaseReturn === "function") {
+        await p.syncPurchaseReturn(data)
+      }
+    },
+  },
   [EventTypes.EXPENSE_CREATED]: {
     sheet: "Expenses",
     sync: (p, data) => p.syncExpense(data),

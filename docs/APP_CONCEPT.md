@@ -202,7 +202,7 @@ Canonical docs: [`ARCHITECTURE.md`](./ARCHITECTURE.md), [`DEVELOPER_GUIDE.md`](.
 ### Expenses / Suppliers / Purchasing
 
 - Expenses: Utilities → Add Expense / Expense Reports.
-- **Purchasing:** `/purchasing/suppliers` · `/orders` · `/goods-received` · `/invoices` · `/payments` · `/statements` — PO → GRN (stock) → purchase invoice (AP) → supplier payment. Later: purchase returns.
+- **Purchasing:** `/purchasing/suppliers` · `/orders` · `/goods-received` · `/invoices` · `/payments` · `/returns` · `/statements` · `/match` — PO → GRN (stock) → purchase invoice (AP) → supplier payment; purchase returns reverse stock + AP.
 
 ---
 
