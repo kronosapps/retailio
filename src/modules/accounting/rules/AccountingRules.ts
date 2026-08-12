@@ -3,8 +3,10 @@ import type { PurchaseInvoiceRecord } from "@/data/purchaseInvoices"
 import type { PurchaseReturnRecord } from "@/data/purchaseReturns"
 import type { SupplierPaymentRecord } from "@/data/supplierPayments"
 import { rupeesToPaisa } from "@/lib/money"
+import type { InventoryMovement } from "@/modules/inventory/types"
 import type { ExpenseRecord } from "@/repositories/ExpenseRepository"
 
+import { movementCostPaisa, saleCogsPaisa } from "../costBasis"
 import { ACCOUNT_CODES } from "../chartOfAccounts"
 import type { JournalEntry, JournalLine } from "../types"
 
@@ -46,16 +48,31 @@ function balanceLines(lines: JournalLine[]): JournalLine[] {
 export class AccountingRules {
   static fromSale(
     sale: RecordedSale,
-    opts?: { eventId?: string | null; source?: JournalEntry["source"] }
+    opts?: {
+      eventId?: string | null
+      source?: JournalEntry["source"]
+      /** Override catalog-derived COGS (tests). */
+      cogsPaisa?: number
+    }
   ): JournalEntry {
     const taxable = sale.totals.taxableAmount || 0
     const gst = sale.totals.gstAmount || 0
     const total = sale.totals.total || taxable + gst
     const tender = tenderAccount(sale.paymentMethod)
+    const cogs =
+      typeof opts?.cogsPaisa === "number"
+        ? Math.max(0, Math.round(opts.cogsPaisa))
+        : saleCogsPaisa(sale)
     const lines = balanceLines([
       journalLine(tender, total, 0),
       journalLine(ACCOUNT_CODES.SALES, 0, taxable),
       ...(gst > 0 ? [journalLine(ACCOUNT_CODES.GST_PAYABLE, 0, gst)] : []),
+      ...(cogs > 0
+        ? [
+            journalLine(ACCOUNT_CODES.COGS, cogs, 0),
+            journalLine(ACCOUNT_CODES.INVENTORY, 0, cogs),
+          ]
+        : []),
     ])
 
     return {
@@ -85,9 +102,20 @@ export class AccountingRules {
     storeId?: string | null
     eventId?: string | null
     source?: JournalEntry["source"]
+    /** When stock was returned, reverse COGS / restore Inventory. */
+    restockCogsPaisa?: number
   }): JournalEntry {
     const amount = Math.max(0, Math.round(input.amountPaisa))
     const tender = tenderAccount(input.method)
+    const restockCogs = Math.max(0, Math.round(input.restockCogsPaisa || 0))
+    const lines: JournalLine[] = [
+      journalLine(ACCOUNT_CODES.SALES_RETURNS, amount, 0),
+      journalLine(tender, 0, amount),
+    ]
+    if (restockCogs > 0) {
+      lines.push(journalLine(ACCOUNT_CODES.INVENTORY, restockCogs, 0))
+      lines.push(journalLine(ACCOUNT_CODES.COGS, 0, restockCogs))
+    }
     return {
       id: `je_refund_${input.refundId}`,
       date: input.createdAt.slice(0, 10),
@@ -98,10 +126,7 @@ export class AccountingRules {
       operatorId: input.createdBy ?? null,
       operatorName: null,
       paymentMethod: input.method,
-      lines: [
-        journalLine(ACCOUNT_CODES.SALES_RETURNS, amount, 0),
-        journalLine(tender, 0, amount),
-      ],
+      lines,
       source: input.source ?? "posted",
       eventId: input.eventId ?? null,
       storeId: input.storeId ?? null,
@@ -242,6 +267,70 @@ export class AccountingRules {
     }
   }
 
+  /**
+   * Stock movements not covered by sale / purchase invoice / refund /
+   * purchase-return journals. PURCHASE / SALE / RETURN / PURCHASE_RETURN → null.
+   */
+  static fromInventoryMovement(
+    movement: InventoryMovement,
+    opts?: {
+      eventId?: string | null
+      source?: JournalEntry["source"]
+      costPaisa?: number
+    }
+  ): JournalEntry | null {
+    const skip = new Set([
+      "PURCHASE",
+      "SALE",
+      "RETURN",
+      "PURCHASE_RETURN",
+    ])
+    if (skip.has(movement.type)) return null
+
+    const cost =
+      typeof opts?.costPaisa === "number"
+        ? Math.max(0, Math.round(opts.costPaisa))
+        : movementCostPaisa(movement.sku, movement.quantity)
+    if (cost <= 0) return null
+
+    let lines: JournalLine[]
+    switch (movement.type) {
+      case "OPENING_STOCK":
+      case "ADJUSTMENT_IN":
+        lines = [
+          journalLine(ACCOUNT_CODES.INVENTORY, cost, 0),
+          journalLine(ACCOUNT_CODES.CAPITAL, 0, cost),
+        ]
+        break
+      case "ADJUSTMENT_OUT":
+      case "DAMAGE":
+      case "WASTAGE":
+        lines = [
+          journalLine(ACCOUNT_CODES.COGS, cost, 0),
+          journalLine(ACCOUNT_CODES.INVENTORY, 0, cost),
+        ]
+        break
+      default:
+        return null
+    }
+
+    return {
+      id: `je_imv_${movement.id}`,
+      date: movement.createdAt.slice(0, 10),
+      createdAt: movement.createdAt,
+      description: `${movement.type} ${movement.sku} × ${movement.quantity}`,
+      referenceType: "inventory_movement",
+      referenceId: movement.id,
+      operatorId: movement.createdBy,
+      operatorName: movement.createdByName,
+      paymentMethod: null,
+      lines,
+      source: opts?.source ?? "posted",
+      eventId: opts?.eventId ?? null,
+      storeId: movement.storeId,
+    }
+  }
+
   /** Build refund entry when only rupee amount is known (event payload). */
   static fromRefundPayload(payload: {
     refundId: string
@@ -253,6 +342,7 @@ export class AccountingRules {
     createdBy?: string | null
     storeId?: string | null
     eventId?: string | null
+    restockCogsPaisa?: number
   }): JournalEntry | null {
     if (!payload.refundId) return null
     const amountPaisa =
@@ -271,6 +361,7 @@ export class AccountingRules {
       createdBy: payload.createdBy,
       storeId: payload.storeId,
       eventId: payload.eventId,
+      restockCogsPaisa: payload.restockCogsPaisa,
     })
   }
 }

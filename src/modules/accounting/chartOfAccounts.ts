@@ -42,6 +42,12 @@ export const CHART_OF_ACCOUNTS: LedgerAccount[] = [
     normalBalance: "debit",
   },
   { code: "5000", name: "Expenses", type: "expense", normalBalance: "debit" },
+  {
+    code: "5100",
+    name: "Cost of Goods Sold",
+    type: "expense",
+    normalBalance: "debit",
+  },
 ]
 
 export function getAccount(code: string): LedgerAccount | undefined {
@@ -59,4 +65,5 @@ export const ACCOUNT_CODES = {
   SALES: "4000",
   SALES_RETURNS: "4100",
   EXPENSES: "5000",
+  COGS: "5100",
 } as const

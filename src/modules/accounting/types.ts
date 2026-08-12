@@ -36,6 +36,7 @@ export type JournalEntry = {
     | "banking"
     | "opening"
     | "inventory"
+    | "inventory_movement"
     | "purchase_invoice"
     | "supplier_payment"
     | "purchase_return"

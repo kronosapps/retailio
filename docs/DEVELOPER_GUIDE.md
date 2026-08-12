@@ -58,16 +58,27 @@
 6. Routes: `/purchasing/suppliers`, `/orders`, `/goods-received`, `/invoices`, `/payments`, `/statements` (admin/manager).
 7. Do not increase stock on supplier/PO/invoice create. Expenses stay OpEx (Utilities), not inventory buys.
 
+## ERP integration (Purchase + Inventory + Sales)
+
+1. Chain map: `src/modules/integration/erpChain.ts` — stages, events, consumers.
+2. POS paid → `PAYMENT_RECEIVED` → InventoryEngine (stock/FEFO) + BankingEngine + AccountingEngine (sales + COGS).
+3. Purchase invoice → Inventory GL; GRN → physical stock/lots only until billed.
+4. Opening / adjust / damage / wastage → `INVENTORY_MOVEMENT_CREATED` → AccountingEngine (when catalog cost exists).
+5. Do not call Accounting/Banking/Inventory from React — publish events via repositories/services.
+6. Integration test: `npx vitest run src/modules/integration/erpChain.test.ts`.
+7. Status UI: `/utilities/erp-chain` → `ErpChainStatusService` (event log + journal health; read-only).
+
 ## Utilities
 
 1. Landing + tools catalog: `src/modules/utilities/catalog.ts` (RBAC per tool).
-2. Hybrid accounting: `AccountingEngine` posts via `AccountingRules` → `JournalRepository`; `AccountingService.getMergedEntries` prefers posted over projection.
+2. Hybrid accounting: `AccountingEngine` posts via `AccountingRules` → `JournalRepository`; `AccountingService.getMergedEntries` prefers posted over projection. CoA includes `5100` COGS.
 3. Expense create: UI → `ExpenseService.save` → `EXPENSE_CREATED` → AccountingEngine.
 4. Financial year: `FinancialYearService.getActive()` for period scoping.
 5. Excel on utility tables: `UtilitiesExportService` → `ExcelReportExporter` (reuse reporting exporter).
 6. Statutory: `StatutoryService` — always `filingReady: false` until full tax data models exist.
 7. Routes under `/utilities` are lazy-loaded (`App.tsx` + `UtilitiesLayout` Suspense).
-8. Do not delete paid invoices from Recycle Bin — restore masters only.
+8. ERP chain status: `/utilities/erp-chain` (admin/manager).
+9. Do not delete paid invoices from Recycle Bin — restore masters only.
 
 ## Local vs cloud
 

@@ -142,12 +142,35 @@ AccountingService merges posted + AccountingProjectionService backfill
 Trial Balance / Balance Sheet / Daybook / Account Statement
 ```
 
-- **Hybrid GL:** posted journals win per `referenceType+referenceId`; projection fills historical gaps (openings/inventory snapshot). Not audited books.
+- **Hybrid GL:** posted journals win per `referenceType+referenceId`; projection fills historical gaps (openings). Inventory snapshot is skipped when perpetual inventory is active (purchase invoices / COGS / stock movements). Not audited books.
+- **Perpetual inventory:** sale → Dr COGS / Cr Inventory (catalog cost); opening/adjust-in → Dr Inventory / Cr Capital; adjust-out/damage/wastage → Dr COGS / Cr Inventory; refund restock reverses COGS.
 - **Expense create:** `/utilities/expenses` → `ExpenseService.save` only (never Firestore from UI).
 - **Excel:** `UtilitiesExportService` → shared `ExcelReportExporter` (no second Excel stack).
 - **FinancialYearService** — Indian FY (Apr–Mar), shared by accounting & statutory views.
 - **Statutory scaffold** (`StatutoryService`): GST operational summary + B2B/B2C when `customer.gstin` exists; TCS / Form 27EQ typed empty tables with `filingReady: false` + missing-field lists — never claim government compliance.
 - Recycle Bin restores soft-deactivated products only — not paid financial transactions.
+
+---
+
+## ERP chain (Purchase + Inventory + Sales)
+
+Canonical flow (`src/modules/integration/erpChain.ts`):
+
+```text
+Supplier → PO → GRN → Inventory → Purchase Invoice → Supplier Payment
+                 ↓
+              POS Sale → Customer → Payment → Banking → Accounting → Reports
+```
+
+| Stage | Events | Engines |
+|-------|--------|---------|
+| GRN | `GOODS_RECEIVED` + stock movements | Sync (stock via service call) |
+| Purchase invoice | `PURCHASE_INVOICE_POSTED` | AccountingEngine |
+| Supplier payment | `SUPPLIER_PAYMENT_RECORDED` | Banking + Accounting |
+| POS paid | `PAYMENT_RECEIVED` | Inventory + Banking + Accounting + Notification |
+| Stock adjust / take / opening | `INVENTORY_MOVEMENT_CREATED` / `STOCK_*` | AccountingEngine (non-sale/purchase types) |
+
+Reports remain pull-only. Integration test: `src/modules/integration/erpChain.test.ts`.
 
 ---
 
@@ -158,7 +181,7 @@ Supported types (`src/events/EventTypes.ts`):
 - `INVOICE_CREATED` / `INVOICE_UPDATED`
 - `PAYMENT_RECEIVED` / `PAYMENT_FAILED`
 - `PRODUCT_CREATED` / `PRODUCT_UPDATED`
-- `INVENTORY_CHANGED` / `INVENTORY_MOVEMENT_CREATED` / `STOCK_ADJUSTED`
+- `INVENTORY_CHANGED` / `INVENTORY_MOVEMENT_CREATED` / `STOCK_ADJUSTED` / `STOCK_TAKE_POSTED`
 - `CATEGORY_CREATED` / `CATEGORY_UPDATED`
 - `CUSTOMER_CREATED` / `CUSTOMER_UPDATED`
 - `REFUND_CREATED` / `REFUND_UPDATED` / `PAYMENT_REFUNDED`
@@ -167,9 +190,10 @@ Supported types (`src/events/EventTypes.ts`):
 - `GOODS_RECEIVED`
 - `PURCHASE_INVOICE_CREATED` / `PURCHASE_INVOICE_POSTED` / `PURCHASE_INVOICE_UPDATED`
 - `SUPPLIER_PAYMENT_RECORDED`
+- `PURCHASE_RETURN_CREATED` / `PURCHASE_RETURN_POSTED` / `PURCHASE_RETURN_UPDATED`
 - `EXPENSE_CREATED`
 
-Flow: repository write → `EventPublisher.publish` → `EventBus` → `SyncManager` enqueues → provider.
+Flow: repository write → `EventPublisher.publish` → `EventBus` → engines + `SyncManager` enqueues → provider.
 
 Event audit log: `localStorage` key `retailos.events.log.v1`.
 
