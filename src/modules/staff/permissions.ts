@@ -12,6 +12,7 @@ export const STAFF_NAV_ITEMS: StaffNavItem[] = [
   { to: "/", label: "Dashboard", roles: ["admin", "manager"] },
   { to: "/pos", label: "POS", roles: ["admin", "manager", "cashier"] },
   { to: "/shifts", label: "Shifts", roles: ["admin", "manager", "cashier"] },
+  { to: "/day-ops", label: "Day Ops", roles: ["admin", "manager"] },
   { to: "/returns", label: "Returns", roles: ["admin", "manager"] },
   { to: "/inventory", label: "Inventory", roles: ["admin", "manager"] },
   { to: "/purchasing", label: "Purchasing", roles: ["admin", "manager"] },
@@ -55,6 +56,10 @@ export function canAccessPath(
       : pathname
 
   if (path.startsWith("/invoices/")) {
+    return isManagerOrAbove(role)
+  }
+
+  if (path === "/day-ops" || path.startsWith("/day-ops/")) {
     return isManagerOrAbove(role)
   }
 

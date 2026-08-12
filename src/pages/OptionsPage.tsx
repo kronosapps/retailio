@@ -106,10 +106,14 @@ export function OptionsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">End of day</CardTitle>
+          <CardTitle className="text-base">Sheets sync (advanced)</CardTitle>
           <CardDescription>
-            Push the selected day&apos;s invoices, payments, refunds, customers,
-            and a DailyClose summary to Google Sheets in one run.
+            Day closing lives on{" "}
+            <Link to="/day-ops" className="underline">
+              Day Ops
+            </Link>
+            . This button only re-pushes invoices, payments, refunds, customers,
+            and DailyClose to Google Sheets for the selected day.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -161,7 +165,7 @@ export function OptionsPage() {
               </p>
             ) : (
               <p className="mt-2 text-xs text-muted-foreground">
-                No End of Day run recorded yet on this device.
+                No Sheets sync recorded yet on this device.
               </p>
             )}
           </div>
@@ -169,11 +173,12 @@ export function OptionsPage() {
           <Button
             type="button"
             size="lg"
+            variant="outline"
             disabled={busy}
             onClick={() => void runEndOfDay()}
           >
             <CloudUpload data-icon="inline-start" />
-            {busy ? "Syncing…" : "End of day"}
+            {busy ? "Syncing…" : "Sync day to Sheets"}
           </Button>
 
           {error ? (

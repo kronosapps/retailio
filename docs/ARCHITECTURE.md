@@ -51,7 +51,7 @@ No layer may skip another layer.
 
 ## Firestore collections
 
-`products` · `customers` · `suppliers` · `purchase_orders` · `goods_receipts` · `purchase_invoices` · `supplier_payments` · `inventory` · `inventory_movements` · `inventory_lots` · `stock_takes` · `cashier_shifts` · `sales_returns` · `credit_notes` · `crm_audit` · `categories` · `brands` · `units` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events`
+`products` · `customers` · `suppliers` · `purchase_orders` · `goods_receipts` · `purchase_invoices` · `supplier_payments` · `inventory` · `inventory_movements` · `inventory_lots` · `stock_takes` · `cashier_shifts` · `business_days` · `sales_returns` · `credit_notes` · `crm_audit` · `categories` · `brands` · `units` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events`
 
 ### Purchasing (Phases 1–5)
 
@@ -125,7 +125,8 @@ Excel (.xlsx)   Google Sheets (via existing SyncProvider.syncBatch)
 - **UI** (`/reports`) calls only `ReportingService` + `ReportExportService` — never Firestore, Sheets, or fetch.
 - **Excel** and **Sheets** sit side-by-side; neither depends on the other.
 - Money stays in **paisa** until display/export formatting.
-- Existing `src/modules/reports/` (Transactions / End of Day) remains for day ops; reporting is historical/exportable.
+- Day operations: `src/modules/dayOps/` — Open Day → Close Day (`/day-ops`). Sheets export stays in `EndOfDayService` as a close adapter. See `docs/DAY_OPS.md`.
+- Existing `src/modules/reports/` (Transactions / End of Day Sheets sync) remains; historical reporting is separate.
 
 ---
 

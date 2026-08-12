@@ -31,6 +31,7 @@ export const COLLECTIONS = {
   UNITS: "units",
   EXPENSES: "expenses",
   JOURNAL_ENTRIES: "journal_entries",
+  BUSINESS_DAYS: "business_days",
   USERS: "users",
   SETTINGS: "settings",
   SYNC_EVENTS: "sync_events",

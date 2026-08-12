@@ -41,6 +41,7 @@ import { OptionsPage } from "@/pages/OptionsPage"
 import { PosPage } from "@/pages/PosPage"
 import { ReportsPage } from "@/pages/ReportsPage"
 import { StaffPage } from "@/pages/StaffPage"
+import { DayOpsPage } from "@/pages/DayOpsPage"
 import { ShiftsPage } from "@/pages/ShiftsPage"
 import { ReturnsPage } from "@/pages/ReturnsPage"
 import { TransactionsPage } from "@/pages/TransactionsPage"
@@ -225,6 +226,7 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/shifts" element={<ShiftsPage />} />
+            <Route path="/day-ops" element={<DayOpsPage />} />
             <Route path="/returns" element={<ReturnsPage />} />
             <Route path="/inventory" element={<InventoryPage />}>
               <Route index element={<InventoryIndexRedirect />} />
