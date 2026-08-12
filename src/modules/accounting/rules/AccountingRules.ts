@@ -331,6 +331,107 @@ export class AccountingRules {
     }
   }
 
+  /**
+   * Posted sales return — revenue reverse + optional COGS reverse.
+   * REFUND: Cr Cash/UPI (money already also via REFUND_CREATED — skip cash here
+   *   when refundId set; AccountingEngine prefers refund journal for cash).
+   * CREDIT_NOTE / EXCHANGE (return leg): Cr Customer Credits.
+   */
+  static fromSalesReturn(
+    ret: {
+      id: string
+      returnNumber: string
+      settlement: "REFUND" | "CREDIT_NOTE" | "EXCHANGE"
+      totalPaisa: number
+      restock: boolean
+      refundId: string | null
+      postedAt: string | null
+      createdAt: string
+      storeId: string | null
+      createdBy: string | null
+      updatedBy: string | null
+    },
+    opts?: {
+      eventId?: string | null
+      source?: JournalEntry["source"]
+      restockCogsPaisa?: number
+      /** When true, skip tender line (refund event posts cash separately). */
+      skipTender?: boolean
+    }
+  ): JournalEntry | null {
+    const amount = Math.max(0, Math.round(ret.totalPaisa))
+    if (amount <= 0) return null
+    const restockCogs = Math.max(0, Math.round(opts?.restockCogsPaisa || 0))
+    const skipTender =
+      opts?.skipTender === true ||
+      (ret.settlement === "REFUND" && Boolean(ret.refundId))
+
+    const lines: JournalLine[] = [
+      journalLine(ACCOUNT_CODES.SALES_RETURNS, amount, 0),
+    ]
+    if (skipTender || ret.settlement === "CREDIT_NOTE" || ret.settlement === "EXCHANGE") {
+      lines.push(journalLine(ACCOUNT_CODES.CUSTOMER_CREDIT, 0, amount))
+    } else {
+      lines.push(journalLine(ACCOUNT_CODES.CASH, 0, amount))
+    }
+    if (ret.restock && restockCogs > 0) {
+      lines.push(journalLine(ACCOUNT_CODES.INVENTORY, restockCogs, 0))
+      lines.push(journalLine(ACCOUNT_CODES.COGS, 0, restockCogs))
+    }
+
+    const created = ret.postedAt || ret.createdAt
+    return {
+      id: `je_srn_${ret.id}`,
+      date: created.slice(0, 10),
+      createdAt: created,
+      description: `Sales return ${ret.returnNumber} (${ret.settlement})`,
+      referenceType: "sales_return",
+      referenceId: ret.id,
+      operatorId: ret.updatedBy ?? ret.createdBy,
+      operatorName: null,
+      paymentMethod: null,
+      lines,
+      source: opts?.source ?? "posted",
+      eventId: opts?.eventId ?? null,
+      storeId: ret.storeId,
+    }
+  }
+
+  static fromCreditNote(
+    note: {
+      id: string
+      creditNoteNumber: string
+      amountPaisa: number
+      createdAt: string
+      storeId: string | null
+      createdBy: string | null
+      reason: string | null
+    },
+    opts?: { eventId?: string | null; source?: JournalEntry["source"] }
+  ): JournalEntry | null {
+    // Issued via sales return journal; standalone issue still needs a balanced entry.
+    const amount = Math.max(0, Math.round(note.amountPaisa))
+    if (amount <= 0) return null
+    return {
+      id: `je_cn_${note.id}`,
+      date: note.createdAt.slice(0, 10),
+      createdAt: note.createdAt,
+      description: note.reason || `Credit note ${note.creditNoteNumber}`,
+      referenceType: "credit_note",
+      referenceId: note.id,
+      operatorId: note.createdBy,
+      operatorName: null,
+      paymentMethod: null,
+      lines: [
+        journalLine(ACCOUNT_CODES.SALES_RETURNS, amount, 0),
+        journalLine(ACCOUNT_CODES.CUSTOMER_CREDIT, 0, amount),
+      ],
+      source: opts?.source ?? "posted",
+      eventId: opts?.eventId ?? null,
+      storeId: note.storeId,
+    }
+  }
+
   /** Build refund entry when only rupee amount is known (event payload). */
   static fromRefundPayload(payload: {
     refundId: string

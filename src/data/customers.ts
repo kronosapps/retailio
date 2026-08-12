@@ -18,6 +18,8 @@ export type CustomerRecord = {
   updatedBy: string | null
   /** Lifetime spend in paisa (best-effort; updated on paid sales). */
   totalSpendPaisa: number
+  /** Unused store credit from credit notes (paisa). */
+  storeCreditPaisa: number
   visitCount: number
   lastPurchaseAt: string | null
 }
@@ -74,6 +76,11 @@ function normalizeCustomer(raw: CustomerRecord): CustomerRecord {
     updatedBy: raw.updatedBy ?? null,
     totalSpendPaisa: Number.isFinite(raw.totalSpendPaisa)
       ? raw.totalSpendPaisa
+      : 0,
+    storeCreditPaisa: Number.isFinite(
+      (raw as CustomerRecord).storeCreditPaisa
+    )
+      ? Math.max(0, Math.round((raw as CustomerRecord).storeCreditPaisa))
       : 0,
     visitCount: Number.isFinite(raw.visitCount) ? raw.visitCount : 0,
     lastPurchaseAt: raw.lastPurchaseAt ?? null,
@@ -201,6 +208,7 @@ export function buildCustomerRecord(
     createdBy: input.createdBy ?? null,
     updatedBy: input.createdBy ?? null,
     totalSpendPaisa: 0,
+    storeCreditPaisa: 0,
     visitCount: 0,
     lastPurchaseAt: null,
   }

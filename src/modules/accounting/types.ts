@@ -40,6 +40,8 @@ export type JournalEntry = {
     | "purchase_invoice"
     | "supplier_payment"
     | "purchase_return"
+    | "sales_return"
+    | "credit_note"
   referenceId: string
   operatorId: string | null
   operatorName: string | null

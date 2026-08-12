@@ -30,6 +30,12 @@ export const LIVE_SHEET_EVENTS = new Set<EventType>([
   EventTypes.SHIFT_OPENED,
   EventTypes.SHIFT_CLOSED,
   EventTypes.TILL_MOVEMENT,
+  EventTypes.SALE_RETURN_CREATED,
+  EventTypes.SALE_RETURN_POSTED,
+  EventTypes.SALE_RETURN_UPDATED,
+  EventTypes.CREDIT_NOTE_ISSUED,
+  EventTypes.CREDIT_NOTE_APPLIED,
+  EventTypes.SALE_CANCELLED,
 ])
 
 /**

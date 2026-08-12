@@ -41,6 +41,7 @@ import { PosPage } from "@/pages/PosPage"
 import { ReportsPage } from "@/pages/ReportsPage"
 import { StaffPage } from "@/pages/StaffPage"
 import { ShiftsPage } from "@/pages/ShiftsPage"
+import { ReturnsPage } from "@/pages/ReturnsPage"
 import { TransactionsPage } from "@/pages/TransactionsPage"
 
 const UtilitiesLayout = lazy(() =>
@@ -173,6 +174,7 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/shifts" element={<ShiftsPage />} />
+            <Route path="/returns" element={<ReturnsPage />} />
             <Route path="/inventory" element={<InventoryPage />}>
               <Route index element={<InventoryIndexRedirect />} />
               <Route path="items" element={<InventoryItemsPage />} />

@@ -35,6 +35,8 @@ const COLLECTIONS_TO_WIPE = [
   "inventory_lots",
   "stock_takes",
   "cashier_shifts",
+  "sales_returns",
+  "credit_notes",
   "expenses",
   "journal_entries",
   "settings",

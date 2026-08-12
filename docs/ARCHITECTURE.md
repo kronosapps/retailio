@@ -51,7 +51,7 @@ No layer may skip another layer.
 
 ## Firestore collections
 
-`products` · `customers` · `suppliers` · `purchase_orders` · `goods_receipts` · `purchase_invoices` · `supplier_payments` · `inventory` · `inventory_movements` · `inventory_lots` · `stock_takes` · `cashier_shifts` · `categories` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events`
+`products` · `customers` · `suppliers` · `purchase_orders` · `goods_receipts` · `purchase_invoices` · `supplier_payments` · `inventory` · `inventory_movements` · `inventory_lots` · `stock_takes` · `cashier_shifts` · `sales_returns` · `credit_notes` · `categories` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events`
 
 ### Purchasing (Phases 1–5)
 
@@ -190,6 +190,26 @@ Open shift (float) → Cash sales/refunds/expenses (TillEngine) → Cash in/out/
 
 ---
 
+## Sales returns & exchanges
+
+Module: `src/modules/salesReturn/`. UI: `/returns`.
+
+```text
+Paid sale → partial/full return lines → restock
+         → settlement: REFUND | CREDIT_NOTE | EXCHANGE
+```
+
+| Settlement | Money | Stock | GL |
+|------------|-------|-------|-----|
+| REFUND | Cash/UPI out (`REFUND_*`) | RETURN movements | Sales returns + tender (+ COGS reverse) |
+| CREDIT_NOTE | Store credit on customer | Optional restock | Dr Sales Returns / Cr Customer Credits |
+| EXCHANGE | Net delta pay or refund | Restock old + deduct new | Return leg + new sale |
+| Cancel unpaid | — | None (stock never taken) | `SALE_CANCELLED` |
+
+Invoice status: `PartiallyRefunded` until all lines returned, then `Refunded`.
+
+---
+
 ## Event system
 
 Supported types (`src/events/EventTypes.ts`):
@@ -209,6 +229,9 @@ Supported types (`src/events/EventTypes.ts`):
 - `PURCHASE_RETURN_CREATED` / `PURCHASE_RETURN_POSTED` / `PURCHASE_RETURN_UPDATED`
 - `EXPENSE_CREATED`
 - `SHIFT_OPENED` / `SHIFT_CLOSED` / `TILL_MOVEMENT`
+- `SALE_RETURN_CREATED` / `SALE_RETURN_POSTED` / `SALE_RETURN_UPDATED`
+- `CREDIT_NOTE_ISSUED` / `CREDIT_NOTE_APPLIED`
+- `SALE_CANCELLED`
 
 Flow: repository write → `EventPublisher.publish` → `EventBus` → engines + `SyncManager` enqueues → provider.
 
