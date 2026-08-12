@@ -19,6 +19,8 @@ export type OpsAuditKind =
   | "BANKING_ADJUSTMENT"
   | "EXPENSE_CREATED"
   | "STAFF_CREATED"
+  | "STAFF_UPDATED"
+  | "STAFF_DELETED"
   | "SETTINGS_CHANGED"
   | "BACKUP_EXPORTED"
 
@@ -72,6 +74,8 @@ export const OPS_AUDIT_KIND_LABELS: Record<OpsAuditKind, string> = {
   BANKING_ADJUSTMENT: "Banking adjustment",
   EXPENSE_CREATED: "Expense",
   STAFF_CREATED: "Staff created",
+  STAFF_UPDATED: "Staff updated",
+  STAFF_DELETED: "Staff deleted",
   SETTINGS_CHANGED: "Settings",
   BACKUP_EXPORTED: "Backup exported",
 }

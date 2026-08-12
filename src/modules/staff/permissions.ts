@@ -23,7 +23,7 @@ export const STAFF_NAV_ITEMS: StaffNavItem[] = [
   { to: "/utilities", label: "Utilities", roles: ["admin", "manager"] },
   { to: "/banking", label: "Banking", roles: ["admin"] },
   { to: "/settings", label: "Settings", roles: ["admin"] },
-  { to: "/staff", label: "Staff", roles: ["admin"] },
+  { to: "/staff", label: "Staff management", roles: ["admin"] },
 ]
 
 export function isAdmin(role: UserRole | null | undefined): boolean {

@@ -105,7 +105,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   {
     id: "users",
     title: "Users & Roles",
-    description: "Staff accounts, roles, and passcodes",
+    description: "Staff management — create, edit, deactivate accounts",
     path: "/staff",
     storage: "link",
     roles: ["admin"],
