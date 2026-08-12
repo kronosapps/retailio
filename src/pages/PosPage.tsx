@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react"
+import { Link } from "react-router-dom"
 import { ArrowLeft, Percent, ShoppingCart, Stamp } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -58,6 +59,7 @@ import {
 import { PosCartPanel } from "@/modules/pos/components/PosCartPanel"
 import { ReceiptDialog } from "@/modules/receipt"
 import { ProductService } from "@/modules/products"
+import { DayOpsService } from "@/modules/dayOps"
 import {
   LOYALTY_REWARD_ITEMS,
   getLoyaltyRewardItem,
@@ -173,6 +175,10 @@ function SingleProductCard({
 export function PosPage() {
   const { userId, profile } = useAuth()
   const store = usePosSessions()
+  const [dayOpen, setDayOpen] = useState(() =>
+    DayOpsService.isStoreDayOpen(profile?.storeId ?? null)
+  )
+  const [dayGateAck, setDayGateAck] = useState(false)
   const session = store.sessions[store.activeSessionId]
   const paymentOpen = useSyncExternalStore(
     subscribePaymentSession,
@@ -239,6 +245,11 @@ export function PosPage() {
 
     void loadCatalog()
     void PricingService.hydrate()
+    void DayOpsService.hydrate().then(() => {
+      if (!cancelled) {
+        setDayOpen(DayOpsService.isStoreDayOpen(profile?.storeId ?? null))
+      }
+    })
     return () => {
       cancelled = true
     }
@@ -669,6 +680,22 @@ export function PosPage() {
     const sessionId = store.activeSessionId
     updatePosSession(sessionId, { chargeError: null })
 
+    if (!DayOpsService.isStoreDayOpen(profile?.storeId ?? null)) {
+      setDayOpen(false)
+      if (!dayGateAck) {
+        const ok = window.confirm(
+          "Business day is not open. Open Day under Day Ops first.\n\nContinue this sale anyway?"
+        )
+        if (!ok) {
+          updatePosSession(sessionId, {
+            chargeError: "Open the business day before selling (Day Ops).",
+          })
+          return
+        }
+        setDayGateAck(true)
+      }
+    }
+
     try {
       const sale = await InvoiceService.create({
         cashierId: userId,
@@ -906,6 +933,15 @@ export function PosPage() {
           }
         }}
       />
+      {!dayOpen ? (
+        <div className="border-b border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+          Business day is not open.{" "}
+          <Link to="/day-ops" className="underline font-medium">
+            Open Day
+          </Link>{" "}
+          before selling when possible. Charge will ask to confirm.
+        </div>
+      ) : null}
       <div className="relative flex h-full w-full flex-col lg:grid lg:grid-cols-[minmax(280px,32%)_minmax(0,1fr)]">
         {/* Current order — desktop sidebar */}
         <aside className="hidden min-h-0 flex-col border-border bg-sidebar text-sidebar-foreground lg:flex lg:h-full lg:border-r">

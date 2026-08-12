@@ -1,7 +1,14 @@
-import { isInRange, resolveDashboardRange } from "@/modules/dashboard/services/dateRanges"
+import {
+  dayKeyFromDate,
+  isInRange,
+  isoDateFromDate,
+  resolveDashboardRange,
+} from "@/modules/dashboard/services/dateRanges"
 import { BankingService } from "@/modules/banking"
 import { ExpenseService } from "@/modules/expense/ExpenseService"
+import { InventoryService } from "@/modules/inventory"
 import { StockTakeService } from "@/modules/inventory/StockTakeService"
+import { PurchaseOrderService, remainingQty } from "@/modules/purchasing/PurchaseOrderService"
 import { EndOfDayService } from "@/modules/reports/EndOfDayService"
 import { saleDiscountPaisa } from "@/modules/reporting/utils/report-calculations"
 import { ShiftService } from "@/modules/shift"
@@ -13,6 +20,7 @@ import { paymentRepository } from "@/repositories/PaymentRepository"
 import { refundRepository } from "@/repositories/RefundRepository"
 import { businessDayRepository } from "@/repositories/BusinessDayRepository"
 import { createId } from "@/utils/id"
+import { paisaToRupees } from "@/lib/money"
 
 import type {
   BusinessDayRecord,
@@ -21,6 +29,9 @@ import type {
   DayClosingPreview,
   DayOpsDayRef,
   OpenDayInput,
+  ReopenDayInput,
+  SodChecklist,
+  SuggestedOpenings,
 } from "./types"
 
 export class DayOpsError extends Error {
@@ -33,23 +44,27 @@ export class DayOpsError extends Error {
   }
 }
 
-function dayKeyFromDate(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, "0")
-  const d = String(date.getDate()).padStart(2, "0")
-  return `${y}${m}${d}`
-}
-
-function isoDate(date: Date): string {
-  return date.toISOString().slice(0, 10)
-}
-
 function filterStore<T extends { storeId?: string | null }>(
   items: T[],
   storeId: string | null
 ): T[] {
   if (!storeId) return items
   return items.filter((i) => !i.storeId || i.storeId === storeId)
+}
+
+function emptyChecklist(): SodChecklist {
+  return {
+    bankingVerified: false,
+    floatReady: false,
+    printersOk: false,
+    upiQrOk: false,
+  }
+}
+
+function mergeChecklist(
+  partial?: Partial<SodChecklist> | null
+): SodChecklist {
+  return { ...emptyChecklist(), ...partial }
 }
 
 /**
@@ -82,6 +97,45 @@ export class DayOpsService {
     return businessDayRepository.hydrate()
   }
 
+  /** Soft-gate helper for POS — true when today's business day is OPEN. */
+  static isStoreDayOpen(storeId?: string | null): boolean {
+    const open = this.getOpen(storeId ?? null)
+    if (!open) return false
+    return open.dayKey === this.dayKeyToday()
+  }
+
+  /**
+   * Suggested SOD openings: prefer yesterday's frozen banking close,
+   * else live banking balances.
+   */
+  static getSuggestedOpenings(
+    storeId: string | null = null
+  ): SuggestedOpenings {
+    const yesterday = resolveDashboardRange("yesterday")
+    const yKey = dayKeyFromDate(yesterday.start)
+    const prior = this.getByDayKey(yKey, storeId)
+    if (
+      prior?.status === "CLOSED" &&
+      prior.closingSnapshot &&
+      (prior.closingSnapshot.bankingClosingCashPaisa != null ||
+        prior.closingSnapshot.bankingClosingUpiPaisa != null)
+    ) {
+      return {
+        cashPaisa: prior.closingSnapshot.bankingClosingCashPaisa,
+        upiPaisa: prior.closingSnapshot.bankingClosingUpiPaisa,
+        source: "yesterday_close",
+        sourceLabel: `Yesterday close (${prior.date})`,
+      }
+    }
+    const banking = BankingService.getSnapshot()
+    return {
+      cashPaisa: banking.balances.cashPaisa,
+      upiPaisa: banking.balances.upiPaisa,
+      source: "banking",
+      sourceLabel: "Current banking balances",
+    }
+  }
+
   /** Start of Day — open today's business day. */
   static async openDay(input: OpenDayInput = {}): Promise<BusinessDayRecord> {
     const storeId = input.storeId ?? null
@@ -101,16 +155,16 @@ export class DayOpsService {
     if (already?.status === "CLOSED" && !input.force) {
       throw new DayOpsError(
         "CONFLICT",
-        `Day ${already.date} is already closed. Use force only to reopen deliberately.`
+        `Day ${already.date} is already closed. Use Re-open day (admin) instead.`
       )
     }
 
-    const banking = BankingService.getSnapshot()
+    const suggested = this.getSuggestedOpenings(storeId)
     const now = new Date().toISOString()
     const record: BusinessDayRecord = {
       id: already?.id || createId("day"),
       dayKey,
-      date: isoDate(range.start),
+      date: isoDateFromDate(range.start),
       label: range.label,
       status: "OPEN",
       storeId,
@@ -120,12 +174,13 @@ export class DayOpsService {
       openingCashPaisa:
         typeof input.openingCashPaisa === "number"
           ? Math.max(0, Math.round(input.openingCashPaisa))
-          : banking.balances.cashPaisa,
+          : suggested.cashPaisa,
       openingUpiPaisa:
         typeof input.openingUpiPaisa === "number"
           ? Math.max(0, Math.round(input.openingUpiPaisa))
-          : banking.balances.upiPaisa,
+          : suggested.upiPaisa,
       openNotes: input.notes?.trim() || null,
+      sodChecklist: mergeChecklist(input.checklist),
       closedAt: null,
       closedBy: null,
       closedByName: null,
@@ -133,12 +188,64 @@ export class DayOpsService {
       countedCashPaisa: null,
       closingSnapshot: null,
       sheetsSync: null,
+      reopenedAt: already?.reopenedAt ?? null,
+      reopenedBy: already?.reopenedBy ?? null,
+      reopenedByName: already?.reopenedByName ?? null,
+      reopenReason: already?.reopenReason ?? null,
       createdAt: already?.createdAt || now,
       updatedAt: now,
     }
 
     const saved = await businessDayRepository.save(record)
     await EventPublisher.publish(EventTypes.DAY_OPENED, saved, storeId)
+    return saved
+  }
+
+  /** Admin-only reopen of a CLOSED day (audited). */
+  static async reopenDay(input: ReopenDayInput): Promise<BusinessDayRecord> {
+    const reason = input.reason?.trim()
+    if (!reason || reason.length < 3) {
+      throw new DayOpsError(
+        "VALIDATION",
+        "Re-open reason is required (min 3 characters)."
+      )
+    }
+    const storeId = input.storeId ?? null
+    const existingOpen = this.getOpen(storeId)
+    if (existingOpen) {
+      throw new DayOpsError(
+        "CONFLICT",
+        `Close open day ${existingOpen.date} before re-opening another.`
+      )
+    }
+    const day = this.getByDayKey(input.dayKey, storeId)
+    if (!day) throw new DayOpsError("NOT_FOUND", "Business day not found.")
+    if (day.status !== "CLOSED") {
+      throw new DayOpsError("INVALID_STATUS", "Only closed days can be re-opened.")
+    }
+
+    const now = new Date().toISOString()
+    const next: BusinessDayRecord = {
+      ...day,
+      status: "OPEN",
+      closedAt: null,
+      closedBy: null,
+      closedByName: null,
+      closeNotes: null,
+      countedCashPaisa: null,
+      closingSnapshot: null,
+      sheetsSync: null,
+      reopenedAt: now,
+      reopenedBy: input.actorId ?? null,
+      reopenedByName: input.actorName ?? null,
+      reopenReason: reason,
+      openedAt: now,
+      openedBy: input.actorId ?? null,
+      openedByName: input.actorName ?? null,
+      updatedAt: now,
+    }
+    const saved = await businessDayRepository.save(next)
+    await EventPublisher.publish(EventTypes.DAY_REOPENED, saved, storeId)
     return saved
   }
 
@@ -187,7 +294,10 @@ export class DayOpsService {
 
     let cashRefunds = 0
     let upiRefunds = 0
-    const refundByMethod = new Map<string, { count: number; totalPaisa: number }>()
+    const refundByMethod = new Map<
+      string,
+      { count: number; totalPaisa: number }
+    >()
     for (const r of completedRefunds) {
       const method = r.method || "Unknown"
       const cur = refundByMethod.get(method) || { count: 0, totalPaisa: 0 }
@@ -256,6 +366,30 @@ export class DayOpsService {
       })
     }
 
+    for (const row of InventoryService.getAllStock({ includeInactive: false })) {
+      if (row.quantity >= 0) continue
+      stockExceptions.push({
+        id: `neg_${row.sku}`,
+        label: `Negative stock · ${row.sku} (${row.quantity})`,
+        kind: "negative_stock",
+        varianceLines: 1,
+        at: row.updatedAt || new Date().toISOString(),
+      })
+    }
+
+    for (const po of PurchaseOrderService.listOpenForReceiving()) {
+      if (storeId && po.storeId && po.storeId !== storeId) continue
+      const remaining = po.lines.reduce((s, l) => s + remainingQty(l), 0)
+      if (remaining <= 0) continue
+      stockExceptions.push({
+        id: po.id,
+        label: `Open PO ${po.poNumber || po.id} · ${remaining} qty pending GRN`,
+        kind: "open_po",
+        varianceLines: po.lines.filter((l) => remainingQty(l) > 0).length,
+        at: po.updatedAt || po.createdAt,
+      })
+    }
+
     const shifts = ShiftService.list().filter((s) => {
       if (storeId && s.storeId && s.storeId !== storeId) return false
       const when = s.openedAt
@@ -267,25 +401,29 @@ export class DayOpsService {
         shiftId: s.id,
         shiftNumber: s.shiftNumber,
         cashierName: s.cashierName || s.cashierId,
+        cashierId: s.cashierId,
         status: s.status,
         expectedCashPaisa: b.expectedCashPaisa,
         actualCashPaisa: b.actualCashPaisa,
         variancePaisa: b.variancePaisa,
       }
     })
-    const openShiftsCount = cashierVariance.filter((r) => r.status === "OPEN")
-      .length
+    const openShiftsCount = cashierVariance.filter(
+      (r) => r.status === "OPEN"
+    ).length
 
     const banking = BankingService.getSnapshot()
     const warnings: string[] = []
     if (openShiftsCount > 0) {
       warnings.push(
-        `${openShiftsCount} cashier shift(s) still open — close tills before day close when possible.`
+        `${openShiftsCount} cashier shift(s) still open — close tills below or on Shifts.`
       )
     }
     const openDay = this.getOpen(storeId)
     if (day === "today" && !openDay) {
-      warnings.push("Business day is not open. Open Day to start the operational boundary.")
+      warnings.push(
+        "Business day is not open. Open Day to start the operational boundary."
+      )
     }
     if (day === "today" && openDay && openDay.dayKey !== dayKey) {
       warnings.push(
@@ -295,7 +433,7 @@ export class DayOpsService {
 
     return {
       dayKey,
-      date: isoDate(start),
+      date: isoDateFromDate(start),
       label: range.label,
       periodStart: start.toISOString(),
       periodEnd: end.toISOString(),
@@ -342,10 +480,12 @@ export class DayOpsService {
       expenses: {
         count: expenses.length,
         totalPaisa: expenseTotal,
-        byMethod: [...expenseByMethod.entries()].map(([method, totalPaisa]) => ({
-          method,
-          totalPaisa,
-        })),
+        byMethod: [...expenseByMethod.entries()].map(
+          ([method, totalPaisa]) => ({
+            method,
+            totalPaisa,
+          })
+        ),
       },
       stockExceptions,
       cashierVariance,
@@ -372,16 +512,12 @@ export class DayOpsService {
     const todayKey = this.dayKeyToday()
     const dayRef: DayOpsDayRef =
       open.dayKey === todayKey ? "today" : "yesterday"
-    // If open day is older than yesterday, still preview with calendar filter via dayKey range
-    const preview = await this.getClosingPreview(
-      open.dayKey === todayKey ? "today" : "yesterday",
-      storeId
-    )
+    const preview = await this.getClosingPreview(dayRef, storeId)
 
     if (preview.openShiftsCount > 0 && !input.allowOpenShifts) {
       throw new DayOpsError(
         "CONFLICT",
-        `${preview.openShiftsCount} cashier shift(s) still open. Close them or confirm allowOpenShifts.`
+        `${preview.openShiftsCount} cashier shift(s) still open. Close them below or confirm allow open shifts.`
       )
     }
 
@@ -393,7 +529,9 @@ export class DayOpsService {
     const shouldSync =
       input.syncSheets !== false && EndOfDayService.isSheetsConfigured()
     if (shouldSync) {
-      const result = await EndOfDayService.run(dayRef, storeId)
+      const result = await EndOfDayService.run(dayRef, storeId, {
+        closingPreview: preview,
+      })
       sheetsSync = {
         ran: true,
         ranAt: result.ranAt,
@@ -403,7 +541,9 @@ export class DayOpsService {
       sheetsSync = {
         ran: false,
         ranAt: null,
-        errors: ["Google Sheets is not configured — close completed without sync."],
+        errors: [
+          "Google Sheets is not configured — close completed without sync.",
+        ],
       }
     }
 
@@ -430,10 +570,16 @@ export class DayOpsService {
   }
 
   /** Sheets-only re-sync without changing day status (advanced / Options). */
-  static syncSheetsOnly(
+  static async syncSheetsOnly(
     day: DayOpsDayRef = "today",
     storeId: string | null = null
   ) {
-    return EndOfDayService.run(day, storeId)
+    const preview = await this.getClosingPreview(day, storeId)
+    return EndOfDayService.run(day, storeId, { closingPreview: preview })
+  }
+
+  /** Rupee helpers for UI forms. */
+  static paisaToRupeesInput(paisa: number): string {
+    return String(paisaToRupees(paisa))
   }
 }

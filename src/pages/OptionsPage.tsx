@@ -22,6 +22,7 @@ import {
   type EndOfDayDay,
   type EndOfDayResult,
 } from "@/modules/reports"
+import { DayOpsService } from "@/modules/dayOps"
 import { SettingsService } from "@/modules/settings/SettingsService"
 import { useAuth } from "@/providers/AuthProvider"
 import { cn } from "@/lib/utils"
@@ -56,7 +57,10 @@ export function OptionsPage() {
     setError(null)
     setResult(null)
     try {
-      const next = await EndOfDayService.run(day, profile?.storeId ?? null)
+      const next = await DayOpsService.syncSheetsOnly(
+        day,
+        profile?.storeId ?? null
+      )
       setResult(next)
       if (next.errors.length > 0 && next.invoicesSynced === 0) {
         setError(next.errors[0] ?? "End of day sync failed.")

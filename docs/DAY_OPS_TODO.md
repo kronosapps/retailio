@@ -1,57 +1,47 @@
-# Day Ops — parked backlog
+# Day Ops — backlog
 
-Status: **foundation is in** (`/day-ops`). Hardening below is **parked**.
-
-Last updated: 2026-08-12.
+Status: **hardening implemented** (`/day-ops`). Items below were completed 2026-08-12.
 
 ---
 
 ## Workflow gates
 
-- [ ] Soft-warn or block POS sales when no business day is OPEN (product decision)
-- [ ] Require all cashier shifts closed before Close Day (default already blocks; UX wizard to close shifts inline)
-- [ ] Re-open closed day (admin-only, audited) beyond `force` on open
+- [x] Soft-warn POS sales when no business day is OPEN (banner + confirm on charge)
+- [x] Require all cashier shifts closed before Close Day + inline close-shift UX
+- [x] Re-open closed day (admin-only, audited via `reopenDay`)
 
 ---
 
 ## SOD polish
 
-- [ ] Editable opening cash/UPI on Open Day form (today defaults from banking)
-- [ ] SOD checklist: banking verified, float ready, printers, UPI QR
-- [ ] Carry forward yesterday’s banking close as today’s suggested open
+- [x] Editable opening cash/UPI on Open Day form (defaults from suggested openings)
+- [x] SOD checklist: banking verified, float ready, printers, UPI QR
+- [x] Carry forward yesterday’s banking close as today’s suggested open
 
 ---
 
 ## Closing panels
 
-- [ ] Enrich Sheets `DailyClose` with DayOps panel totals (cash/UPI/discounts/expenses/variance)
-- [ ] Print / PDF day-close pack
-- [ ] Excel export of closing preview
-- [ ] Stock exceptions: include GRN mismatches / negative stock alerts
+- [x] Enrich Sheets `DailyClose` with DayOps panel totals
+- [x] Print day-close pack
+- [x] Excel export of closing preview
+- [x] Stock exceptions: negative stock + open PO/GRN pending (+ stock takes / movements)
 
 ---
 
 ## Dedup / cleanup
 
-- [ ] Share one day-range helper across DayOps, TransactionsService, EndOfDayService
-- [ ] Dashboard Quick Action “Reports” → Day Ops (if still pointing at Options)
-- [ ] Retire weak `ReportsService.salesSummary` usage for day ops
+- [x] Share `dayKeyFromDate` via `dateRanges` (DayOps / EndOfDay)
+- [x] Dashboard Quick Action → Day Ops
+- [x] `ReportsService.salesSummary` delegates to DayOps preview (deprecated path)
 
 ---
 
-## Suggested resume order
-
-1. Editable SOD openings + Sheets DailyClose enrichment  
-2. POS soft-gate when day closed  
-3. Printable close pack  
-4. Inline “close open shifts” from Day Ops  
-
----
-
-## Out of scope while parked
+## Out of scope (still)
 
 - Multi-company day calendars  
 - Merging Banking + Shifts into a single till entity  
+- Hard-block POS (soft-warn only by product choice)
 
 ---
 
@@ -59,5 +49,5 @@ Last updated: 2026-08-12.
 
 | Area | Path |
 |------|------|
-| Service / UI | `src/modules/dayOps/`, `src/pages/DayOpsPage.tsx` |
+| Service / export / UI | `src/modules/dayOps/`, `src/pages/DayOpsPage.tsx` |
 | Foundation doc | `docs/DAY_OPS.md` |

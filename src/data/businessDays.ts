@@ -22,7 +22,17 @@ function readStore(): DayStore {
     if (!raw) return emptyStore()
     const parsed = JSON.parse(raw) as Partial<DayStore>
     if (!Array.isArray(parsed.items)) return emptyStore()
-    return { version: 1, items: parsed.items as BusinessDayRecord[] }
+    return {
+      version: 1,
+      items: parsed.items.map((row) => ({
+        ...row,
+        sodChecklist: row.sodChecklist ?? null,
+        reopenedAt: row.reopenedAt ?? null,
+        reopenedBy: row.reopenedBy ?? null,
+        reopenedByName: row.reopenedByName ?? null,
+        reopenReason: row.reopenReason ?? null,
+      })) as BusinessDayRecord[],
+    }
   } catch {
     return emptyStore()
   }

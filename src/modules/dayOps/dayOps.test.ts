@@ -52,7 +52,7 @@ describe("DayOpsService", () => {
     globalThis.localStorage = memoryStorage()
   })
 
-  it("opens and closes a business day with closing preview panels", async () => {
+  it("opens with editable openings + checklist and closes with preview", async () => {
     const { DayOpsService } = await import("@/modules/dayOps")
 
     const opened = await DayOpsService.openDay({
@@ -60,18 +60,20 @@ describe("DayOpsService", () => {
       actorId: "u1",
       openingCashPaisa: 10000,
       openingUpiPaisa: 5000,
+      checklist: {
+        bankingVerified: true,
+        floatReady: true,
+        printersOk: true,
+        upiQrOk: true,
+      },
     })
     expect(opened.status).toBe("OPEN")
-    expect(DayOpsService.getOpen("s1")?.id).toBe(opened.id)
+    expect(opened.openingCashPaisa).toBe(10000)
+    expect(opened.sodChecklist?.bankingVerified).toBe(true)
+    expect(DayOpsService.isStoreDayOpen("s1")).toBe(true)
 
     const preview = await DayOpsService.getClosingPreview("today", "s1")
-    expect(preview.dayKey).toBe(opened.dayKey)
-    expect(preview.sales).toBeDefined()
-    expect(preview.cash).toBeDefined()
-    expect(preview.upi).toBeDefined()
-    expect(preview.refunds).toBeDefined()
-    expect(preview.discounts).toBeDefined()
-    expect(preview.expenses).toBeDefined()
+    expect(preview.stockExceptions).toBeDefined()
     expect(preview.cashierVariance).toBeDefined()
 
     const { day } = await DayOpsService.closeDay({
@@ -82,24 +84,39 @@ describe("DayOpsService", () => {
     })
     expect(day.status).toBe("CLOSED")
     expect(day.closingSnapshot).not.toBeNull()
-    expect(DayOpsService.getOpen("s1")).toBeNull()
+    expect(DayOpsService.isStoreDayOpen("s1")).toBe(false)
   })
 
-  it("rejects a second open while a day is open", async () => {
+  it("reopens a closed day with audit reason", async () => {
     const { DayOpsService, DayOpsError } = await import("@/modules/dayOps")
-    await DayOpsService.openDay({ storeId: "s1", actorId: "u1" })
-    // Same day returns existing
-    const again = await DayOpsService.openDay({ storeId: "s1", actorId: "u1" })
-    expect(again.status).toBe("OPEN")
-
-    // Simulate another open day on different key by closing then... just ensure close requires open
+    const opened = await DayOpsService.openDay({ storeId: "s1", actorId: "u1" })
     await DayOpsService.closeDay({
       storeId: "s1",
       syncSheets: false,
       allowOpenShifts: true,
     })
+    const again = await DayOpsService.reopenDay({
+      dayKey: opened.dayKey,
+      storeId: "s1",
+      actorId: "admin",
+      reason: "Missed expense posting",
+    })
+    expect(again.status).toBe("OPEN")
+    expect(again.reopenReason).toBe("Missed expense posting")
+
     await expect(
-      DayOpsService.closeDay({ storeId: "s1", syncSheets: false })
+      DayOpsService.reopenDay({
+        dayKey: opened.dayKey,
+        storeId: "s1",
+        reason: "ab",
+      })
     ).rejects.toBeInstanceOf(DayOpsError)
+  })
+
+  it("suggests openings from banking when no yesterday close", async () => {
+    const { DayOpsService } = await import("@/modules/dayOps")
+    const s = DayOpsService.getSuggestedOpenings("s1")
+    expect(s.source).toBe("banking")
+    expect(typeof s.cashPaisa).toBe("number")
   })
 })

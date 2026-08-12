@@ -1,21 +1,20 @@
-import { invoiceRepository } from "@/repositories/InvoiceRepository"
-import { paymentRepository } from "@/repositories/PaymentRepository"
+import { DayOpsService } from "@/modules/dayOps"
 
 /**
- * Reports module — reads via repositories only.
- * No direct Sheets or Firestore access from UI.
+ * @deprecated Prefer DayOpsService.getClosingPreview / SalesReportService.
+ * Kept for backward compatibility — returns today's DayOps sales/payment slice.
  */
 export class ReportsService {
-  static async salesSummary() {
-    const [invoices, payments] = await Promise.all([
-      invoiceRepository.list(),
-      paymentRepository.list(),
-    ])
-    const paid = payments.filter((p) => p.status === "Paid")
+  static async salesSummary(storeId: string | null = null) {
+    const preview = await DayOpsService.getClosingPreview("today", storeId)
     return {
-      invoiceCount: invoices.length,
-      paidPaymentCount: paid.length,
-      paidTotalRupees: paid.reduce((sum, p) => sum + p.amount, 0),
+      invoiceCount: preview.sales.invoiceCount,
+      paidPaymentCount: preview.tenders.paymentCount,
+      paidTotalRupees: preview.sales.paidSalesPaisa / 100,
+      /** Extra DayOps fields for callers that want richer day totals. */
+      cashNetPaisa: preview.cash.netPaisa,
+      upiNetPaisa: preview.upi.netPaisa,
+      discountsPaisa: preview.discounts.totalDiscountPaisa,
     }
   }
 }

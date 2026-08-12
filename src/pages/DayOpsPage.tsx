@@ -1,21 +1,31 @@
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { Link } from "react-router-dom"
-import { CalendarCheck, Lock, Sunrise } from "lucide-react"
+import {
+  CalendarCheck,
+  FileSpreadsheet,
+  Lock,
+  Printer,
+  Sunrise,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { formatMoney } from "@/lib/money"
+import { formatMoney, rupeesToPaisa } from "@/lib/money"
 import { cn } from "@/lib/utils"
 import {
   DayOpsError,
+  DayOpsExportService,
   DayOpsService,
   type BusinessDayRecord,
   type DayClosingPreview,
   type DayOpsDayRef,
+  type SodChecklist,
 } from "@/modules/dayOps"
+import { ShiftError, ShiftService } from "@/modules/shift"
 import { useAuth } from "@/providers/AuthProvider"
+import { isAdmin } from "@/modules/staff/permissions"
 
 function money(p: number) {
   return formatMoney(p)
@@ -23,10 +33,9 @@ function money(p: number) {
 
 /**
  * Store day ops — Open Day → Operations preview → Close Day.
- * Cashier shifts stay on /shifts; Sheets sync is a close step (also available under Options).
  */
 export function DayOpsPage() {
-  const { profile, userId } = useAuth()
+  const { profile, userId, role } = useAuth()
   const storeId = profile?.storeId ?? null
   const [dayRef, setDayRef] = useState<DayOpsDayRef>("today")
   const [openDay, setOpenDay] = useState<BusinessDayRecord | null>(null)
@@ -35,11 +44,30 @@ export function DayOpsPage() {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const suggested = useMemo(
+    () => DayOpsService.getSuggestedOpenings(storeId),
+    // refresh after open/close
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [storeId, openDay?.id, history.length]
+  )
+
   const [openNotes, setOpenNotes] = useState("")
+  const [openingCashRupees, setOpeningCashRupees] = useState("")
+  const [openingUpiRupees, setOpeningUpiRupees] = useState("")
+  const [checklist, setChecklist] = useState<SodChecklist>({
+    bankingVerified: false,
+    floatReady: false,
+    printersOk: false,
+    upiQrOk: false,
+  })
+
   const [closeNotes, setCloseNotes] = useState("")
   const [countedCash, setCountedCash] = useState("")
   const [allowOpenShifts, setAllowOpenShifts] = useState(false)
   const [syncSheets, setSyncSheets] = useState(true)
+  const [shiftActuals, setShiftActuals] = useState<Record<string, string>>({})
+  const [reopenReason, setReopenReason] = useState("")
 
   async function refresh() {
     setOpenDay(DayOpsService.getOpen(storeId))
@@ -49,7 +77,12 @@ export function DayOpsPage() {
   }
 
   useEffect(() => {
-    void DayOpsService.hydrate().then(() => refresh())
+    void DayOpsService.hydrate().then(() => {
+      const s = DayOpsService.getSuggestedOpenings(storeId)
+      setOpeningCashRupees(DayOpsService.paisaToRupeesInput(s.cashPaisa))
+      setOpeningUpiRupees(DayOpsService.paisaToRupeesInput(s.upiPaisa))
+      return refresh()
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storeId, dayRef])
 
@@ -58,11 +91,19 @@ export function DayOpsPage() {
     setError(null)
     setMsg(null)
     try {
+      const cash = Number(openingCashRupees)
+      const upi = Number(openingUpiRupees)
+      if (!Number.isFinite(cash) || cash < 0 || !Number.isFinite(upi) || upi < 0) {
+        throw new DayOpsError("VALIDATION", "Opening cash/UPI must be ≥ 0.")
+      }
       const day = await DayOpsService.openDay({
         storeId,
         actorId: userId,
         actorName: profile?.displayName || profile?.email || null,
         notes: openNotes || null,
+        openingCashPaisa: rupeesToPaisa(cash),
+        openingUpiPaisa: rupeesToPaisa(upi),
+        checklist,
       })
       setMsg(`Opened ${day.date}`)
       setOpenNotes("")
@@ -72,6 +113,36 @@ export function DayOpsPage() {
         err instanceof DayOpsError || err instanceof Error
           ? err.message
           : "Could not open day."
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onCloseShift(shiftId: string, cashierId: string) {
+    setBusy(true)
+    setError(null)
+    try {
+      const raw = shiftActuals[shiftId] ?? ""
+      const rupees = Number(raw)
+      if (!Number.isFinite(rupees) || rupees < 0) {
+        throw new DayOpsError("VALIDATION", "Enter counted drawer cash (₹).")
+      }
+      await ShiftService.close({
+        shiftId,
+        cashierId,
+        actualCashRupees: rupees,
+        actorId: userId,
+      })
+      setMsg("Shift closed.")
+      await refresh()
+    } catch (err) {
+      setError(
+        err instanceof ShiftError ||
+          err instanceof DayOpsError ||
+          err instanceof Error
+          ? err.message
+          : "Could not close shift."
       )
     } finally {
       setBusy(false)
@@ -121,12 +192,41 @@ export function DayOpsPage() {
     }
   }
 
+  async function onReopen(dayKey: string) {
+    if (!isAdmin(role)) return
+    setBusy(true)
+    setError(null)
+    try {
+      const day = await DayOpsService.reopenDay({
+        dayKey,
+        storeId,
+        actorId: userId,
+        actorName: profile?.displayName || profile?.email || null,
+        reason: reopenReason,
+      })
+      setMsg(`Re-opened ${day.date}`)
+      setReopenReason("")
+      await refresh()
+    } catch (err) {
+      setError(
+        err instanceof DayOpsError || err instanceof Error
+          ? err.message
+          : "Could not re-open day."
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const openShifts =
+    preview?.cashierVariance.filter((r) => r.status === "OPEN") ?? []
+
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-10">
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Day operations</h1>
         <p className="text-sm text-muted-foreground">
-          Open Day → run the store → Close Day. Cashier tills stay on{" "}
+          Open Day → run the store → Close Day. Cashier tills on{" "}
           <Link to="/shifts" className="underline">
             Shifts
           </Link>
@@ -148,6 +248,33 @@ export function DayOpsPage() {
           <option value="yesterday">Yesterday</option>
         </select>
         <StatusPill open={openDay} />
+        {preview ? (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                void DayOpsExportService.exportClosingPreviewExcel(
+                  preview,
+                  storeId
+                )
+              }
+            >
+              <FileSpreadsheet className="size-4" />
+              Excel
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => DayOpsExportService.printClosingPack(preview)}
+            >
+              <Printer className="size-4" />
+              Print
+            </Button>
+          </>
+        ) : null}
       </div>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -168,13 +295,63 @@ export function DayOpsPage() {
               {money(openDay.openingUpiPaisa)}
               {openDay.openNotes ? ` · ${openDay.openNotes}` : ""}
             </p>
+            {openDay.reopenReason ? (
+              <p className="text-xs text-amber-800">
+                Re-opened: {openDay.reopenReason}
+              </p>
+            ) : null}
           </div>
         ) : (
           <>
-            <p className="text-sm text-muted-foreground">
-              Captures opening cash/UPI from the banking snapshot and starts the
-              daily boundary.
+            <p className="text-xs text-muted-foreground">
+              Suggested openings from {suggested.sourceLabel}.
             </p>
+            <div className="grid gap-3 sm:grid-cols-2 max-w-xl">
+              <div className="space-y-1">
+                <Label>Opening cash (₹)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={openingCashRupees}
+                  onChange={(e) => setOpeningCashRupees(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Opening UPI (₹)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={openingUpiRupees}
+                  onChange={(e) => setOpeningUpiRupees(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>SOD checklist</Label>
+              <div className="grid gap-2 sm:grid-cols-2 text-sm">
+                {(
+                  [
+                    ["bankingVerified", "Banking verified"],
+                    ["floatReady", "Float ready"],
+                    ["printersOk", "Printers OK"],
+                    ["upiQrOk", "UPI QR ready"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label key={key} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={checklist[key]}
+                      onChange={(e) =>
+                        setChecklist((c) => ({ ...c, [key]: e.target.checked }))
+                      }
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
             <div className="space-y-1 max-w-md">
               <Label>Notes (optional)</Label>
               <Input
@@ -195,6 +372,55 @@ export function DayOpsPage() {
       </section>
 
       {preview ? <ClosingPanels preview={preview} /> : null}
+
+      {openShifts.length > 0 ? (
+        <section className="rounded-lg border border-amber-300 bg-amber-50/40 p-4 space-y-3">
+          <h2 className="font-semibold">Close open shifts</h2>
+          <p className="text-xs text-muted-foreground">
+            Required before Close Day (unless you explicitly allow open
+            shifts).
+          </p>
+          {openShifts.map((s) => (
+            <div
+              key={s.shiftId}
+              className="flex flex-wrap items-end gap-2 rounded-md border bg-background p-3"
+            >
+              <div className="text-sm flex-1 min-w-[10rem]">
+                <p className="font-medium">
+                  {s.shiftNumber} · {s.cashierName}
+                </p>
+                <p className="text-muted-foreground">
+                  Expected {money(s.expectedCashPaisa)}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <Label>Actual cash (₹)</Label>
+                <Input
+                  className="w-28"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={shiftActuals[s.shiftId] ?? ""}
+                  onChange={(e) =>
+                    setShiftActuals((m) => ({
+                      ...m,
+                      [s.shiftId]: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                disabled={busy}
+                onClick={() => void onCloseShift(s.shiftId, s.cashierId)}
+              >
+                Close shift
+              </Button>
+            </div>
+          ))}
+        </section>
+      ) : null}
 
       <section className="rounded-lg border p-4 space-y-3">
         <div className="flex items-center gap-2">
@@ -259,6 +485,18 @@ export function DayOpsPage() {
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
           Recent days
         </h2>
+        {isAdmin(role) ? (
+          <div className="flex flex-wrap items-end gap-2 max-w-xl">
+            <div className="flex-1 space-y-1">
+              <Label>Re-open reason (admin)</Label>
+              <Input
+                value={reopenReason}
+                onChange={(e) => setReopenReason(e.target.value)}
+                placeholder="Why re-open a closed day?"
+              />
+            </div>
+          </div>
+        ) : null}
         <div className="rounded-lg border overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/40 text-muted-foreground">
@@ -267,6 +505,7 @@ export function DayOpsPage() {
                 <th className="px-3 py-2 text-left font-medium">Status</th>
                 <th className="px-3 py-2 text-left font-medium">Opened</th>
                 <th className="px-3 py-2 text-left font-medium">Closed</th>
+                <th className="px-3 py-2 text-left font-medium" />
               </tr>
             </thead>
             <tbody>
@@ -282,12 +521,25 @@ export function DayOpsPage() {
                       ? new Date(d.closedAt).toLocaleString()
                       : "—"}
                   </td>
+                  <td className="px-3 py-1.5">
+                    {isAdmin(role) && d.status === "CLOSED" && !openDay ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={busy || reopenReason.trim().length < 3}
+                        onClick={() => void onReopen(d.dayKey)}
+                      >
+                        Re-open
+                      </Button>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
               {history.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={4}
+                    colSpan={5}
                     className="px-3 py-6 text-center text-muted-foreground"
                   >
                     No business days yet.
@@ -338,7 +590,10 @@ function ClosingPanels({ preview }: { preview: DayClosingPreview }) {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Panel title="Sales summary">
           <Row label="Invoices" value={String(preview.sales.invoiceCount)} />
-          <Row label="Paid invoices" value={String(preview.sales.paidInvoiceCount)} />
+          <Row
+            label="Paid invoices"
+            value={String(preview.sales.paidInvoiceCount)}
+          />
           <Row label="Sales total" value={money(preview.sales.salesTotalPaisa)} />
           <Row label="Paid sales" value={money(preview.sales.paidSalesPaisa)} />
         </Panel>
@@ -445,11 +700,7 @@ function ClosingPanels({ preview }: { preview: DayClosingPreview }) {
         )}
         <Separator className="my-2" />
         <p className="text-xs text-muted-foreground">
-          Open shifts: {preview.openShiftsCount}. Manage on{" "}
-          <Link to="/shifts" className="underline">
-            Shifts
-          </Link>
-          .
+          Open shifts: {preview.openShiftsCount}.
         </p>
       </Panel>
     </section>

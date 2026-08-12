@@ -4,6 +4,13 @@ export type BusinessDayStatus = "OPEN" | "CLOSED"
 
 export type DayOpsDayRef = "today" | "yesterday"
 
+export type SodChecklist = {
+  bankingVerified: boolean
+  floatReady: boolean
+  printersOk: boolean
+  upiQrOk: boolean
+}
+
 export type BusinessDayRecord = {
   id: string
   /** YYYYMMDD calendar key */
@@ -20,6 +27,7 @@ export type BusinessDayRecord = {
   openingCashPaisa: number
   openingUpiPaisa: number
   openNotes: string | null
+  sodChecklist: SodChecklist | null
   closedAt: string | null
   closedBy: string | null
   closedByName: string | null
@@ -33,6 +41,11 @@ export type BusinessDayRecord = {
     ranAt: string | null
     errors: string[]
   } | null
+  /** Admin reopen audit. */
+  reopenedAt: string | null
+  reopenedBy: string | null
+  reopenedByName: string | null
+  reopenReason: string | null
   createdAt: string
   updatedAt: string
 }
@@ -73,7 +86,7 @@ export type DayExpensesSummary = {
 export type DayStockException = {
   id: string
   label: string
-  kind: "stock_take" | "movement"
+  kind: "stock_take" | "movement" | "negative_stock" | "open_po"
   varianceLines: number
   at: string
 }
@@ -82,6 +95,7 @@ export type DayCashierVarianceRow = {
   shiftId: string
   shiftNumber: string
   cashierName: string
+  cashierId: string
   status: "OPEN" | "CLOSED"
   expectedCashPaisa: number
   actualCashPaisa: number | null
@@ -109,6 +123,13 @@ export type DayClosingPreview = {
   warnings: string[]
 }
 
+export type SuggestedOpenings = {
+  cashPaisa: number
+  upiPaisa: number
+  source: "yesterday_close" | "banking"
+  sourceLabel: string
+}
+
 export type OpenDayInput = {
   storeId?: string | null
   actorId?: string | null
@@ -116,8 +137,17 @@ export type OpenDayInput = {
   openingCashPaisa?: number
   openingUpiPaisa?: number
   notes?: string | null
-  /** Allow reopen if somehow needed — default false. */
+  checklist?: Partial<SodChecklist> | null
+  /** Allow reopen if somehow needed — default false. Prefer reopenDay(). */
   force?: boolean
+}
+
+export type ReopenDayInput = {
+  dayKey: string
+  storeId?: string | null
+  actorId?: string | null
+  actorName?: string | null
+  reason: string
 }
 
 export type CloseDayInput = {

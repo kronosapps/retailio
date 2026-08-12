@@ -41,9 +41,20 @@ Options → “Sheets sync (advanced)” remains a manual re-sync only.
 
 ## Start of Day
 
-- Open Day captures opening cash/UPI (defaults from banking balances)  
-- Blocks a second open day until the current one is closed  
-- Does not force-open cashier shifts (link to Shifts)
+- Open Day with editable opening cash/UPI (defaults: yesterday’s close → else banking)
+- SOD checklist (banking, float, printers, UPI QR)
+- Blocks a second open day until the current one is closed
+- Admin can **re-open** a closed day with an audited reason
+- Does not force-open cashier shifts (inline close on Day Ops + link to Shifts)
+
+POS soft-warns when the store day is not open (banner + confirm on Charge).
+
+---
+
+## Close pack
+
+- Excel export + print pack from the Day review toolbar
+- Sheets DailyClose includes cash/UPI/discounts/expenses/variance when synced from Day Ops
 
 ---
 
