@@ -31,6 +31,15 @@
 7. Lots: GRN / opening / adjust-in create lots; sales / damage / wastage / adjust-out consume FEFO. Expiry write-off → `WASTAGE`.
 8. Stock take → `StockTakeService.post` applies variance as ADJUSTMENT_IN/OUT.
 
+## Cashier shifts / till
+
+1. Open/close/cash in-out-drop → `ShiftService` → `CashierShiftRepository` (never Banking).
+2. Cash sales/refunds/expenses → `TillEngine` on events (only if that cashier has an open shift).
+3. Expected = opening + sales + cash in − refunds − expenses − cash out − drops − supplier cash.
+4. UI: `/shifts` (admin, manager, cashier). Cashiers see own shifts; managers see all.
+5. Banking remains store cashbook; till is cashier accountability.
+6. Do not call Till from Payment/POS React — events only.
+
 ### Bulk product import
 
 1. Download template / export via `ProductImportService.downloadTemplate()` / `downloadExport()`.

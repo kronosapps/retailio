@@ -205,6 +205,30 @@ const ROUTES: Partial<Record<string, SheetRoute>> = {
       }
     },
   },
+  [EventTypes.SHIFT_OPENED]: {
+    sheet: "CashierShifts",
+    sync: async (p, data) => {
+      if (typeof p.syncCashierShift === "function") {
+        await p.syncCashierShift(data)
+      }
+    },
+  },
+  [EventTypes.SHIFT_CLOSED]: {
+    sheet: "CashierShifts",
+    sync: async (p, data) => {
+      if (typeof p.syncCashierShift === "function") {
+        await p.syncCashierShift(data)
+      }
+    },
+  },
+  [EventTypes.TILL_MOVEMENT]: {
+    sheet: "CashierShifts",
+    sync: async (p, data) => {
+      if (typeof p.syncCashierShift === "function") {
+        await p.syncCashierShift(data)
+      }
+    },
+  },
 }
 
 /**

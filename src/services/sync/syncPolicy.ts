@@ -27,6 +27,9 @@ export const LIVE_SHEET_EVENTS = new Set<EventType>([
   EventTypes.PURCHASE_RETURN_POSTED,
   EventTypes.PURCHASE_RETURN_UPDATED,
   EventTypes.EXPENSE_CREATED,
+  EventTypes.SHIFT_OPENED,
+  EventTypes.SHIFT_CLOSED,
+  EventTypes.TILL_MOVEMENT,
 ])
 
 /**

@@ -73,10 +73,22 @@ export const ERP_CHAIN: ErpChainStage[] = [
       "InventoryEngine",
       "BankingEngine",
       "AccountingEngine",
+      "TillEngine",
       "NotificationEngine",
       "SyncManager",
     ],
-    notes: "Stock FEFO + banking + sales/COGS journals from PAYMENT_RECEIVED.",
+    notes: "Stock FEFO + banking + sales/COGS + till cash (if shift open).",
+  },
+  {
+    id: "cashier_shift",
+    label: "Cashier Shift / Till",
+    events: [
+      EventTypes.SHIFT_OPENED,
+      EventTypes.TILL_MOVEMENT,
+      EventTypes.SHIFT_CLOSED,
+    ],
+    consumers: ["SyncManager"],
+    notes: "Cashier accountability — separate from Banking cashbook.",
   },
   {
     id: "customer",
