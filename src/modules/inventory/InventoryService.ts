@@ -1,9 +1,14 @@
 import type { RecordedSale } from "@/data/invoices"
 import type { ProductRecord } from "@/data/products"
+import {
+  addDaysToDateKey,
+  type InventoryLotRecord,
+} from "@/data/inventoryLots"
 import { EventPublisher } from "@/events/EventPublisher"
 import { EventTypes } from "@/events/EventTypes"
 import { categoryRepository } from "@/repositories/CategoryRepository"
 import { inventoryRepository } from "@/repositories/InventoryRepository"
+import { inventoryLotRepository } from "@/repositories/InventoryLotRepository"
 import { inventoryMovementRepository } from "@/repositories/InventoryMovementRepository"
 import { productRepository } from "@/repositories/ProductRepository"
 
@@ -174,6 +179,9 @@ export class InventoryService {
       actorName: input.actorName ?? null,
       storeId: input.storeId ?? null,
       allowNegative: false,
+      expiryDate: input.expiryDate ?? null,
+      batchCode: input.batchCode ?? null,
+      receivedAt: input.receivedAt ?? null,
     })
   }
 
@@ -207,6 +215,83 @@ export class InventoryService {
       storeId: input.storeId ?? null,
       allowNegative: false,
     })
+  }
+
+  /** Opening stock receive — creates OPENING_STOCK movement + lot. */
+  static async addOpeningStock(input: {
+    sku: string
+    quantity: number
+    expiryDate?: string | null
+    batchCode?: string | null
+    notes?: string | null
+    actorId?: string | null
+    actorName?: string | null
+    storeId?: string | null
+  }) {
+    return this.addStock({
+      ...input,
+      type: "OPENING_STOCK",
+      reason: "Opening stock",
+      referenceId: `opening:${input.sku}:${Date.now()}`,
+    })
+  }
+
+  static listLots(sku?: string): InventoryLotRecord[] {
+    if (sku) return inventoryLotRepository.listBySku(sku)
+    return inventoryLotRepository.list()
+  }
+
+  static listExpiringLots(withinDays = 30): InventoryLotRecord[] {
+    const today = new Date().toISOString().slice(0, 10)
+    const cutoff = addDaysToDateKey(today, withinDays)
+    return inventoryLotRepository
+      .list()
+      .filter(
+        (l) =>
+          l.quantity > 0 &&
+          l.expiryDate != null &&
+          l.expiryDate <= cutoff
+      )
+      .sort((a, b) => (a.expiryDate || "").localeCompare(b.expiryDate || ""))
+  }
+
+  static listExpiredLots(): InventoryLotRecord[] {
+    const today = new Date().toISOString().slice(0, 10)
+    return inventoryLotRepository
+      .list()
+      .filter((l) => l.quantity > 0 && l.expiryDate != null && l.expiryDate < today)
+  }
+
+  /** Write off remaining qty on an expired (or any) lot as WASTAGE. */
+  static async writeOffLot(input: {
+    lotId: string
+    reason?: string | null
+    actorId?: string | null
+    actorName?: string | null
+  }) {
+    const lot = inventoryLotRepository.getById(input.lotId)
+    if (!lot) {
+      throw new InventoryError("NOT_FOUND", "Lot not found.")
+    }
+    if (lot.quantity <= 0) {
+      throw new InventoryError("VALIDATION", "Lot has no remaining quantity.")
+    }
+    return this.recordMovement({
+      sku: lot.sku,
+      type: "WASTAGE",
+      quantity: lot.quantity,
+      reason: input.reason ?? `Expired lot ${lot.lotNumber}`,
+      referenceId: lot.id,
+      notes: lot.expiryDate ? `Expiry ${lot.expiryDate}` : null,
+      actorId: input.actorId ?? null,
+      actorName: input.actorName ?? null,
+      storeId: lot.storeId,
+      preferLotId: lot.id,
+    })
+  }
+
+  static hydrateLots() {
+    return inventoryLotRepository.hydrate()
   }
 
   static async adjustStock(input: AdjustStockInput) {
@@ -268,6 +353,11 @@ export class InventoryService {
     allowNegative?: boolean
     /** When set, skip if a movement with this reference+type already exists. */
     idempotentKey?: string | null
+    expiryDate?: string | null
+    batchCode?: string | null
+    receivedAt?: string | null
+    /** Force consume/write-off from a specific lot. */
+    preferLotId?: string | null
   }): Promise<{ inventory: Awaited<ReturnType<typeof inventoryRepository.save>>; movement: InventoryMovement }> {
     const qty = Math.abs(Number(input.quantity))
     if (!Number.isFinite(qty) || qty <= 0) {
@@ -309,6 +399,34 @@ export class InventoryService {
       )
     }
 
+    // Lot layer: receive → create lot; consume → FEFO (or preferLotId).
+    if (delta > 0) {
+      await this.receiveIntoLot({
+        sku,
+        productName: inventory.name,
+        quantity: qty,
+        type: input.type,
+        referenceId: input.referenceId ?? input.idempotentKey ?? null,
+        expiryDate: input.expiryDate,
+        batchCode: input.batchCode,
+        receivedAt: input.receivedAt,
+        storeId: input.storeId ?? inventory.storeId,
+        actorId: input.actorId,
+        product,
+      })
+    } else if (delta < 0) {
+      await this.consumeFromLots({
+        sku,
+        quantity: qty,
+        allowNegative: Boolean(input.allowNegative),
+        preferLotId: input.preferLotId ?? null,
+        inventoryQty: inventory.quantity,
+        productName: inventory.name,
+        storeId: input.storeId ?? inventory.storeId,
+        actorId: input.actorId,
+      })
+    }
+
     const updated = await inventoryRepository.save(
       {
         ...inventory,
@@ -335,6 +453,111 @@ export class InventoryService {
     })
 
     return { inventory: updated, movement }
+  }
+
+  private static lotSourceType(
+    type: InventoryMovementType
+  ): "OPENING_STOCK" | "PURCHASE" | "ADJUSTMENT_IN" | "RETURN" {
+    if (type === "OPENING_STOCK") return "OPENING_STOCK"
+    if (type === "RETURN") return "RETURN"
+    if (type === "ADJUSTMENT_IN") return "ADJUSTMENT_IN"
+    return "PURCHASE"
+  }
+
+  private static async receiveIntoLot(input: {
+    sku: string
+    productName: string
+    quantity: number
+    type: InventoryMovementType
+    referenceId: string | null
+    expiryDate?: string | null
+    batchCode?: string | null
+    receivedAt?: string | null
+    storeId: string | null
+    actorId?: string | null
+    product: ProductRecord | null
+  }) {
+    const receivedAt = input.receivedAt || new Date().toISOString()
+    let expiryDate = input.expiryDate?.slice(0, 10) || null
+    if (!expiryDate && input.product?.shelfLifeDays) {
+      const base = receivedAt.slice(0, 10)
+      expiryDate = addDaysToDateKey(base, input.product.shelfLifeDays)
+    }
+    await inventoryLotRepository.create({
+      sku: input.sku,
+      productName: input.productName,
+      quantity: input.quantity,
+      expiryDate,
+      receivedAt,
+      batchCode: input.batchCode,
+      sourceType: this.lotSourceType(input.type),
+      sourceId: input.referenceId,
+      storeId: input.storeId,
+      actorId: input.actorId,
+    })
+  }
+
+  private static async consumeFromLots(input: {
+    sku: string
+    quantity: number
+    allowNegative: boolean
+    preferLotId: string | null
+    inventoryQty: number
+    productName: string
+    storeId: string | null
+    actorId?: string | null
+  }) {
+    await this.ensureLegacyLotIfNeeded(input)
+
+    let remaining = input.quantity
+    const lots = input.preferLotId
+      ? (() => {
+          const one = inventoryLotRepository.getById(input.preferLotId!)
+          return one && one.quantity > 0 ? [one] : []
+        })()
+      : inventoryLotRepository.listOpenBySkuFefo(input.sku)
+
+    for (const lot of lots) {
+      if (remaining <= 0) break
+      const take = Math.min(lot.quantity, remaining)
+      if (take <= 0) continue
+      await inventoryLotRepository.save({
+        ...lot,
+        quantity: lot.quantity - take,
+      })
+      remaining -= take
+    }
+
+    if (remaining > 0 && !input.allowNegative) {
+      throw new InventoryError(
+        "INSUFFICIENT_STOCK",
+        `Insufficient lot quantity for ${input.sku}. Short ${remaining}.`
+      )
+    }
+    // Oversell path: ignore leftover lot deficit (header qty already allows negative).
+  }
+
+  /** Backfill a LEGACY lot when header qty exists but no open lots. */
+  private static async ensureLegacyLotIfNeeded(input: {
+    sku: string
+    inventoryQty: number
+    productName: string
+    storeId: string | null
+    actorId?: string | null
+  }) {
+    const open = inventoryLotRepository.listBySku(input.sku)
+    const lotSum = open.reduce((s, l) => s + l.quantity, 0)
+    if (lotSum > 0 || input.inventoryQty <= 0) return
+    await inventoryLotRepository.create({
+      sku: input.sku,
+      productName: input.productName,
+      quantity: input.inventoryQty,
+      expiryDate: null,
+      sourceType: "LEGACY",
+      sourceId: null,
+      storeId: input.storeId,
+      actorId: input.actorId,
+    })
   }
 
   /**

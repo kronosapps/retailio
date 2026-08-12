@@ -12,6 +12,12 @@ export type {
 } from "@/repositories/InventoryRepository"
 export { inventoryEngine } from "./InventoryEngine"
 export {
+  StockTakeService,
+  StockTakeError,
+  type StockTakeRecord,
+} from "./StockTakeService"
+export { StockAnalyticsService } from "./StockAnalyticsService"
+export {
   INVENTORY_MOVEMENT_TYPES,
   DEFAULT_REORDER_LEVEL,
   movementTypeLabel,

@@ -256,6 +256,9 @@ export class PurchaseReceivingService {
           type: "PURCHASE",
           reason: `GRN ${existing.grnNumber}`,
           referenceId: existing.id,
+          expiryDate: line.expiryDate,
+          batchCode: line.batchCode,
+          receivedAt: existing.receivedAt || existing.postedAt,
           notes:
             [
               `Supplier: ${existing.supplierName}`,

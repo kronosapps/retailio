@@ -29,6 +29,11 @@ import { InventoryStockPage } from "@/pages/inventory/InventoryStockPage"
 import { InventoryMovementsPage } from "@/pages/inventory/InventoryMovementsPage"
 import { InventoryCategoriesPage } from "@/pages/inventory/InventoryCategoriesPage"
 import { BulkProductImportPage } from "@/pages/inventory/BulkProductImportPage"
+import {
+  InventoryLotsPage,
+  InventoryOpeningPage,
+  InventoryStockTakePage,
+} from "@/pages/inventory/InventoryLifecyclePages"
 import { InvoiceDetailsPage } from "@/pages/InvoiceDetailsPage"
 import { LoginPage } from "@/pages/LoginPage"
 import { OptionsPage } from "@/pages/OptionsPage"
@@ -166,6 +171,9 @@ export default function App() {
               <Route path="items" element={<InventoryItemsPage />} />
               <Route path="import" element={<BulkProductImportPage />} />
               <Route path="stock" element={<InventoryStockPage />} />
+              <Route path="opening" element={<InventoryOpeningPage />} />
+              <Route path="stock-take" element={<InventoryStockTakePage />} />
+              <Route path="lots" element={<InventoryLotsPage />} />
               <Route path="movements" element={<InventoryMovementsPage />} />
               <Route path="categories" element={<InventoryCategoriesPage />} />
             </Route>

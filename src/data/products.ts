@@ -63,6 +63,11 @@ export type ProductRecord = {
   mrp: number | null
   /** Units at/below this qty are low stock. Defaults applied when missing (legacy). */
   reorderLevel: number
+  /**
+   * Days from receipt until best-before when GRN omits expiry.
+   * Null / 0 = non-perishable (no default expiry).
+   */
+  shelfLifeDays: number | null
   storeId: string | null
   active: boolean
   createdAt: string
@@ -158,6 +163,7 @@ export function seedRowToRecord(
     sellingPrice,
     mrp,
     reorderLevel: DEFAULT_REORDER_LEVEL,
+    shelfLifeDays: null,
     storeId: meta.storeId,
     active: true,
     createdAt: now,
@@ -167,10 +173,11 @@ export function seedRowToRecord(
   }
 }
 
-/** Normalize legacy local/Firestore rows that predate reorderLevel. */
+/** Normalize legacy local/Firestore rows that predate reorderLevel / shelfLifeDays. */
 export function normalizeProductRecord(
-  record: ProductRecord | (Omit<ProductRecord, "reorderLevel"> & {
+  record: ProductRecord | (Omit<ProductRecord, "reorderLevel" | "shelfLifeDays"> & {
     reorderLevel?: number
+    shelfLifeDays?: number | null
   })
 ): ProductRecord {
   const reorder =
@@ -179,7 +186,13 @@ export function normalizeProductRecord(
     record.reorderLevel >= 0
       ? record.reorderLevel
       : DEFAULT_REORDER_LEVEL
-  return { ...record, reorderLevel: reorder }
+  const shelf =
+    typeof record.shelfLifeDays === "number" &&
+    Number.isFinite(record.shelfLifeDays) &&
+    record.shelfLifeDays > 0
+      ? Math.round(record.shelfLifeDays)
+      : null
+  return { ...record, reorderLevel: reorder, shelfLifeDays: shelf }
 }
 
 export function getCatalogSeedRows(): ProductSeedRow[] {

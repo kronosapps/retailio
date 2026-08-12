@@ -103,6 +103,10 @@ export type AddStockInput = {
   actorId?: string | null
   actorName?: string | null
   storeId?: string | null
+  /** Lot / batch metadata when receiving stock. */
+  expiryDate?: string | null
+  batchCode?: string | null
+  receivedAt?: string | null
 }
 
 export type AdjustStockInput = {
@@ -142,6 +146,7 @@ export type CreateProductInput = {
   gstRate?: number
   hsnCode?: string | null
   reorderLevel?: number
+  shelfLifeDays?: number | null
   active?: boolean
   storeId?: string | null
   actorId?: string | null
@@ -157,6 +162,7 @@ export type UpdateProductInput = {
   sellingPrice?: number
   gstRate?: number
   reorderLevel?: number
+  shelfLifeDays?: number | null
   active?: boolean
   actorId?: string | null
 }

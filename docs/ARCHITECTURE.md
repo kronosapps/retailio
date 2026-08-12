@@ -70,19 +70,19 @@ Repositories own exactly one collection each (see `src/repositories/`).
 
 ## Inventory model
 
-- **Product / Item** (`products`): sellable definition (SKU, barcode, category name, prices, GST, `reorderLevel`, `active`).
+- **Product / Item** (`products`): sellable definition (SKU, barcode, category name, prices, GST, `reorderLevel`, `shelfLifeDays`, `active`).
 - **Stock** (`inventory`): cached on-hand quantity per SKU (derived/updated by movements).
-- **Movements** (`inventory_movements`): append-only ledger (`OPENING_STOCK`, `PURCHASE`, `SALE`, `RETURN`, `DAMAGE`, `WASTAGE`, `ADJUSTMENT_IN`, `ADJUSTMENT_OUT`).
+- **Lots** (`inventory_lots`): FEFO batches with optional `expiryDate` / `batchCode` (created on Opening/Purchase/Adjust-in/Return).
+- **Movements** (`inventory_movements`): append-only ledger (`OPENING_STOCK`, `PURCHASE`, `SALE`, `RETURN`, `PURCHASE_RETURN`, `DAMAGE`, `WASTAGE`, `ADJUSTMENT_IN`, `ADJUSTMENT_OUT`).
+- **Stock take** (`stock_takes`): physical count → variance → ADJUSTMENT_IN/OUT.
 - **Categories** (`categories`): first-class names with active flag; products still store category as a string for POS/Sheets compat.
 
 Stock status: Out ≤ 0 · Low ≤ reorderLevel · else In Stock.
 
-POS paid sale → `PAYMENT_RECEIVED` → `InventoryEngine` → `InventoryService.deductForSale` (SALE movements).  
-Refund with restock → `InventoryService.restockForRefund` (RETURN movements).
+POS paid sale → `PAYMENT_RECEIVED` → `InventoryEngine` → `InventoryService.deductForSale` (SALE + FEFO lot consume).  
+Refund with restock → `InventoryService.restockForRefund` (RETURN movements + lot).
 
-Export readiness: `InventoryService.exportProductsData` / `exportCurrentStockData` / `exportInventoryMovementsData` return tabular rows for future CSV/Excel/Sheets without Excel deps in UI.
-
-Admin UI: `/inventory/items|import|stock|movements|categories` (admin/manager).
+Admin UI: `/inventory/items|import|stock|opening|stock-take|lots|movements|categories` (admin/manager).
 
 ### Bulk product import (Excel)
 
