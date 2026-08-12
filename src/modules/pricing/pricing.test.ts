@@ -120,7 +120,7 @@ describe("PricingService", () => {
     expect(PricingService.listPriceHistory("SKU-9")).toHaveLength(1)
   })
 
-  it("blocks loyalty discount without festival; allows with festival", async () => {
+  it("festival and loyalty are independent and may stack", async () => {
     const { PricingService } = await import("@/modules/pricing/PricingService")
     const { savePromoSettings } = await import("@/data/promoSettings")
     const today = new Date().toISOString().slice(0, 10)
@@ -136,9 +136,10 @@ describe("PricingService", () => {
       masters: {
         punchPercentEnabled: true,
         pointsRedeemEnabled: true,
-        freeItemPromoEnabled: true,
+        freeItemPromoEnabled: false,
         orderPromotionsEnabled: true,
       },
+      freeItemVisitPromo: { enabled: false, visitsRequired: 10, financialYearStartMonth: 4 },
     })
 
     const line = {
@@ -149,21 +150,21 @@ describe("PricingService", () => {
       listUnitPaisa: 10000,
     }
 
-    const noFest = PricingService.priceOrder({
+    const loyaltyOnly = PricingService.priceOrder({
       lines: [line],
       applyOccasion: false,
       redeemLoyaltyPercent: true,
     })
-    expect(noFest.totals.loyaltyDiscount).toBe(0)
-    expect(noFest.totals.occasionDiscount).toBe(0)
+    expect(loyaltyOnly.totals.occasionDiscount).toBe(0)
+    expect(loyaltyOnly.totals.loyaltyDiscount).toBeGreaterThan(0)
 
-    const withFest = PricingService.priceOrder({
+    const both = PricingService.priceOrder({
       lines: [line],
       applyOccasion: true,
       redeemLoyaltyPercent: true,
     })
-    expect(withFest.totals.occasionDiscount).toBeGreaterThan(0)
-    expect(withFest.totals.loyaltyDiscount).toBeGreaterThan(0)
+    expect(both.totals.occasionDiscount).toBeGreaterThan(0)
+    expect(both.totals.loyaltyDiscount).toBeGreaterThan(0)
   })
 
   it("F&F XOR coupon; F&F stacks with festival and blocks loyalty", async () => {
@@ -249,6 +250,11 @@ describe("PricingService", () => {
         pointsRedeemEnabled: true,
         freeItemPromoEnabled: true,
         orderPromotionsEnabled: true,
+      },
+      freeItemVisitPromo: {
+        enabled: true,
+        visitsRequired: 10,
+        financialYearStartMonth: 4,
       },
     })
 

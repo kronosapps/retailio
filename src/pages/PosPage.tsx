@@ -17,7 +17,7 @@ import {
   discountConfig,
   getActiveOccasionDiscount,
 } from "@/data/discounts"
-import { getPromoSettings } from "@/data/promoSettings"
+import { getPromoSettings, isFreeItemVisitEligible } from "@/data/promoSettings"
 import { PricingService } from "@/modules/pricing"
 import { CustomerService } from "@/modules/customer"
 import { CrmService, CustomerAttachField } from "@/modules/crm"
@@ -269,26 +269,8 @@ export function PosPage() {
   const loyaltyEff = getEffectiveLoyalty()
   const hasFnfOrCoupon =
     friendsFamilyPercent > 0 || Boolean(couponCode.trim())
-  const festivalOnTicket = applyOccasion && Boolean(activeOccasion)
-  /** Loyalty discount (points / punch% / free item) only with festival, not with F&F/Coupon. */
-  const loyaltyDiscountAllowed = festivalOnTicket && !hasFnfOrCoupon
-
-  const hasActiveLoyaltyPercent =
-    loyaltyDiscountAllowed &&
-    Boolean(loyaltyPercentOn) &&
-    loyaltyEff.punchPercentEnabled
-  const hasActiveLoyaltyItem =
-    loyaltyDiscountAllowed &&
-    loyaltyEff.freeItemPromoEnabled &&
-    Boolean(selectedLoyaltyReward)
-  const hasActiveLoyalty = hasActiveLoyaltyPercent || hasActiveLoyaltyItem
-  const effectivePointsToRedeem =
-    loyaltyDiscountAllowed &&
-    loyaltyEff.pointsRedeemEnabled &&
-    !hasActiveLoyaltyPercent &&
-    !hasActiveLoyaltyItem
-      ? pointsToRedeem
-      : 0
+  /** Loyalty redeem independent of Festival; blocked by F&F/Coupon. */
+  const loyaltyDiscountAllowed = !hasFnfOrCoupon
 
   const items = useMemo(
     () => getPosItemsByCategory(catalog, category),
@@ -308,6 +290,36 @@ export function PosPage() {
     return CustomerService.getById(customerId)
   }, [customerId, invoiceTick])
 
+  const isPointsMember = Boolean(attachedCustomer?.pointsMember)
+  const freeItemPromoOn =
+    promoSettings.freeItemVisitPromo.enabled ||
+    loyaltyEff.freeItemPromoEnabled
+  const freeItemVisitReady =
+    Boolean(attachedCustomer) &&
+    isPointsMember &&
+    isFreeItemVisitEligible(attachedCustomer!)
+
+  const hasActiveLoyaltyPercent =
+    loyaltyDiscountAllowed &&
+    !isPointsMember &&
+    Boolean(loyaltyPercentOn) &&
+    loyaltyEff.punchPercentEnabled
+  const hasActiveLoyaltyItem =
+    loyaltyDiscountAllowed &&
+    isPointsMember &&
+    freeItemPromoOn &&
+    freeItemVisitReady &&
+    Boolean(selectedLoyaltyReward)
+  const hasActiveLoyalty = hasActiveLoyaltyPercent || hasActiveLoyaltyItem
+  const effectivePointsToRedeem =
+    loyaltyDiscountAllowed &&
+    isPointsMember &&
+    loyaltyEff.pointsRedeemEnabled &&
+    !hasActiveLoyaltyPercent &&
+    !hasActiveLoyaltyItem
+      ? pointsToRedeem
+      : 0
+
   const customerSegments = useMemo(
     () =>
       attachedCustomer
@@ -317,14 +329,15 @@ export function PosPage() {
   )
 
   const walletPoints = attachedCustomer?.loyaltyPoints ?? 0
-  const availablePoints = attachedCustomer
-    ? getRedeemableLoyaltyPoints(attachedCustomer)
-    : 0
+  const availablePoints =
+    isPointsMember && attachedCustomer
+      ? getRedeemableLoyaltyPoints(attachedCustomer)
+      : 0
   const welcomeStatus = attachedCustomer
     ? describeWelcomePromoStatus(attachedCustomer)
     : null
   const punchFallbackNote =
-    "No CRM customer — use physical punch card. Digital punches apply when registered; Halwa 500g+ packs qualify by default."
+    "Guest not registered — physical punch card only (Halwa 500g+ by default). Registered members earn points, not punches."
 
   const priced = useMemo(
     () =>
@@ -393,7 +406,11 @@ export function PosPage() {
         loyaltyMode: selectedLoyaltyRewardId ? "item" : "off",
       })
     }
-    if (!loyaltyEff.freeItemPromoEnabled && selectedLoyaltyRewardId) {
+    if (
+      !loyaltyEff.freeItemPromoEnabled &&
+      !promoSettings.freeItemVisitPromo.enabled &&
+      selectedLoyaltyRewardId
+    ) {
       updateActivePosSession({
         selectedLoyaltyRewardId: null,
         cart: cartWithLoyaltyReward(cart, null),
@@ -405,6 +422,7 @@ export function PosPage() {
     loyaltyEff.pointsRedeemEnabled,
     loyaltyEff.punchPercentEnabled,
     loyaltyEff.freeItemPromoEnabled,
+    promoSettings.freeItemVisitPromo.enabled,
   ])
 
   // Strip loyalty discount when festival is off or F&F/Coupon is active
@@ -498,11 +516,12 @@ export function PosPage() {
     updateActivePosSession(clearLoyaltyDiscountFields())
   }
 
-  /** Loyalty = one of points | punch% | free item. Needs festival; clears F&F + coupon. */
+  /** Loyalty = one of points | punch% | free item. Clears F&F + coupon. */
   function chooseLoyaltyPercent() {
-    if (!loyaltyDiscountAllowed && !festivalOnTicket) {
+    if (isPointsMember) {
       updateActivePosSession({
-        chargeError: "Turn on Festival promo to use loyalty discount.",
+        chargeError:
+          "Registered members use points, not punch-card rewards.",
       })
       return
     }
@@ -527,9 +546,18 @@ export function PosPage() {
   }
 
   function selectLoyaltyReward(rewardId: string) {
-    if (!festivalOnTicket) {
+    if (!isPointsMember) {
       updateActivePosSession({
-        chargeError: "Turn on Festival promo to use loyalty discount.",
+        chargeError:
+          "Register the customer to redeem visit-based free items.",
+      })
+      return
+    }
+    if (!freeItemVisitReady) {
+      const need = promoSettings.freeItemVisitPromo.visitsRequired
+      const have = attachedCustomer?.fyVisitCount ?? 0
+      updateActivePosSession({
+        chargeError: `Free item needs ${need} FY visits (now ${have}).`,
       })
       return
     }
@@ -567,9 +595,9 @@ export function PosPage() {
   }
 
   function applyLoyaltyPoints(amount: number) {
-    if (!festivalOnTicket) {
+    if (!isPointsMember) {
       updateActivePosSession({
-        chargeError: "Turn on Festival promo to redeem points.",
+        chargeError: "Register the customer to redeem points.",
       })
       return
     }
@@ -758,6 +786,7 @@ export function PosPage() {
               Redeem {formatRedeemMappingLabel()} · steps of {redeemStep}
             </p>
             {loyaltyEff.pointsRedeemEnabled &&
+            isPointsMember &&
             availablePoints >= redeemStep &&
             cart.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
@@ -1019,8 +1048,8 @@ export function PosPage() {
                           />
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Festival can stack with Friends & Family, Coupon, or
-                          loyalty discount (loyalty needs festival on).
+                          Festival is independent of loyalty — both can apply on
+                          the same order.
                         </p>
                       </>
                     ) : (
@@ -1229,28 +1258,38 @@ export function PosPage() {
                 </div>
 
                 {loyaltyReady &&
+                !isPointsMember &&
                 loyaltyDiscountAllowed &&
                 !hasActiveLoyaltyPercent &&
-                !hasActiveLoyaltyItem &&
-                effectivePointsToRedeem <= 0 &&
-                (loyaltyEff.punchPercentEnabled ||
-                  loyaltyEff.freeItemPromoEnabled) ? (
+                loyaltyEff.punchPercentEnabled ? (
                   <p className="rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-xs">
-                    Loyalty ready — {attachedCustomer?.loyaltyPunches}/
-                    {loyaltyEff.punchesRequired} punches. Choose one: punch %,
-                    free item, or points (needs Festival on).
+                    Punch card ready — apply punch % (guests only; not with
+                    points).
                   </p>
                 ) : null}
 
-                {!festivalOnTicket ? (
-                  <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
-                    Turn on Festival (Occasion) to apply a loyalty discount.
-                    Punches and points still earn on paid sales.
+                {isPointsMember ? (
+                  <p className="rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground">
+                    Points member — earns points (no punch card). FY visits:{" "}
+                    {attachedCustomer?.fyVisitCount ?? 0}/
+                    {promoSettings.freeItemVisitPromo.visitsRequired}
+                    {freeItemPromoOn
+                      ? freeItemVisitReady
+                        ? " · free item ready"
+                        : ""
+                      : " · free item promo off"}
                   </p>
-                ) : hasFnfOrCoupon ? (
+                ) : (
+                  <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+                    No points member attached — punch card path only. Register
+                    for points; guests do not earn points.
+                  </p>
+                )}
+
+                {hasFnfOrCoupon ? (
                   <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
                     Friends & Family or Coupon is on — loyalty discount is
-                    disabled. Punches and points still earn on paid sales.
+                    disabled.
                   </p>
                 ) : null}
 
@@ -1269,6 +1308,7 @@ export function PosPage() {
                 ) : null}
 
                 {loyaltyEff.pointsRedeemEnabled &&
+                isPointsMember &&
                 attachedCustomer &&
                 availablePoints > 0 ? (
                   <div className="space-y-2 rounded-lg border border-border px-3 py-3">
@@ -1383,10 +1423,10 @@ export function PosPage() {
                   </div>
                 ) : null}
 
-                {loyaltyEff.punchPercentEnabled ? (
+                {loyaltyEff.punchPercentEnabled && !isPointsMember ? (
                   <div className="space-y-2">
                     <Label className="text-sm">
-                      Punch % reward (one loyalty choice)
+                      Punch % reward (punch-card guests)
                     </Label>
                     <div className="grid gap-2">
                       <button
@@ -1407,21 +1447,23 @@ export function PosPage() {
                           {loyaltyEff.percentReward.percent}% off the order
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Not with points or free item · needs Festival
+                          Not with points · guests only
                         </p>
                       </button>
                     </div>
                   </div>
                 ) : null}
 
-                {loyaltyEff.freeItemPromoEnabled ? (
+                {freeItemPromoOn && isPointsMember ? (
                   <div className="space-y-2">
                     <Label className="text-sm">
-                      Free item promo (one loyalty choice)
+                      Free item (FY visits ≥{" "}
+                      {promoSettings.freeItemVisitPromo.visitsRequired})
                     </Label>
                     <p className="text-xs text-muted-foreground">
-                      Not with punch % or points · needs Festival. Tap again to
-                      clear.
+                      {freeItemVisitReady
+                        ? "Eligible — exclusive with points redeem. Tap again to clear."
+                        : `Need ${promoSettings.freeItemVisitPromo.visitsRequired} visits this FY (now ${attachedCustomer?.fyVisitCount ?? 0}). Resets each financial year.`}
                     </p>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {LOYALTY_REWARD_ITEMS.map((reward) => {
@@ -1432,14 +1474,15 @@ export function PosPage() {
                             type="button"
                             onClick={() => selectLoyaltyReward(reward.id)}
                             disabled={
-                              !loyaltyDiscountAllowed && !selected
+                              (!freeItemVisitReady || !loyaltyDiscountAllowed) &&
+                              !selected
                             }
                             className={cn(
                               "rounded-lg border px-3 py-2.5 text-left transition-colors active:scale-[0.99]",
                               selected
                                 ? "border-primary bg-primary/10"
                                 : "border-border hover:bg-muted",
-                              !loyaltyDiscountAllowed &&
+                              (!freeItemVisitReady || !loyaltyDiscountAllowed) &&
                                 !selected &&
                                 "opacity-50"
                             )}

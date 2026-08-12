@@ -380,16 +380,27 @@ export function usePayment() {
           if (loyaltyResult) {
             const { getPromoSettings } = await import("@/data/promoSettings")
             const punchOn = getPromoSettings().masters.punchCardEnabled
+            const member = Boolean(loyaltyResult.customer.pointsMember)
             await invoiceRepository.updatePaymentFields(invoice.invoiceId, {
               loyalty: {
                 mode: sale?.loyalty?.mode ?? "off",
                 freeItemId: sale?.loyalty?.freeItemId ?? null,
                 freeItemName: sale?.loyalty?.freeItemName ?? null,
-                punchesBefore: punchOn ? loyaltyResult.punchesBefore : null,
-                punchesAfter: punchOn ? loyaltyResult.punchesAfter : null,
-                punchStamped: punchOn ? loyaltyResult.punchStamped : false,
-                pointsEarned: loyaltyResult.pointsEarned,
-                pointsBalanceAfter: loyaltyResult.pointsBalanceAfter,
+                punchesBefore:
+                  punchOn && !member ? loyaltyResult.punchesBefore : null,
+                punchesAfter:
+                  punchOn && !member ? loyaltyResult.punchesAfter : null,
+                punchStamped:
+                  punchOn && !member ? loyaltyResult.punchStamped : false,
+                pointsEarned: member ? loyaltyResult.pointsEarned : 0,
+                pointsBalanceAfter: member
+                  ? loyaltyResult.pointsBalanceAfter
+                  : null,
+                visitCountAfter: loyaltyResult.customer.visitCount,
+                fyVisitCountAfter: member
+                  ? loyaltyResult.customer.fyVisitCount
+                  : null,
+                fyKey: member ? loyaltyResult.customer.fyKey : null,
               },
             })
           }

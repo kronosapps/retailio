@@ -9,6 +9,7 @@ import {
   loyaltyConfig,
 } from "@/data/loyalty"
 import {
+  getFinancialYearKey,
   getPromoSettings,
   isSalePunchEligible,
 } from "@/data/promoSettings"
@@ -519,7 +520,7 @@ export class CrmService {
     return { creditNote: adjusted, customer: next }
   }
 
-  /** After Mark Paid — stamps punches (if eligible), earns points, deducts redeemed. */
+  /** After Mark Paid — points for members, punches for non-members (exclusive). */
   static async recordPaidPurchase(
     input: RecordPurchaseLoyaltyInput
   ): Promise<RecordPurchaseLoyaltyResult | null> {
@@ -527,16 +528,31 @@ export class CrmService {
     if (!existing) return null
 
     const spend = Math.max(0, Math.round(input.purchasePaisa || 0))
-    const earned = pointsFromSpendPaisa(spend)
     const redeemed = Math.max(0, Math.floor(input.pointsRedeemed || 0))
     const punchesBefore = existing.loyaltyPunches
     const required = getEffectiveLoyalty().punchesRequired
+    const isPointsMember = Boolean(existing.pointsMember)
+    const redeemedPunchReward = Boolean(input.redeemedLoyalty)
+    // Points and punch are exclusive: members never punch; punch path never earns points.
+    // Also: if points redeemed on this sale, never stamp a punch.
+    const mayEarnPoints =
+      isPointsMember && !redeemedPunchReward
+    const mayStampPunch =
+      !isPointsMember &&
+      !redeemedPunchReward &&
+      redeemed <= 0
+
+    const earned = mayEarnPoints ? pointsFromSpendPaisa(spend) : 0
     let punches = punchesBefore
     let punchStamped = false
 
-    if (input.redeemedLoyalty) {
+    if (isPointsMember) {
+      // Registered points members do not use punch card
+      punches = punchesBefore
+    } else if (redeemedPunchReward) {
       punches = 0
     } else if (
+      mayStampPunch &&
       isSalePunchEligible({
         purchasePaisa: spend,
         lines: input.lines,
@@ -556,10 +572,28 @@ export class CrmService {
         : 0
     const promoRemaining = Math.max(0, promoBefore - promoRedeemed)
 
+    // FY visit counter for free-item threshold (points members only)
+    const fySettings = getPromoSettings().freeItemVisitPromo
+    const fyKey = getFinancialYearKey(
+      new Date(),
+      fySettings.financialYearStartMonth
+    )
+    let fyVisitCount = existing.fyVisitCount || 0
+    let nextFyKey = existing.fyKey
+    if (isPointsMember && spend > 0) {
+      if (existing.fyKey !== fyKey) {
+        fyVisitCount = 1
+        nextFyKey = fyKey
+      } else {
+        fyVisitCount = fyVisitCount + 1
+        nextFyKey = fyKey
+      }
+    }
+
     const next = await customerRepository.save(
       {
         ...existing,
-        loyaltyPunches: punches,
+        loyaltyPunches: isPointsMember ? punchesBefore : punches,
         loyaltyPoints: Math.max(
           0,
           existing.loyaltyPoints + earned - redeemed
@@ -569,6 +603,8 @@ export class CrmService {
         welcomePromoPointsRemaining: existing.welcomePromoGranted
           ? promoRemaining
           : existing.welcomePromoPointsRemaining || 0,
+        fyVisitCount: isPointsMember ? fyVisitCount : existing.fyVisitCount || 0,
+        fyKey: isPointsMember ? nextFyKey : existing.fyKey,
         updatedBy: input.actorId ?? existing.updatedBy,
       },
       false
@@ -601,7 +637,7 @@ export class CrmService {
         storeId: next.storeId,
       })
     }
-    if (input.redeemedLoyalty && punchesBefore > 0) {
+    if (redeemedPunchReward && punchesBefore > 0 && !isPointsMember) {
       await crmAuditRepository.append({
         customerId: next.id,
         customerName: next.name,
@@ -639,6 +675,7 @@ export class CrmService {
   /**
    * POS phone onboarding for a new customer — name, email, DOB + welcome 1000 pts
    * (500 redeemable on this order, 500 on the next; earned unlock after 2 visits).
+   * Enrolls as points member (no punch card).
    */
   static async onboardAtPos(input: {
     phone: string
@@ -695,6 +732,10 @@ export class CrmService {
         loyaltyPoints: grant,
         welcomePromoGranted: grant > 0,
         welcomePromoPointsRemaining: grant,
+        pointsMember: true,
+        loyaltyPunches: 0,
+        fyVisitCount: 0,
+        fyKey: getFinancialYearKey(),
       },
       false
     )

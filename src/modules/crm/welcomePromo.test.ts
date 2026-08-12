@@ -96,6 +96,7 @@ describe("welcome promo + punch eligibility", () => {
       email: "promo@example.com",
       birthday: "1992-01-15",
     })
+    expect(customer.pointsMember).toBe(true)
 
     const result = await CrmService.recordPaidPurchase({
       customerId: customer.id,
@@ -113,8 +114,63 @@ describe("welcome promo + punch eligibility", () => {
     })
 
     expect(result?.pointsRedeemed).toBe(500)
+    expect(result?.pointsEarned).toBeGreaterThan(0)
+    expect(result?.punchStamped).toBe(false)
     expect(result?.customer.welcomePromoPointsRemaining).toBe(500)
-    expect(result?.customer.loyaltyPoints).toBeGreaterThanOrEqual(500)
+    expect(result?.customer.fyVisitCount).toBe(1)
+  })
+
+  it("points members never get punches; non-members never earn points", async () => {
+    const { CustomerService } = await import("@/modules/customer/CustomerService")
+    const { CrmService } = await import("@/modules/crm/CrmService")
+
+    const guest = await CustomerService.create({
+      name: "Punch Guest",
+      phone: "9000011122",
+    })
+    await CustomerService.save({
+      ...guest,
+      pointsMember: false,
+      loyaltyPunches: 0,
+    })
+    const punchSale = await CrmService.recordPaidPurchase({
+      customerId: guest.id,
+      purchasePaisa: 50000,
+      lines: [
+        {
+          itemId: "MH-BL-0500",
+          sku: "MH-BL-0500",
+          qty: 1,
+          category: "Madugula Halwa",
+          unitSize: 500,
+        },
+      ],
+    })
+    expect(punchSale?.pointsEarned).toBe(0)
+    expect(punchSale?.punchStamped).toBe(true)
+
+    const member = await CrmService.onboardAtPos({
+      phone: "9000033344",
+      name: "Points Member",
+      email: "pm@example.com",
+      birthday: "1991-02-02",
+    })
+    const pointsSale = await CrmService.recordPaidPurchase({
+      customerId: member.id,
+      purchasePaisa: 50000,
+      lines: [
+        {
+          itemId: "MH-BL-0500",
+          sku: "MH-BL-0500",
+          qty: 1,
+          category: "Madugula Halwa",
+          unitSize: 500,
+        },
+      ],
+    })
+    expect(pointsSale?.pointsEarned).toBeGreaterThan(0)
+    expect(pointsSale?.punchStamped).toBe(false)
+    expect(pointsSale?.customer.loyaltyPunches).toBe(0)
   })
 
   it("punches only Halwa 500g+ by default", async () => {

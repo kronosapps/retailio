@@ -134,9 +134,20 @@ describe("CRM — customer profile & loyalty", () => {
       customerId: customer.id,
       purchasePaisa: 10000,
       redeemedLoyalty: false,
+      lines: [
+        {
+          itemId: "MH-BL-0500",
+          sku: "MH-BL-0500",
+          qty: 1,
+          category: "Madugula Halwa",
+          unitSize: 500,
+        },
+      ],
     })
+    // Non-registered checkout customer → punch path only (no points)
     expect(after?.customer.loyaltyPunches).toBe(1)
-    expect(after?.customer.loyaltyPoints).toBe(100)
+    expect(after?.customer.loyaltyPoints).toBe(0)
+    expect(after?.pointsEarned).toBe(0)
 
     const redeemed = await CrmService.recordPaidPurchase({
       customerId: customer.id,
@@ -144,6 +155,7 @@ describe("CRM — customer profile & loyalty", () => {
       redeemedLoyalty: true,
     })
     expect(redeemed?.customer.loyaltyPunches).toBe(0)
+    expect(redeemed?.pointsEarned).toBe(0)
   })
 
   it("redeems points in 500 steps, bumps on-account AR, and settles", async () => {
@@ -182,6 +194,7 @@ describe("CRM — customer profile & loyalty", () => {
       visitCount: 10,
       welcomePromoGranted: false,
       welcomePromoPointsRemaining: 0,
+      pointsMember: true,
     })
 
     const priced = PricingService.priceOrder({

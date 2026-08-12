@@ -78,6 +78,11 @@ export type RecordedSale = {
     punchStamped?: boolean
     pointsEarned?: number | null
     pointsBalanceAfter?: number | null
+    /** Lifetime paid visits after this sale. */
+    visitCountAfter?: number | null
+    /** Financial-year visits after this sale. */
+    fyVisitCountAfter?: number | null
+    fyKey?: string | null
   }
 }
 

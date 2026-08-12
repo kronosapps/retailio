@@ -144,8 +144,7 @@ export function buildReceiptText(ctx: ReceiptContext): string {
   const punchesAfter = sale.loyalty?.punchesAfter
   if (
     typeof punchesAfter === "number" ||
-    sale.loyalty?.punchStamped ||
-    sale.loyalty?.mode !== "off"
+    sale.loyalty?.punchStamped
   ) {
     if (sale.loyalty?.punchStamped) {
       lines.push(
@@ -153,6 +152,18 @@ export function buildReceiptText(ctx: ReceiptContext): string {
       )
     } else if (typeof punchesAfter === "number") {
       lines.push(`Punch card: ${punchesAfter} punches`)
+    }
+  }
+
+  const visitsAfter = sale.loyalty?.visitCountAfter
+  const fyVisits = sale.loyalty?.fyVisitCountAfter
+  if (typeof visitsAfter === "number" || typeof fyVisits === "number") {
+    if (typeof visitsAfter === "number") {
+      lines.push(`Store visits: ${visitsAfter}`)
+    }
+    if (typeof fyVisits === "number") {
+      const fy = sale.loyalty?.fyKey ? ` (FY ${sale.loyalty.fyKey})` : ""
+      lines.push(`FY visits: ${fyVisits}${fy}`)
     }
   }
   if (payment) {

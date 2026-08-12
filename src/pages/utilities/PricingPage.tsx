@@ -451,7 +451,10 @@ export function PricingPage() {
               <input
                 type="checkbox"
                 className="mt-1 size-4 accent-primary"
-                checked={settings.masters.freeItemPromoEnabled}
+                checked={
+                  settings.masters.freeItemPromoEnabled ||
+                  settings.freeItemVisitPromo.enabled
+                }
                 onChange={(e) => {
                   if (!requireAdminPasscode()) return
                   savePromoSettings({
@@ -459,14 +462,22 @@ export function PricingPage() {
                       ...settings.masters,
                       freeItemPromoEnabled: e.target.checked,
                     },
+                    freeItemVisitPromo: {
+                      ...settings.freeItemVisitPromo,
+                      enabled: e.target.checked,
+                    },
                   })
                   refreshSettings()
                 }}
               />
               <span>
-                <span className="block text-sm font-medium">Free item promo</span>
+                <span className="block text-sm font-medium">
+                  Free item (FY visits)
+                </span>
                 <span className="text-xs text-muted-foreground">
-                  Full punch card → choose a free item
+                  Registered members after N visits in the financial year
+                  (default off · {settings.freeItemVisitPromo.visitsRequired}{" "}
+                  visits)
                 </span>
               </span>
             </label>
@@ -515,6 +526,28 @@ export function PricingPage() {
                   visitLimit: Math.max(
                     1,
                     Math.floor(Number(settings.welcomePromo.visitLimit) || 2)
+                  ),
+                },
+                freeItemVisitPromo: {
+                  enabled:
+                    settings.freeItemVisitPromo.enabled ||
+                    settings.masters.freeItemPromoEnabled,
+                  visitsRequired: Math.max(
+                    1,
+                    Math.floor(
+                      Number(settings.freeItemVisitPromo.visitsRequired) || 10
+                    )
+                  ),
+                  financialYearStartMonth: Math.min(
+                    12,
+                    Math.max(
+                      1,
+                      Math.floor(
+                        Number(
+                          settings.freeItemVisitPromo.financialYearStartMonth
+                        ) || 4
+                      )
+                    )
                   ),
                 },
                 earnPaisaPerPoint: settings.earnPaisaPerPoint,
@@ -821,6 +854,56 @@ export function PricingPage() {
                         visitLimit: Math.max(
                           1,
                           Math.floor(Number(e.target.value) || 2)
+                        ),
+                      },
+                    }))
+                  }
+                />
+              </div>
+            </div>
+
+            <p className="pt-2 text-sm font-medium">Free item (financial year visits)</p>
+            <p className="text-xs text-muted-foreground">
+              Disabled by default. After N paid visits in the FY (India: April–
+              March), a registered points member can redeem a free item. Resets
+              each FY. Visits print on the receipt.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label>Visits required</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={settings.freeItemVisitPromo.visitsRequired}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      freeItemVisitPromo: {
+                        ...s.freeItemVisitPromo,
+                        visitsRequired: Math.max(
+                          1,
+                          Math.floor(Number(e.target.value) || 10)
+                        ),
+                      },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>FY start month (1–12)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={settings.freeItemVisitPromo.financialYearStartMonth}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      freeItemVisitPromo: {
+                        ...s.freeItemVisitPromo,
+                        financialYearStartMonth: Math.min(
+                          12,
+                          Math.max(1, Math.floor(Number(e.target.value) || 4))
                         ),
                       },
                     }))

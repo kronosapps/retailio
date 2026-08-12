@@ -49,6 +49,15 @@ export type CustomerRecord = {
   welcomePromoPointsRemaining: number
   /** True after POS onboarding granted the welcome 1000 points. */
   welcomePromoGranted: boolean
+  /** True after POS onboarding — points member (no punch card). */
+  pointsMember: boolean
+  /**
+   * Visits in the current financial year (for free-item threshold).
+   * Resets when fyKey changes.
+   */
+  fyVisitCount: number
+  /** Financial year key e.g. "2025-26" (India April–March). */
+  fyKey: string | null
   /** Manual tags (VIP, etc.); auto-segments are derived at read time. */
   tags: string[]
   /** Free-text offer / campaign note shown on CRM profile. */
@@ -183,6 +192,22 @@ function normalizeCustomer(raw: CustomerRecord): CustomerRecord {
     welcomePromoGranted: Boolean(
       (raw as Partial<CustomerRecord>).welcomePromoGranted
     ),
+    pointsMember: Boolean(
+      (raw as Partial<CustomerRecord>).pointsMember ||
+        (raw as Partial<CustomerRecord>).welcomePromoGranted
+    ),
+    fyVisitCount: Number.isFinite(
+      (raw as Partial<CustomerRecord>).fyVisitCount
+    )
+      ? Math.max(
+          0,
+          Math.floor((raw as Partial<CustomerRecord>).fyVisitCount || 0)
+        )
+      : 0,
+    fyKey:
+      typeof (raw as Partial<CustomerRecord>).fyKey === "string"
+        ? (raw as Partial<CustomerRecord>).fyKey!.trim() || null
+        : ((raw as Partial<CustomerRecord>).fyKey ?? null),
     tags: Array.isArray((raw as Partial<CustomerRecord>).tags)
       ? ((raw as Partial<CustomerRecord>).tags || [])
           .map((t) => String(t).trim())
@@ -332,6 +357,9 @@ export function buildCustomerRecord(
     loyaltyPointsRedeemed: 0,
     welcomePromoPointsRemaining: 0,
     welcomePromoGranted: false,
+    pointsMember: false,
+    fyVisitCount: 0,
+    fyKey: null,
     tags: Array.isArray(input.tags)
       ? input.tags.map((t) => t.trim()).filter(Boolean)
       : [],

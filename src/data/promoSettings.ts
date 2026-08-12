@@ -29,23 +29,34 @@ export type LoyaltyRedeemMapping = {
 
 /**
  * Master switches.
- * Points / punch-% / free-item can each be enabled in settings.
- * On a single POS ticket only one loyalty discount applies (points XOR punch% XOR free item),
- * and only together with Festival; F&F/Coupon block loyalty redeem (earn still works).
+ * Festival (occasion) and loyalty discounts are independent and may stack.
+ * F&F XOR Coupon; either may stack with festival.
+ * On a ticket: points XOR punch% XOR free-item (one loyalty discount).
+ * Registered (points) members never get punch stamps; punch-card guests never earn points.
  */
 export type PromoMasterSwitches = {
   /** Product / SKU line promotions. */
   productPromotionsEnabled: boolean
   /** Order campaigns: coupons, occasion, birthday (additional discounts OK). */
   orderPromotionsEnabled: boolean
-  /** Digital punch card stamping + punch progress on receipt. */
+  /** Physical / digital punch card for non-registered guests. */
   punchCardEnabled: boolean
-  /** Points redemption at POS. */
+  /** Points redemption at POS (registered members). */
   pointsRedeemEnabled: boolean
-  /** Punch-card % reward at POS. */
+  /** Punch-card % reward at POS (non-registered / punch path). */
   punchPercentEnabled: boolean
-  /** Free-item punch reward at POS. */
+  /** Free-item visit promo (registered; see freeItemVisitPromo). */
   freeItemPromoEnabled: boolean
+}
+
+/** Free item after N store visits in the financial year (resets each FY). */
+export type FreeItemVisitPromoSettings = {
+  /** Off by default — enable in Promotions Management. */
+  enabled: boolean
+  /** Visits required in the current FY (default 10). */
+  visitsRequired: number
+  /** FY start month 1–12 (India default 4 = April). */
+  financialYearStartMonth: number
 }
 
 /** When a paid sale qualifies for a digital punch stamp. */
@@ -101,6 +112,7 @@ export type PromoSettings = {
   loyaltyRedeem: LoyaltyRedeemMapping
   punchRules: PunchRules
   welcomePromo: WelcomePromoSettings
+  freeItemVisitPromo: FreeItemVisitPromoSettings
   /** Earn: paisa spent per 1 point. */
   earnPaisaPerPoint: number
   punchesRequired: number
@@ -129,7 +141,8 @@ function defaults(): PromoSettings {
       punchCardEnabled: true,
       pointsRedeemEnabled: true,
       punchPercentEnabled: true,
-      freeItemPromoEnabled: true,
+      /** Visit-based free item — off until enabled in Promotions. */
+      freeItemPromoEnabled: false,
     },
     loyaltyRedeem: {
       points: 1000,
@@ -149,6 +162,11 @@ function defaults(): PromoSettings {
       grantPoints: 1000,
       redeemPerVisit: 500,
       visitLimit: 2,
+    },
+    freeItemVisitPromo: {
+      enabled: false,
+      visitsRequired: 10,
+      financialYearStartMonth: 4,
     },
     earnPaisaPerPoint: loyalty.points?.paisaPerPoint ?? 100,
     punchesRequired: loyalty.punchesRequired,
@@ -199,6 +217,10 @@ function read(): PromoSettings {
         ...base.welcomePromo,
         ...parsed.welcomePromo,
       },
+      freeItemVisitPromo: {
+        ...base.freeItemVisitPromo,
+        ...parsed.freeItemVisitPromo,
+      },
       birthday: { ...base.birthday, ...parsed.birthday },
       occasion: { ...base.occasion, ...parsed.occasion },
       friendsAndFamily: {
@@ -239,6 +261,10 @@ export function savePromoSettings(
       minQty: patch.punchRules?.minQty ?? cur.punchRules.minQty,
     },
     welcomePromo: { ...cur.welcomePromo, ...patch.welcomePromo },
+    freeItemVisitPromo: {
+      ...cur.freeItemVisitPromo,
+      ...patch.freeItemVisitPromo,
+    },
     earnPaisaPerPoint: patch.earnPaisaPerPoint ?? cur.earnPaisaPerPoint,
     punchesRequired: patch.punchesRequired ?? cur.punchesRequired,
     percentReward: patch.percentReward ?? cur.percentReward,
@@ -383,6 +409,51 @@ export function isBirthdayInWindow(
   const endNext = new Date(bdayNext)
   endNext.setDate(endNext.getDate() + Math.max(0, settings.daysAfter))
   return cur >= startNext && cur <= endNext
+}
+
+/**
+ * Indian-style FY key from a date (default starts April).
+ * Example: 15 May 2026 → "2026-27"; 10 Mar 2026 → "2025-26".
+ */
+export function getFinancialYearKey(
+  at = new Date(),
+  startMonth = getPromoSettings().freeItemVisitPromo.financialYearStartMonth
+): string {
+  const month = Math.min(12, Math.max(1, Math.floor(startMonth || 4)))
+  const y = at.getFullYear()
+  const m = at.getMonth() + 1
+  const startYear = m >= month ? y : y - 1
+  const endYearShort = String((startYear + 1) % 100).padStart(2, "0")
+  return `${startYear}-${endYearShort}`
+}
+
+/** Whether free-item visit promo is available for this member. */
+export function isFreeItemVisitEligible(
+  customer: {
+    pointsMember?: boolean
+    fyVisitCount?: number
+    fyKey?: string | null
+  },
+  settings = getPromoSettings()
+): boolean {
+  const on =
+    settings.freeItemVisitPromo.enabled ||
+    settings.masters.freeItemPromoEnabled
+  if (!on) return false
+  if (!customer.pointsMember) return false
+  const required = Math.max(
+    1,
+    Math.floor(settings.freeItemVisitPromo.visitsRequired || 10)
+  )
+  const fyKey = getFinancialYearKey(
+    new Date(),
+    settings.freeItemVisitPromo.financialYearStartMonth
+  )
+  const visits =
+    customer.fyKey === fyKey
+      ? Math.max(0, Math.floor(customer.fyVisitCount || 0))
+      : 0
+  return visits >= required
 }
 
 export const PROMO_SETTINGS_STORAGE_KEY = STORAGE_KEY

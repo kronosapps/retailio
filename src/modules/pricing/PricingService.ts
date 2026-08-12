@@ -311,18 +311,16 @@ export class PricingService {
 
   /**
    * Full cart pricing with RetailOS discount stacking rules:
-   * - Product / festival (occasion) / birthday: base campaigns
-   * - F&F XOR Coupon (not together); either may stack with festival
+   * - Festival and loyalty are independent (may stack together)
+   * - F&F XOR Coupon; either may stack with festival
    * - Loyalty discount = points XOR punch% XOR free-item (one only)
-   * - Loyalty discount only with festival; blocked when F&F or Coupon is on
-   *   (punches/points still earn on Mark Paid)
+   * - Loyalty blocked when F&F or Coupon is on
    */
   static priceOrder(input: PriceOrderInput): PriceOrderResult {
     const at = input.at || new Date()
     const settings = getPromoSettings()
     const orderPromosOn = settings.masters.orderPromotionsEnabled
     const occasion = orderPromosOn ? getActiveOccasionDiscount(at) : null
-    const festivalOn = Boolean(input.applyOccasion && occasion)
 
     let fnf = clampDiscountPercent(
       input.friendsFamilyPercent || 0,
@@ -338,12 +336,15 @@ export class PricingService {
     }
     const hasFnfOrCoupon = fnf > 0 || Boolean(couponCodeEffective)
 
-    // Loyalty discount only with festival, and never with F&F/Coupon
-    const loyaltyDiscountAllowed = festivalOn && !hasFnfOrCoupon
+    // Loyalty redeem independent of festival; blocked by F&F/Coupon
+    const loyaltyDiscountAllowed = !hasFnfOrCoupon
 
+    const freeItemOn =
+      settings.freeItemVisitPromo.enabled ||
+      settings.masters.freeItemPromoEnabled
     const wantsFreeItem =
       loyaltyDiscountAllowed &&
-      settings.masters.freeItemPromoEnabled &&
+      freeItemOn &&
       input.lines.some((l) => l.isLoyaltyReward && l.qty > 0)
     const wantsPunchPercent =
       loyaltyDiscountAllowed &&
@@ -369,9 +370,7 @@ export class PricingService {
     // 1) Line-level promo
     const intermediate = input.lines.map((line) => {
       const isFreeReward =
-        Boolean(line.isLoyaltyReward) &&
-        wantsFreeItem &&
-        settings.masters.freeItemPromoEnabled
+        Boolean(line.isLoyaltyReward) && wantsFreeItem && freeItemOn
       if (isFreeReward || line.qty <= 0) {
         const snap: PriceSnapshot = {
           listUnitPaisa: 0,
