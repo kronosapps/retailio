@@ -36,6 +36,7 @@ export type UtilityToolId =
   | "erp-chain"
   | "audit-log"
   | "sync-center"
+  | "backup-recovery"
   | "pricing"
   | "gst"
   | "tcs"
@@ -278,6 +279,14 @@ export const UTILITY_TOOLS: UtilityTool[] = [
     description: "Pending, failed, dead letter, incomplete sales & retry",
     path: "/utilities/sync",
     roles: ["admin", "manager"],
+  },
+  {
+    id: "backup-recovery",
+    group: "setup",
+    title: "Backup & Recovery",
+    description: "Database / domain exports — admin only; Sheets is not backup",
+    path: "/utilities/backup",
+    roles: ["admin"],
   },
   {
     id: "pricing",

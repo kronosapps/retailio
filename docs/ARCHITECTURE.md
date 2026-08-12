@@ -1,7 +1,7 @@
 # RetailOS Architecture
 
 Firestore is the **only** source of truth (when configured).  
-Google Sheets is for **sync / reporting / backup / analytics** — not the database.
+Google Sheets is for **sync / reporting / analytics** — not the database and not a restore source. In-app backups: [`BACKUP.md`](./BACKUP.md).
 
 React components must not call Firestore, Google Sheets, `fetch`, or `axios` for business data.
 
@@ -84,6 +84,10 @@ POS paid sale → `PAYMENT_RECEIVED` → `InventoryEngine` → `InventoryService
 Refund with restock → `InventoryService.restockForRefund` (RETURN movements + lot).
 
 Sale integrity overlay: `SaleTransactionEngine` / `SaleTransactionService` records CheckoutStarted → … → Completed so unpaid never looks like stock moved, and paid-but-stuck rows are recoverable (Sync Center). See [`SALE_TRANSACTIONS.md`](./SALE_TRANSACTIONS.md). Stock still deducts **only** after payment.
+
+### Backup & Recovery
+
+Admin-only **Utilities → Backup & Recovery** downloads JSON/Excel snapshots from repositories (hydrated local + Firestore). Google Sheets is **not** a backup target. Restore is inspect-only until a gated writer ships. See [`BACKUP.md`](./BACKUP.md).
 
 Admin UI: `/inventory/items|import|stock|opening|stock-take|lots|movements|categories` (admin/manager).
 

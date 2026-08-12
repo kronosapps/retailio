@@ -20,6 +20,7 @@ export type OpsAuditKind =
   | "EXPENSE_CREATED"
   | "STAFF_CREATED"
   | "SETTINGS_CHANGED"
+  | "BACKUP_EXPORTED"
 
 export type OpsAuditRecord = {
   id: string
@@ -72,6 +73,7 @@ export const OPS_AUDIT_KIND_LABELS: Record<OpsAuditKind, string> = {
   EXPENSE_CREATED: "Expense",
   STAFF_CREATED: "Staff created",
   SETTINGS_CHANGED: "Settings",
+  BACKUP_EXPORTED: "Backup exported",
 }
 
 export const OPS_AUDIT_KINDS = Object.keys(
