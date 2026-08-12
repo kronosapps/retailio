@@ -52,6 +52,11 @@ export function normalizeCoupon(
         : Math.max(0, Math.floor(Number(raw.maxRedemptions) || 0)),
     redemptionCount: Math.max(0, Math.floor(Number(raw.redemptionCount) || 0)),
     notes: raw.notes?.trim() || null,
+    segmentScope: Array.isArray((raw as Partial<CouponRecord>).segmentScope)
+      ? ((raw as Partial<CouponRecord>).segmentScope || [])
+          .map((s) => String(s).trim())
+          .filter(Boolean)
+      : [],
     storeId: raw.storeId ?? null,
     createdAt: raw.createdAt || now,
     updatedAt: raw.updatedAt || raw.createdAt || now,

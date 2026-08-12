@@ -11,6 +11,15 @@ export type CustomerRecord = {
   notes?: string
   /** Optional GSTIN for B2B classification (statutory scaffold). */
   gstin?: string
+  /** Address line (street / shop). */
+  address?: string
+  city?: string
+  state?: string
+  pin?: string
+  /** YYYY-MM-DD birthday for offers. */
+  birthday?: string | null
+  /** Free-form preferences (e.g. WhatsApp OK, veg only). */
+  preferences?: string | null
   storeId: string | null
   createdAt: string
   updatedAt: string
@@ -20,8 +29,39 @@ export type CustomerRecord = {
   totalSpendPaisa: number
   /** Unused store credit from credit notes (paisa). */
   storeCreditPaisa: number
+  /**
+   * Charge-account AR the customer owes the store (paisa).
+   * Separate from unpaid POS invoices (also summed in CRM).
+   */
+  outstandingPaisa: number
   visitCount: number
   lastPurchaseAt: string | null
+  /** Digital punch-card stamps toward next loyalty reward. */
+  loyaltyPunches: number
+  /** Loyalty points wallet (earn on paid sales). */
+  loyaltyPoints: number
+  /** Lifetime points redeemed (running total). */
+  loyaltyPointsRedeemed: number
+  /**
+   * Welcome / new-customer promo: remaining points from the 1000 grant
+   * that still count as promo (not yet redeemed). Part of loyaltyPoints wallet.
+   */
+  welcomePromoPointsRemaining: number
+  /** True after POS onboarding granted the welcome 1000 points. */
+  welcomePromoGranted: boolean
+  /** True after POS onboarding — points member (no punch card). */
+  pointsMember: boolean
+  /**
+   * Visits in the current financial year (for free-item threshold).
+   * Resets when fyKey changes.
+   */
+  fyVisitCount: number
+  /** Financial year key e.g. "2025-26" (India April–March). */
+  fyKey: string | null
+  /** Manual tags (VIP, etc.); auto-segments are derived at read time. */
+  tags: string[]
+  /** Free-text offer / campaign note shown on CRM profile. */
+  offerNote: string | null
 }
 
 const STORAGE_KEY = "retailos.customers.v1"
@@ -31,6 +71,15 @@ export type CreateCustomerInput = {
   phone?: string
   email?: string
   notes?: string
+  gstin?: string
+  address?: string
+  city?: string
+  state?: string
+  pin?: string
+  birthday?: string | null
+  preferences?: string | null
+  tags?: string[]
+  offerNote?: string | null
   storeId?: string | null
   createdBy?: string | null
 }
@@ -71,6 +120,18 @@ function normalizeCustomer(raw: CustomerRecord): CustomerRecord {
     email: raw.email?.trim() || undefined,
     notes: raw.notes?.trim() || undefined,
     gstin: raw.gstin?.trim().toUpperCase() || undefined,
+    address: raw.address?.trim() || undefined,
+    city: raw.city?.trim() || undefined,
+    state: raw.state?.trim() || undefined,
+    pin: raw.pin?.trim() || undefined,
+    birthday:
+      typeof (raw as Partial<CustomerRecord>).birthday === "string"
+        ? (raw as Partial<CustomerRecord>).birthday!.trim().slice(0, 10) || null
+        : ((raw as Partial<CustomerRecord>).birthday ?? null),
+    preferences:
+      typeof (raw as Partial<CustomerRecord>).preferences === "string"
+        ? (raw as Partial<CustomerRecord>).preferences!.trim() || null
+        : ((raw as Partial<CustomerRecord>).preferences ?? null),
     storeId: raw.storeId ?? null,
     createdBy: raw.createdBy ?? null,
     updatedBy: raw.updatedBy ?? null,
@@ -82,8 +143,80 @@ function normalizeCustomer(raw: CustomerRecord): CustomerRecord {
     )
       ? Math.max(0, Math.round((raw as CustomerRecord).storeCreditPaisa))
       : 0,
+    outstandingPaisa: Number.isFinite(
+      (raw as Partial<CustomerRecord>).outstandingPaisa
+    )
+      ? Math.max(
+          0,
+          Math.round((raw as Partial<CustomerRecord>).outstandingPaisa || 0)
+        )
+      : 0,
     visitCount: Number.isFinite(raw.visitCount) ? raw.visitCount : 0,
     lastPurchaseAt: raw.lastPurchaseAt ?? null,
+    loyaltyPunches: Number.isFinite(
+      (raw as Partial<CustomerRecord>).loyaltyPunches
+    )
+      ? Math.max(
+          0,
+          Math.floor((raw as Partial<CustomerRecord>).loyaltyPunches || 0)
+        )
+      : 0,
+    loyaltyPoints: Number.isFinite(
+      (raw as Partial<CustomerRecord>).loyaltyPoints
+    )
+      ? Math.max(
+          0,
+          Math.floor((raw as Partial<CustomerRecord>).loyaltyPoints || 0)
+        )
+      : 0,
+    loyaltyPointsRedeemed: Number.isFinite(
+      (raw as Partial<CustomerRecord>).loyaltyPointsRedeemed
+    )
+      ? Math.max(
+          0,
+          Math.floor(
+            (raw as Partial<CustomerRecord>).loyaltyPointsRedeemed || 0
+          )
+        )
+      : 0,
+    welcomePromoPointsRemaining: Number.isFinite(
+      (raw as Partial<CustomerRecord>).welcomePromoPointsRemaining
+    )
+      ? Math.max(
+          0,
+          Math.floor(
+            (raw as Partial<CustomerRecord>).welcomePromoPointsRemaining || 0
+          )
+        )
+      : 0,
+    welcomePromoGranted: Boolean(
+      (raw as Partial<CustomerRecord>).welcomePromoGranted
+    ),
+    pointsMember: Boolean(
+      (raw as Partial<CustomerRecord>).pointsMember ||
+        (raw as Partial<CustomerRecord>).welcomePromoGranted
+    ),
+    fyVisitCount: Number.isFinite(
+      (raw as Partial<CustomerRecord>).fyVisitCount
+    )
+      ? Math.max(
+          0,
+          Math.floor((raw as Partial<CustomerRecord>).fyVisitCount || 0)
+        )
+      : 0,
+    fyKey:
+      typeof (raw as Partial<CustomerRecord>).fyKey === "string"
+        ? (raw as Partial<CustomerRecord>).fyKey!.trim() || null
+        : ((raw as Partial<CustomerRecord>).fyKey ?? null),
+    tags: Array.isArray((raw as Partial<CustomerRecord>).tags)
+      ? ((raw as Partial<CustomerRecord>).tags || [])
+          .map((t) => String(t).trim())
+          .filter(Boolean)
+      : [],
+    offerNote:
+      typeof (raw as Partial<CustomerRecord>).offerNote === "string"
+        ? (raw as Partial<CustomerRecord>).offerNote!.trim() || null
+        : null,
   }
 }
 
@@ -202,6 +335,13 @@ export function buildCustomerRecord(
     phone,
     email: input.email?.trim() || undefined,
     notes: input.notes?.trim() || undefined,
+    gstin: input.gstin?.trim().toUpperCase() || undefined,
+    address: input.address?.trim() || undefined,
+    city: input.city?.trim() || undefined,
+    state: input.state?.trim() || undefined,
+    pin: input.pin?.trim() || undefined,
+    birthday: input.birthday?.trim().slice(0, 10) || null,
+    preferences: input.preferences?.trim() || null,
     storeId: input.storeId ?? null,
     createdAt: now,
     updatedAt: now,
@@ -209,7 +349,22 @@ export function buildCustomerRecord(
     updatedBy: input.createdBy ?? null,
     totalSpendPaisa: 0,
     storeCreditPaisa: 0,
+    outstandingPaisa: 0,
     visitCount: 0,
     lastPurchaseAt: null,
+    loyaltyPunches: 0,
+    loyaltyPoints: 0,
+    loyaltyPointsRedeemed: 0,
+    welcomePromoPointsRemaining: 0,
+    welcomePromoGranted: false,
+    pointsMember: false,
+    fyVisitCount: 0,
+    fyKey: null,
+    tags: Array.isArray(input.tags)
+      ? input.tags.map((t) => t.trim()).filter(Boolean)
+      : [],
+    offerNote: input.offerNote?.trim() || null,
   }
 }
+
+export const CUSTOMERS_STORAGE_KEY = STORAGE_KEY

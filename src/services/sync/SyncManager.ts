@@ -259,6 +259,18 @@ const ROUTES: Partial<Record<string, SheetRoute>> = {
       if (typeof p.syncCustomer === "function") await p.syncCustomer(data)
     },
   },
+  [EventTypes.CREDIT_NOTE_VOIDED]: {
+    sheet: "CreditNotes",
+    sync: async (p, data) => {
+      if (typeof p.syncCustomer === "function") await p.syncCustomer(data)
+    },
+  },
+  [EventTypes.CRM_AUDIT_RECORDED]: {
+    sheet: "CrmAudit",
+    sync: async () => {
+      /* Firestore is source of truth; optional Sheets mirror later. */
+    },
+  },
   [EventTypes.SALE_CANCELLED]: {
     sheet: "Invoices",
     sync: (p, data) => p.syncInvoice(data),
@@ -301,6 +313,12 @@ const ROUTES: Partial<Record<string, SheetRoute>> = {
       if (typeof p.syncPriceHistory === "function") {
         await p.syncPriceHistory(data)
       }
+    },
+  },
+  [EventTypes.CUSTOMER_AR_SETTLED]: {
+    sheet: "Customers",
+    sync: async (p, data) => {
+      if (typeof p.syncCustomer === "function") await p.syncCustomer(data)
     },
   },
 }

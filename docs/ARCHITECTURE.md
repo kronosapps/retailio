@@ -51,7 +51,7 @@ No layer may skip another layer.
 
 ## Firestore collections
 
-`products` · `customers` · `suppliers` · `purchase_orders` · `goods_receipts` · `purchase_invoices` · `supplier_payments` · `inventory` · `inventory_movements` · `inventory_lots` · `stock_takes` · `cashier_shifts` · `sales_returns` · `credit_notes` · `categories` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events`
+`products` · `customers` · `suppliers` · `purchase_orders` · `goods_receipts` · `purchase_invoices` · `supplier_payments` · `inventory` · `inventory_movements` · `inventory_lots` · `stock_takes` · `cashier_shifts` · `sales_returns` · `credit_notes` · `crm_audit` · `categories` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events`
 
 ### Purchasing (Phases 1–5)
 
@@ -210,9 +210,20 @@ Invoice status: `PartiallyRefunded` until all lines returned, then `Refunded`.
 
 ---
 
-## Pricing, promotions & discounts
+## Pricing / Promotions Management
 
-Module: `src/modules/pricing/`. UI: `/utilities/pricing` (admin/manager). POS coupon tab under Discounts.
+Module: `src/modules/pricing/` + `src/data/promoSettings.ts`. UI: **`/utilities/pricing`** (labeled **Promotions Management**).
+
+| Area | Behavior |
+|------|----------|
+| Product promos | SKU/category line discounts (master switch) |
+| Campaigns | Coupons / segment offers (order promotions switch) |
+| Discounts | Occasion + Friends & Family caps (editable) |
+| Loyalty | Punch card, free-item catalog, points earn, **1000 pts = ₹10** mapping (editable), redeem **multiples of 500** |
+| Birthday | Optional % off when attached customer DOB is in window |
+| Admin gate | Enable/disable toggles require admin passcode |
+
+POS: attach customer on cart → apply loyalty points in 500 steps without opening Loyalty panel.
 
 ```text
 List (base) → Promotion (SKU/category) → Coupon → Friends & Family → Occasion → Loyalty %
@@ -223,6 +234,38 @@ List (base) → Promotion (SKU/category) → Coupon → Friends & Family → Occ
 - Catalog sell-price edits append `price_history` (`PRICE_CHANGED`).
 - Collections: `promotions`, `coupons`, `price_history`.
 - Deferred: customer price lists, BOGO / tiered qty, complex multi-promo stacking.
+
+---
+
+## Customer CRM
+
+Module: `src/modules/crm/` (+ existing `CustomerService`). UI: `/customers`, `/customers/:id`.
+
+```text
+Customer → lifetime spend → visits → outstanding → store credit → punches / points
+```
+
+| Capability | Behavior |
+|------------|----------|
+| Profile | Name/phone/email/GSTIN/address/city/state/PIN/birthday/preferences/tags/offer note |
+| Purchase history | Invoices matched by `customerId` or phone |
+| Outstanding | Manual charge-account AR + unpaid invoice totals |
+| Store credit | From credit-note returns; apply at POS; void/adjust remaining on CRM profile |
+| Loyalty | Digital punches per paid visit; reset on POS redeem |
+| Points | Earn 1 per ₹1 spent (`loyalty.json` points config) |
+| Offers | Personal note + segment-targeted coupons (`segmentScope`) |
+| Segmentation | Derived: New / Regular / VIP / At risk / Credit / Loyalty ready |
+| Communication | Queue offer/reminder from profile; timeline + segment campaigns |
+| Campaigns | Bulk queue + CSV export by segment on `/customers` |
+| Audit | Append-only `crm_audit` for punches/points/credit/AR/messages |
+| Points redeem | 1 pt = ₹1 off at POS (Loyalty panel) |
+| On account | Payment method `OnAccount` → Dr AR; settle from CRM profile |
+| POS attach | Customer on cart (and Loyalty) before charge |
+| Hydrate | `/customers` pulls customers, credit notes, notifications, audit |
+
+Events: `CUSTOMER_*`, `CREDIT_NOTE_*` (incl. **VOIDED**), **`CUSTOMER_AR_SETTLED`**, **`CRM_AUDIT_RECORDED`**.
+
+Collections: `customers`, `credit_notes`, `notifications`, `crm_audit`.
 
 ---
 
@@ -246,7 +289,8 @@ Supported types (`src/events/EventTypes.ts`):
 - `EXPENSE_CREATED`
 - `SHIFT_OPENED` / `SHIFT_CLOSED` / `TILL_MOVEMENT`
 - `SALE_RETURN_CREATED` / `SALE_RETURN_POSTED` / `SALE_RETURN_UPDATED`
-- `CREDIT_NOTE_ISSUED` / `CREDIT_NOTE_APPLIED`
+- `CREDIT_NOTE_ISSUED` / `CREDIT_NOTE_APPLIED` / `CREDIT_NOTE_VOIDED`
+- `CUSTOMER_AR_SETTLED` / `CRM_AUDIT_RECORDED`
 - `SALE_CANCELLED`
 
 Flow: repository write → `EventPublisher.publish` → `EventBus` → engines + `SyncManager` enqueues → provider.

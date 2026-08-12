@@ -1,4 +1,5 @@
 import { Minus, Plus, Trash2 } from "lucide-react"
+import type { ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -29,6 +30,8 @@ export type PosCartTotals = {
   loyaltyLabel: string | null
   couponDiscount?: number
   couponCode?: string | null
+  pointsDiscount?: number
+  pointsRedeemed?: number
   taxableAmount: number
   gstAmount: number
   sgstLabel: string
@@ -55,6 +58,8 @@ type PosCartPanelProps = {
   onClearCart: () => void
   onSetQty: (itemId: string, qty: number) => void
   onCharge: () => void
+  /** Customer attach before charge (CRM identity). */
+  customerSection?: ReactNode
   /** Extra classes on the root (e.g. sheet fill). */
   className?: string
 }
@@ -77,6 +82,7 @@ export function PosCartPanel({
   onClearCart,
   onSetQty,
   onCharge,
+  customerSection,
   className,
 }: PosCartPanelProps) {
   return (
@@ -157,6 +163,13 @@ export function PosCartPanel({
           </p>
         ) : null}
       </div>
+
+      {customerSection ? (
+        <>
+          <Separator />
+          <div className="space-y-2 px-4 py-3">{customerSection}</div>
+        </>
+      ) : null}
 
       <Separator />
 
@@ -252,6 +265,14 @@ export function PosCartPanel({
               <span>Coupon {totals.couponCode}</span>
               <span className="tabular-nums">
                 −{formatMoney(totals.couponDiscount ?? 0)}
+              </span>
+            </div>
+          ) : null}
+          {(totals.pointsDiscount ?? 0) > 0 ? (
+            <div className="flex items-center justify-between text-muted-foreground">
+              <span>Points (−{totals.pointsRedeemed ?? 0})</span>
+              <span className="tabular-nums">
+                −{formatMoney(totals.pointsDiscount ?? 0)}
               </span>
             </div>
           ) : null}

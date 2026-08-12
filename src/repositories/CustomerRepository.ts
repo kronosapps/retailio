@@ -11,13 +11,14 @@ import {
   type CreateCustomerInput,
   type CustomerRecord,
 } from "@/data/customers"
+import { COLLECTIONS } from "@/core/firebase/collections"
 import { EventPublisher } from "@/events/EventPublisher"
 import { EventTypes } from "@/events/EventTypes"
 import { createId } from "@/utils/id"
 
-import { removeDocument, upsertDocument } from "./firestoreHelpers"
+import { listDocuments, removeDocument, upsertDocument } from "./firestoreHelpers"
 
-const COLLECTION = "customers"
+const COLLECTION = COLLECTIONS.CUSTOMERS
 
 export type { CreateCustomerInput, CustomerRecord }
 
@@ -42,6 +43,18 @@ export class CustomerRepository {
 
   getById(id: string): CustomerRecord | null {
     return getLocalCustomer(id)
+  }
+
+  /** Pull remote customers when Firestore is source of truth. */
+  async hydrate(): Promise<CustomerRecord[]> {
+    const remote = await listDocuments<CustomerRecord>(COLLECTION)
+    if (remote) {
+      for (const row of remote) {
+        if (!row?.id) continue
+        upsertLocalCustomer(row)
+      }
+    }
+    return this.list()
   }
 
   findByPhone(phone: string, storeId?: string | null): CustomerRecord | null {

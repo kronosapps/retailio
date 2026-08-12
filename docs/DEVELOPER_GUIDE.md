@@ -56,6 +56,16 @@
 4. Product sell-price changes → `PricingService.recordPriceChange` (from `ProductService.update`).
 5. POS coupon field lives on the session; redeem count bumps only after payment succeeds.
 
+## Customer CRM
+
+1. Directory CRUD → `CustomerService`; CRM aggregates → `CrmService.getProfile`.
+2. Detail route `/customers/:id` — purchases, credit notes, loyalty, segments, notifications, **AR settle**.
+3. Attach customer on POS Loyalty panel → punches/points/eligible coupons; `priceOrder` applies points + segment coupons.
+4. Mark Paid → `upsertFromCheckout` then `recordPaidPurchase` (punches + earn − redeem points).
+5. Store credit at payment → `applyStoreCredit`; **OnAccount** tender → `bumpOutstanding` (Banking skipped; GL Dr AR).
+6. Settle AR from CRM → `settleOutstanding` → `CUSTOMER_AR_SETTLED` (Banking + Accounting).
+7. Coupons may set `segmentScope` (vip/regular/…) at Utilities → Pricing.
+
 ### Bulk product import
 
 1. Download template / export via `ProductImportService.downloadTemplate()` / `downloadExport()`.

@@ -7,9 +7,12 @@ import {
 } from "react"
 
 import { CustomerService } from "@/modules/customer"
+import { CrmService } from "@/modules/crm"
+import { isWalkInName } from "@/data/customers"
 import { useAuth } from "@/providers/AuthProvider"
 import { invoiceRepository } from "@/repositories/InvoiceRepository"
 import { paymentRepository } from "@/repositories/PaymentRepository"
+import { productRepository } from "@/repositories/ProductRepository"
 
 import { manualUpiProvider } from "../providers/ManualUPIProvider"
 import {
@@ -251,6 +254,15 @@ export function usePayment() {
         }
       }
 
+      if (settlement.method === "OnAccount") {
+        const hasIdentity =
+          !isWalkInName(customerName) || Boolean(customerPhone.trim())
+        if (!hasIdentity) {
+          setError("On account requires a named customer or mobile number.")
+          return
+        }
+      }
+
       setBusy(true)
       setError(null)
       try {
@@ -280,6 +292,41 @@ export function usePayment() {
           purchasedAt: paidAt,
         })
 
+        if (settlement.method === "OnAccount" && !customer) {
+          throw new PaymentError(
+            "UNKNOWN",
+            "Could not resolve customer for on-account sale."
+          )
+        }
+
+        let storeCreditAppliedPaisa = Math.max(
+          0,
+          Math.round(settlement.storeCreditAppliedPaisa || 0)
+        )
+        if (customer && storeCreditAppliedPaisa > 0) {
+          storeCreditAppliedPaisa = Math.min(
+            storeCreditAppliedPaisa,
+            customer.storeCreditPaisa,
+            invoice.amountPaisa
+          )
+          if (storeCreditAppliedPaisa > 0) {
+            const applied = await CrmService.applyStoreCredit({
+              customerId: customer.id,
+              amountPaisa: storeCreditAppliedPaisa,
+              invoiceId: invoice.invoiceId,
+              actorId: userId,
+            })
+            storeCreditAppliedPaisa = applied.appliedPaisa
+          }
+        } else {
+          storeCreditAppliedPaisa = 0
+        }
+
+        const tenderPaisa = Math.max(
+          0,
+          invoice.amountPaisa - storeCreditAppliedPaisa
+        )
+
         // Repository persists + publishes PAYMENT_RECEIVED → SyncManager → Sheets
         const paid = await paymentRepository.update(payment.paymentId, {
           status: "Paid",
@@ -288,10 +335,11 @@ export function usePayment() {
           customerId: customer?.id ?? null,
           customerPhone: customer?.phone ?? (customerPhone.trim() || null),
           remarks: remarks.trim() || payment.remarks,
-          paymentMethod: method,
+          paymentMethod: settlement.method,
           upiTxnLast4,
           cashReceiptNumber,
           cashReceiptId,
+          storeCreditAppliedPaisa,
         })
 
         await invoiceRepository.updatePaymentFields(invoice.invoiceId, {
@@ -301,18 +349,86 @@ export function usePayment() {
           customerName,
           customerId: customer?.id ?? null,
           customerPhone: customer?.phone ?? (customerPhone.trim() || null),
+          storeCreditAppliedPaisa,
         })
+
+        if (customer) {
+          const sale = await invoiceRepository.getById(invoice.invoiceId)
+          const redeemedLoyalty =
+            sale?.loyalty?.mode === "percent" ||
+            sale?.loyalty?.mode === "item"
+          const loyaltyResult = await CrmService.recordPaidPurchase({
+            customerId: customer.id,
+            purchasePaisa: invoice.amountPaisa,
+            redeemedLoyalty,
+            pointsRedeemed: sale?.totals.pointsRedeemed || 0,
+            lines: sale?.lines.map((l) => {
+              const product =
+                productRepository.getById(l.sku || l.itemId) ||
+                productRepository.getById(l.itemId)
+              return {
+                itemId: l.itemId,
+                sku: l.sku,
+                qty: l.qty,
+                isLoyaltyReward: l.isLoyaltyReward,
+                category: product?.category ?? null,
+                unitSize: product?.unitSize ?? null,
+              }
+            }),
+            actorId: userId,
+          })
+          if (loyaltyResult) {
+            const { getPromoSettings } = await import("@/data/promoSettings")
+            const punchOn = getPromoSettings().masters.punchCardEnabled
+            const member = Boolean(loyaltyResult.customer.pointsMember)
+            await invoiceRepository.updatePaymentFields(invoice.invoiceId, {
+              loyalty: {
+                mode: sale?.loyalty?.mode ?? "off",
+                freeItemId: sale?.loyalty?.freeItemId ?? null,
+                freeItemName: sale?.loyalty?.freeItemName ?? null,
+                punchesBefore:
+                  punchOn && !member ? loyaltyResult.punchesBefore : null,
+                punchesAfter:
+                  punchOn && !member ? loyaltyResult.punchesAfter : null,
+                punchStamped:
+                  punchOn && !member ? loyaltyResult.punchStamped : false,
+                pointsEarned: member ? loyaltyResult.pointsEarned : 0,
+                pointsBalanceAfter: member
+                  ? loyaltyResult.pointsBalanceAfter
+                  : null,
+                visitCountAfter: loyaltyResult.customer.visitCount,
+                fyVisitCountAfter: member
+                  ? loyaltyResult.customer.fyVisitCount
+                  : null,
+                fyKey: member ? loyaltyResult.customer.fyKey : null,
+              },
+            })
+          }
+          if (settlement.method === "OnAccount" && tenderPaisa > 0) {
+            await CrmService.bumpOutstanding({
+              customerId: customer.id,
+              amountPaisa: tenderPaisa,
+              actorId: userId,
+            })
+          }
+        }
 
         const tallyRef =
           paid.paymentMethod === "UPI"
             ? `UPI …${paid.upiTxnLast4}`
-            : paid.cashReceiptId || `Cash #${paid.cashReceiptNumber}`
+            : paid.paymentMethod === "OnAccount"
+              ? "On account"
+              : paid.cashReceiptId || `Cash #${paid.cashReceiptNumber}`
 
         appendPaymentLog({
           paymentId: paid.paymentId,
           invoiceId: paid.invoiceId,
           event: "MARKED_PAID",
-          message: `Session ${paid.paymentId} marked paid via ${paid.paymentMethod} (${tallyRef}).`,
+          message: `Session ${paid.paymentId} marked paid via ${paid.paymentMethod} (${tallyRef})${
+            storeCreditAppliedPaisa > 0
+              ? ` · store credit −${(storeCreditAppliedPaisa / 100).toFixed(2)}`
+              : ""
+          }.`,
         })
 
         setPayment(paid)
@@ -322,7 +438,9 @@ export function usePayment() {
         setError(
           err instanceof PaymentError
             ? err.message
-            : "Could not mark payment as paid."
+            : err instanceof Error
+              ? err.message
+              : "Could not mark payment as paid."
         )
       } finally {
         setBusy(false)

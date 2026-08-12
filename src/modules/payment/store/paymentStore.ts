@@ -30,7 +30,12 @@ function normalizePayment(raw: LegacyPayment): Payment | null {
     amountPaisa: raw.amountPaisa ?? 0,
     amount: raw.amount ?? 0,
     currency: raw.currency || "INR",
-    paymentMethod: raw.paymentMethod === "Cash" ? "Cash" : "UPI",
+    paymentMethod:
+      raw.paymentMethod === "Cash"
+        ? "Cash"
+        : raw.paymentMethod === "OnAccount"
+          ? "OnAccount"
+          : "UPI",
     status: raw.status || "Pending",
     createdAt: raw.createdAt || new Date().toISOString(),
     paidAt: raw.paidAt ?? null,

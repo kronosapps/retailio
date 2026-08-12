@@ -10,7 +10,7 @@ export type PaymentStatus =
   | "PartiallyRefunded"
 
 /** Active tender types on POS. Legacy Card/Bank/Split may still exist in old rows. */
-export type PaymentMethod = "Cash" | "UPI"
+export type PaymentMethod = "Cash" | "UPI" | "OnAccount"
 
 export type PaymentLogEvent =
   | "SESSION_CREATED"
@@ -67,12 +67,15 @@ export type Payment = {
   cashReceiptNumber: number | null
   /** e.g. CASH-20260805-0001 */
   cashReceiptId: string | null
+  /** Store credit applied toward this payment (paisa). */
+  storeCreditAppliedPaisa?: number | null
 }
 
 /** Details collected when cashier confirms Mark as Paid. */
 export type PaymentSettlementInput =
-  | { method: "UPI"; upiTxnLast4: string }
-  | { method: "Cash" }
+  | { method: "UPI"; upiTxnLast4: string; storeCreditAppliedPaisa?: number }
+  | { method: "Cash"; storeCreditAppliedPaisa?: number }
+  | { method: "OnAccount"; storeCreditAppliedPaisa?: number }
 
 /** Alias clarifying that Payment is a session record. */
 export type PaymentSession = Payment

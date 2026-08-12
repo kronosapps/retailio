@@ -53,6 +53,12 @@ export type RecordedSale = {
     /** Coupon off (paisa); 0 when unused. */
     couponDiscount?: Paisa
     couponCode?: string | null
+    /** Store credit applied at payment (paisa). */
+    storeCreditAppliedPaisa?: Paisa
+    /** Loyalty points redeemed (count). */
+    pointsRedeemed?: number
+    /** Paisa off from points. */
+    pointsDiscount?: Paisa
     taxableAmount: Paisa
     gstAmount: Paisa
     gstPercent: number
@@ -66,6 +72,17 @@ export type RecordedSale = {
     mode: "off" | "percent" | "item"
     freeItemId: string | null
     freeItemName: string | null
+    /** Snapshot after Mark Paid (for receipt). */
+    punchesBefore?: number | null
+    punchesAfter?: number | null
+    punchStamped?: boolean
+    pointsEarned?: number | null
+    pointsBalanceAfter?: number | null
+    /** Lifetime paid visits after this sale. */
+    visitCountAfter?: number | null
+    /** Financial-year visits after this sale. */
+    fyVisitCountAfter?: number | null
+    fyKey?: string | null
   }
 }
 
@@ -330,6 +347,8 @@ export function updateInvoicePayment(
     customerName?: string
     customerId?: string | null
     customerPhone?: string | null
+    storeCreditAppliedPaisa?: number
+    loyalty?: Partial<RecordedSale["loyalty"]>
   }
 ): RecordedSale | null {
   const store = readStore()
@@ -339,7 +358,16 @@ export function updateInvoicePayment(
   const current = store.sales[index]
   const next: RecordedSale = {
     ...current,
-    ...patch,
+    paymentId:
+      patch.paymentId !== undefined ? patch.paymentId : current.paymentId,
+    paymentStatus:
+      patch.paymentStatus !== undefined
+        ? patch.paymentStatus
+        : current.paymentStatus,
+    paymentMethod:
+      patch.paymentMethod !== undefined
+        ? patch.paymentMethod
+        : current.paymentMethod,
     customerName: patch.customerName ?? current.customerName,
     customerId:
       patch.customerId !== undefined ? patch.customerId : current.customerId,
@@ -347,6 +375,19 @@ export function updateInvoicePayment(
       patch.customerPhone !== undefined
         ? patch.customerPhone
         : current.customerPhone,
+    loyalty: patch.loyalty
+      ? { ...current.loyalty, ...patch.loyalty }
+      : current.loyalty,
+    totals:
+      patch.storeCreditAppliedPaisa !== undefined
+        ? {
+            ...current.totals,
+            storeCreditAppliedPaisa: Math.max(
+              0,
+              Math.round(patch.storeCreditAppliedPaisa)
+            ),
+          }
+        : current.totals,
   }
   const sales = [...store.sales]
   sales[index] = next

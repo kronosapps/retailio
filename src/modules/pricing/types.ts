@@ -14,6 +14,7 @@ export type AppliedPriceRule = {
     | "FRIENDS_FAMILY"
     | "OCCASION"
     | "LOYALTY"
+    | "POINTS"
     | "MANUAL"
   id: string | null
   label: string
@@ -78,6 +79,11 @@ export type CouponRecord = {
   maxRedemptions: number | null
   redemptionCount: number
   notes: string | null
+  /**
+   * Empty = all customers. Otherwise customer must match at least one
+   * CRM segment id (e.g. vip, regular).
+   */
+  segmentScope: string[]
   storeId: string | null
   createdAt: string
   updatedAt: string

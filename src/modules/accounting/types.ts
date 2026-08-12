@@ -42,6 +42,8 @@ export type JournalEntry = {
     | "purchase_return"
     | "sales_return"
     | "credit_note"
+    | "credit_note_applied"
+    | "ar_settlement"
   referenceId: string
   operatorId: string | null
   operatorName: string | null

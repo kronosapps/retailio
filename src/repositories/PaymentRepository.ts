@@ -103,12 +103,17 @@ export class PaymentRepository {
 }
 
 function toPaymentSyncPayload(payment: Payment) {
+  const creditPaisa = Math.max(0, Math.round(payment.storeCreditAppliedPaisa || 0))
+  const creditRupees = creditPaisa / 100
   return {
     invoiceId: payment.invoiceId,
     invoiceNumber: payment.invoiceNumber,
     transactionReference: payment.transactionReference,
     paymentId: payment.paymentId,
-    amount: payment.amount,
+    /** Tender amount after store credit (rupees) — banking/till. */
+    amount: Math.max(0, Number((payment.amount - creditRupees).toFixed(2))),
+    amountGross: payment.amount,
+    storeCreditAppliedPaisa: creditPaisa,
     paymentMethod: payment.paymentMethod,
     status: payment.status,
     paidAt: payment.paidAt,

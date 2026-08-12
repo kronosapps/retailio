@@ -17,7 +17,20 @@ import {
   discountConfig,
   getActiveOccasionDiscount,
 } from "@/data/discounts"
+import { getPromoSettings, isFreeItemVisitEligible } from "@/data/promoSettings"
 import { PricingService } from "@/modules/pricing"
+import { CustomerService } from "@/modules/customer"
+import { CrmService, CustomerAttachField } from "@/modules/crm"
+import {
+  loyaltyConfig,
+  getLoyaltyRewardSummary,
+  getEffectiveLoyalty,
+  getRedeemableLoyaltyPoints,
+  describeWelcomePromoStatus,
+  maxRedeemablePoints,
+  snapRedeemPoints,
+  formatRedeemMappingLabel,
+} from "@/data/loyalty"
 import { peekNextInvoiceId } from "@/data/invoices"
 import {
   buildPosCatalog,
@@ -45,7 +58,6 @@ import {
 import { PosCartPanel } from "@/modules/pos/components/PosCartPanel"
 import { ReceiptDialog } from "@/modules/receipt"
 import { ProductService } from "@/modules/products"
-import { getLoyaltyRewardSummary, loyaltyConfig } from "@/data/loyalty"
 import {
   LOYALTY_REWARD_ITEMS,
   getLoyaltyRewardItem,
@@ -182,10 +194,15 @@ export function PosPage() {
     applyOccasion,
     friendsFamilyPercent,
     couponCode,
+    customerId,
+    customerName,
+    customerPhone,
+    pointsToRedeem,
     discountTab,
     menuPanel,
     category,
     loyaltyMode,
+    loyaltyPercentOn,
     selectedLoyaltyRewardId,
     lastInvoiceId,
     chargeError,
@@ -241,13 +258,19 @@ export function PosPage() {
       : null
 
   const activeOccasion = useMemo(() => getActiveOccasionDiscount(), [])
-  const fnfMax = discountConfig.friendsAndFamily.maxPercent
-  const fnfPresets = discountConfig.friendsAndFamily.presets
+  const promoSettings = getPromoSettings()
+  const fnfMax =
+    promoSettings.friendsAndFamily.maxPercent ||
+    discountConfig.friendsAndFamily.maxPercent
+  const fnfPresets =
+    promoSettings.friendsAndFamily.presets ||
+    discountConfig.friendsAndFamily.presets
   const selectedLoyaltyReward = getLoyaltyRewardItem(selectedLoyaltyRewardId)
-  const hasActiveLoyaltyPercent = loyaltyMode === "percent"
-  const hasActiveLoyaltyItem =
-    loyaltyMode === "item" && Boolean(selectedLoyaltyReward)
-  const hasActiveLoyalty = hasActiveLoyaltyPercent || hasActiveLoyaltyItem
+  const loyaltyEff = getEffectiveLoyalty()
+  const hasFnfOrCoupon =
+    friendsFamilyPercent > 0 || Boolean(couponCode.trim())
+  /** Loyalty redeem independent of Festival; blocked by F&F/Coupon. */
+  const loyaltyDiscountAllowed = !hasFnfOrCoupon
 
   const items = useMemo(
     () => getPosItemsByCategory(catalog, category),
@@ -261,6 +284,60 @@ export function PosPage() {
     () => items.filter((item) => !isMultiWeightItem(item)),
     [items]
   )
+
+  const attachedCustomer = useMemo(() => {
+    if (!customerId) return null
+    return CustomerService.getById(customerId)
+  }, [customerId, invoiceTick])
+
+  const isPointsMember = Boolean(attachedCustomer?.pointsMember)
+  const freeItemPromoOn =
+    promoSettings.freeItemVisitPromo.enabled ||
+    loyaltyEff.freeItemPromoEnabled
+  const freeItemVisitReady =
+    Boolean(attachedCustomer) &&
+    isPointsMember &&
+    isFreeItemVisitEligible(attachedCustomer!)
+
+  const hasActiveLoyaltyPercent =
+    loyaltyDiscountAllowed &&
+    !isPointsMember &&
+    Boolean(loyaltyPercentOn) &&
+    loyaltyEff.punchPercentEnabled
+  const hasActiveLoyaltyItem =
+    loyaltyDiscountAllowed &&
+    isPointsMember &&
+    freeItemPromoOn &&
+    freeItemVisitReady &&
+    Boolean(selectedLoyaltyReward)
+  const hasActiveLoyalty = hasActiveLoyaltyPercent || hasActiveLoyaltyItem
+  const effectivePointsToRedeem =
+    loyaltyDiscountAllowed &&
+    isPointsMember &&
+    loyaltyEff.pointsRedeemEnabled &&
+    !hasActiveLoyaltyPercent &&
+    !hasActiveLoyaltyItem
+      ? pointsToRedeem
+      : 0
+
+  const customerSegments = useMemo(
+    () =>
+      attachedCustomer
+        ? CrmService.deriveSegments(attachedCustomer).map((s) => s.id)
+        : [],
+    [attachedCustomer]
+  )
+
+  const walletPoints = attachedCustomer?.loyaltyPoints ?? 0
+  const availablePoints =
+    isPointsMember && attachedCustomer
+      ? getRedeemableLoyaltyPoints(attachedCustomer)
+      : 0
+  const welcomeStatus = attachedCustomer
+    ? describeWelcomePromoStatus(attachedCustomer)
+    : null
+  const punchFallbackNote =
+    "Guest not registered — physical punch card only (Halwa 500g+ by default). Registered members earn points, not punches."
 
   const priced = useMemo(
     () =>
@@ -278,6 +355,10 @@ export function PosPage() {
         friendsFamilyPercent,
         redeemLoyaltyPercent: hasActiveLoyaltyPercent,
         couponCode: couponCode || null,
+        pointsToRedeem: effectivePointsToRedeem,
+        availablePoints,
+        customerSegments,
+        customerBirthday: attachedCustomer?.birthday ?? null,
       }),
     [
       cart,
@@ -285,6 +366,10 @@ export function PosPage() {
       friendsFamilyPercent,
       hasActiveLoyaltyPercent,
       couponCode,
+      effectivePointsToRedeem,
+      availablePoints,
+      customerSegments,
+      attachedCustomer?.birthday,
     ]
   )
   const totals = priced.totals
@@ -292,7 +377,73 @@ export function PosPage() {
     (applyOccasion && Boolean(activeOccasion)) ||
     friendsFamilyPercent > 0 ||
     Boolean(couponCode.trim()) ||
-    totals.promotionalDiscount > 0
+    totals.promotionalDiscount > 0 ||
+    totals.pointsDiscount > 0
+
+  const eligibleCoupons = useMemo(
+    () => CrmService.listEligibleCoupons(customerId),
+    [customerId, attachedCustomer]
+  )
+
+  const loyaltyReady =
+    Boolean(attachedCustomer) &&
+    loyaltyEff.punchCardEnabled &&
+    (attachedCustomer?.loyaltyPunches ?? 0) >= loyaltyEff.punchesRequired
+
+  const redeemStep = loyaltyEff.redeemStep
+  const maxPointsForOrder = maxRedeemablePoints(
+    Math.max(0, totals.total + (totals.pointsDiscount || 0)),
+    availablePoints
+  )
+
+  useEffect(() => {
+    if (!loyaltyEff.pointsRedeemEnabled && pointsToRedeem > 0) {
+      updateActivePosSession({ pointsToRedeem: 0 })
+    }
+    if (!loyaltyEff.punchPercentEnabled && loyaltyPercentOn) {
+      updateActivePosSession({
+        loyaltyPercentOn: false,
+        loyaltyMode: selectedLoyaltyRewardId ? "item" : "off",
+      })
+    }
+    if (
+      !loyaltyEff.freeItemPromoEnabled &&
+      !promoSettings.freeItemVisitPromo.enabled &&
+      selectedLoyaltyRewardId
+    ) {
+      updateActivePosSession({
+        selectedLoyaltyRewardId: null,
+        cart: cartWithLoyaltyReward(cart, null),
+        loyaltyMode: loyaltyPercentOn ? "percent" : "off",
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    loyaltyEff.pointsRedeemEnabled,
+    loyaltyEff.punchPercentEnabled,
+    loyaltyEff.freeItemPromoEnabled,
+    promoSettings.freeItemVisitPromo.enabled,
+  ])
+
+  // Strip loyalty discount when festival is off or F&F/Coupon is active
+  useEffect(() => {
+    if (loyaltyDiscountAllowed) return
+    if (
+      !loyaltyPercentOn &&
+      pointsToRedeem <= 0 &&
+      !selectedLoyaltyRewardId
+    ) {
+      return
+    }
+    updateActivePosSession({
+      loyaltyPercentOn: false,
+      pointsToRedeem: 0,
+      selectedLoyaltyRewardId: null,
+      loyaltyMode: "off",
+      cart: cartWithLoyaltyReward(cart, null),
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loyaltyDiscountAllowed])
 
   const itemCount = sessionItemCount(session)
   const nextInvoiceId = useMemo(() => {
@@ -350,29 +501,122 @@ export function PosPage() {
     ]
   }
 
-  function clearLoyaltyReward() {
-    updateActivePosSession({
-      loyaltyMode: "off",
+  function clearLoyaltyDiscountFields(extra: Record<string, unknown> = {}) {
+    return {
+      loyaltyPercentOn: false,
+      pointsToRedeem: 0,
       selectedLoyaltyRewardId: null,
+      loyaltyMode: "off" as const,
       cart: cartWithLoyaltyReward(cart, null),
-    })
+      ...extra,
+    }
   }
 
+  function clearLoyaltyReward() {
+    updateActivePosSession(clearLoyaltyDiscountFields())
+  }
+
+  /** Loyalty = one of points | punch% | free item. Clears F&F + coupon. */
   function chooseLoyaltyPercent() {
+    if (isPointsMember) {
+      updateActivePosSession({
+        chargeError:
+          "Registered members use points, not punch-card rewards.",
+      })
+      return
+    }
+    if (hasFnfOrCoupon) {
+      updateActivePosSession({
+        chargeError:
+          "Clear Friends & Family or Coupon before applying loyalty.",
+      })
+      return
+    }
+    const next = !loyaltyPercentOn
     updateActivePosSession({
-      loyaltyMode: "percent",
+      chargeError: null,
+      friendsFamilyPercent: 0,
+      couponCode: "",
+      loyaltyPercentOn: next,
+      pointsToRedeem: 0,
       selectedLoyaltyRewardId: null,
       cart: cartWithLoyaltyReward(cart, null),
+      loyaltyMode: next ? "percent" : "off",
     })
   }
 
   function selectLoyaltyReward(rewardId: string) {
+    if (!isPointsMember) {
+      updateActivePosSession({
+        chargeError:
+          "Register the customer to redeem visit-based free items.",
+      })
+      return
+    }
+    if (!freeItemVisitReady) {
+      const need = promoSettings.freeItemVisitPromo.visitsRequired
+      const have = attachedCustomer?.fyVisitCount ?? 0
+      updateActivePosSession({
+        chargeError: `Free item needs ${need} FY visits (now ${have}).`,
+      })
+      return
+    }
+    if (hasFnfOrCoupon) {
+      updateActivePosSession({
+        chargeError:
+          "Clear Friends & Family or Coupon before applying loyalty.",
+      })
+      return
+    }
     const reward = getLoyaltyRewardItem(rewardId)
     if (!reward) return
+    const same = selectedLoyaltyRewardId === rewardId
+    if (same) {
+      updateActivePosSession({
+        chargeError: null,
+        selectedLoyaltyRewardId: null,
+        cart: cartWithLoyaltyReward(cart, null),
+        loyaltyMode: "off",
+        loyaltyPercentOn: false,
+        pointsToRedeem: 0,
+      })
+      return
+    }
     updateActivePosSession({
-      loyaltyMode: "item",
+      chargeError: null,
+      friendsFamilyPercent: 0,
+      couponCode: "",
+      loyaltyPercentOn: false,
+      pointsToRedeem: 0,
       selectedLoyaltyRewardId: rewardId,
       cart: cartWithLoyaltyReward(cart, reward),
+      loyaltyMode: "item",
+    })
+  }
+
+  function applyLoyaltyPoints(amount: number) {
+    if (!isPointsMember) {
+      updateActivePosSession({
+        chargeError: "Register the customer to redeem points.",
+      })
+      return
+    }
+    if (hasFnfOrCoupon) {
+      updateActivePosSession({
+        chargeError:
+          "Clear Friends & Family or Coupon before redeeming points.",
+      })
+      return
+    }
+    updateActivePosSession({
+      chargeError: null,
+      friendsFamilyPercent: 0,
+      couponCode: "",
+      loyaltyPercentOn: false,
+      selectedLoyaltyRewardId: null,
+      cart: cartWithLoyaltyReward(cart, null),
+      loyaltyMode: "off",
+      pointsToRedeem: amount,
     })
   }
 
@@ -381,9 +625,31 @@ export function PosPage() {
   }
 
   function updateFriendsFamilyPercent(value: number) {
-    updateActivePosSession({
-      friendsFamilyPercent: clampDiscountPercent(value, fnfMax),
-    })
+    const next = clampDiscountPercent(value, fnfMax)
+    if (next > 0) {
+      updateActivePosSession({
+        chargeError: null,
+        friendsFamilyPercent: next,
+        couponCode: "",
+        ...clearLoyaltyDiscountFields(),
+      })
+    } else {
+      updateActivePosSession({ friendsFamilyPercent: 0 })
+    }
+  }
+
+  function setCouponCode(code: string) {
+    const next = code.trim().toUpperCase()
+    if (next) {
+      updateActivePosSession({
+        chargeError: null,
+        couponCode: next,
+        friendsFamilyPercent: 0,
+        ...clearLoyaltyDiscountFields(),
+      })
+    } else {
+      updateActivePosSession({ couponCode: "" })
+    }
   }
 
   function switchSession(id: PosSessionId) {
@@ -406,7 +672,9 @@ export function PosPage() {
         cashierId: userId,
         cashierName: profile?.displayName || profile?.email || null,
         storeId: profile?.storeId ?? null,
-        customerName: "Walk-in",
+        customerName: customerName.trim() || "Walk-in",
+        customerId: customerId || null,
+        customerPhone: customerPhone.trim() || null,
         lines: priced.lines.map((line) => ({
           itemId: line.itemId,
           sku: line.sku || line.itemId,
@@ -429,6 +697,8 @@ export function PosPage() {
           loyaltyLabel: totals.loyaltyLabel,
           couponDiscount: totals.couponDiscount,
           couponCode: totals.couponCode,
+          pointsDiscount: totals.pointsDiscount,
+          pointsRedeemed: totals.pointsRedeemed,
           taxableAmount: totals.taxableAmount,
           gstAmount: totals.gstAmount,
           gstPercent: totals.gstPercent,
@@ -439,7 +709,11 @@ export function PosPage() {
           total: totals.total,
         },
         loyalty: {
-          mode: loyaltyMode,
+          mode: hasActiveLoyaltyItem
+            ? "item"
+            : hasActiveLoyaltyPercent
+              ? "percent"
+              : "off",
           freeItemId: selectedLoyaltyReward?.id ?? null,
           freeItemName: selectedLoyaltyReward
             ? `${selectedLoyaltyReward.name} (${selectedLoyaltyReward.weight})`
@@ -491,6 +765,121 @@ export function PosPage() {
       setCartSheetOpen(false)
       void chargeOrder()
     },
+    customerSection: (
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-muted-foreground">Customer</p>
+        {attachedCustomer ? (
+          <div className="space-y-2 rounded-md bg-muted/50 px-2.5 py-2 text-sm">
+            <p className="font-medium">{attachedCustomer.name}</p>
+            <p className="text-[11px] text-muted-foreground">
+              {attachedCustomer.phone || "No phone"} ·{" "}
+              {walletPoints} pts
+              {availablePoints !== walletPoints
+                ? ` (${availablePoints} redeemable now)`
+                : ""}{" "}
+              · credit {formatMoney(attachedCustomer.storeCreditPaisa)}
+            </p>
+            {welcomeStatus ? (
+              <p className="text-[11px] text-muted-foreground">{welcomeStatus}</p>
+            ) : null}
+            <p className="text-[11px] text-muted-foreground">
+              Redeem {formatRedeemMappingLabel()} · steps of {redeemStep}
+            </p>
+            {loyaltyEff.pointsRedeemEnabled &&
+            isPointsMember &&
+            availablePoints >= redeemStep &&
+            cart.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  disabled={
+                    !loyaltyDiscountAllowed || maxPointsForOrder < redeemStep
+                  }
+                  onClick={() =>
+                    applyLoyaltyPoints(
+                      snapRedeemPoints(
+                        (pointsToRedeem || 0) + redeemStep,
+                        maxPointsForOrder
+                      )
+                    )
+                  }
+                >
+                  +{redeemStep} pts
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  disabled={
+                    !loyaltyDiscountAllowed || maxPointsForOrder < redeemStep
+                  }
+                  onClick={() => applyLoyaltyPoints(maxPointsForOrder)}
+                >
+                  Apply max ({maxPointsForOrder})
+                </Button>
+                {effectivePointsToRedeem > 0 ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() =>
+                      updateActivePosSession({ pointsToRedeem: 0 })
+                    }
+                  >
+                    Clear pts
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+            {effectivePointsToRedeem > 0 ? (
+              <p className="text-[11px] font-medium">
+                Applying {effectivePointsToRedeem} pts (−
+                {formatMoney(totals.pointsDiscount || 0)})
+              </p>
+            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mt-1 h-7 px-2 text-xs"
+              onClick={() =>
+                updateActivePosSession({
+                  customerId: null,
+                  customerName: "",
+                  customerPhone: "",
+                  pointsToRedeem: 0,
+                })
+              }
+            >
+              Clear
+            </Button>
+          </div>
+        ) : (
+          <CustomerAttachField
+            storeId={profile?.storeId ?? null}
+            actorId={userId}
+            onPick={(c) =>
+              updateActivePosSession({
+                customerId: c.id,
+                customerName: c.name,
+                customerPhone: c.phone || "",
+                chargeError: null,
+              })
+            }
+            onSkipPunchFallback={() =>
+              updateActivePosSession({
+                chargeError: punchFallbackNote,
+              })
+            }
+          />
+        )}
+      </div>
+    ),
   }
 
   return (
@@ -643,14 +1032,25 @@ export function PosPage() {
                           <Switch
                             id="apply-occasion"
                             checked={applyOccasion}
-                            onCheckedChange={(checked) =>
-                              updateActivePosSession({
-                                applyOccasion: checked,
-                              })
-                            }
+                            onCheckedChange={(checked) => {
+                              if (!checked) {
+                                updateActivePosSession({
+                                  applyOccasion: false,
+                                  ...clearLoyaltyDiscountFields(),
+                                })
+                              } else {
+                                updateActivePosSession({
+                                  applyOccasion: true,
+                                })
+                              }
+                            }}
                             disabled={cart.length === 0}
                           />
                         </div>
+                        <p className="text-xs text-muted-foreground">
+                          Festival is independent of loyalty — both can apply on
+                          the same order.
+                        </p>
                       </>
                     ) : (
                       <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
@@ -665,7 +1065,9 @@ export function PosPage() {
 
                   <TabsContent value="friends-family" className="mt-3 space-y-3">
                     <p className="text-xs text-muted-foreground">
-                      {discountConfig.friendsAndFamily.note}
+                      {discountConfig.friendsAndFamily.note} Cannot combine with
+                      Coupon or loyalty discount (points still earn on paid
+                      sales).
                     </p>
 
                     <div className="flex flex-wrap gap-1.5">
@@ -725,8 +1127,9 @@ export function PosPage() {
 
                   <TabsContent value="coupon" className="mt-3 space-y-3">
                     <p className="text-xs text-muted-foreground">
-                      Enter a store coupon code. Applied after promotions, before
-                      Friends & Family / occasion / loyalty.
+                      Coupon stacks with festival / product promos. Cannot
+                      combine with Friends & Family or loyalty discount
+                      (punches/points still earn).
                     </p>
                     <div className="space-y-1.5">
                       <Label htmlFor="pos-coupon" className="text-xs">
@@ -736,11 +1139,7 @@ export function PosPage() {
                         id="pos-coupon"
                         value={couponCode}
                         onChange={(event) =>
-                          updateActivePosSession({
-                            couponCode: event.target.value
-                              .trim()
-                              .toUpperCase(),
-                          })
+                          setCouponCode(event.target.value)
                         }
                         placeholder="e.g. SAVE10"
                         autoCapitalize="characters"
@@ -777,72 +1176,328 @@ export function PosPage() {
               </div>
             ) : menuPanel === "loyalty" ? (
               <div className="mx-auto w-full max-w-xl space-y-4">
-                <div className="rounded-lg border border-border px-3 py-3">
-                  <p className="text-sm font-medium">{loyaltyConfig.name}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {loyaltyConfig.note}
-                  </p>
-                  <p className="mt-2 text-xs font-medium">
-                    Reward: {getLoyaltyRewardSummary()}
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm">
-                    Choose one reward for this order
-                  </Label>
-                  <div className="grid gap-2">
-                    <button
-                      type="button"
-                      onClick={chooseLoyaltyPercent}
-                      className={cn(
-                        "rounded-lg border px-3 py-2.5 text-left transition-colors active:scale-[0.99]",
-                        loyaltyMode === "percent"
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:bg-muted"
-                      )}
-                    >
-                      <p className="text-sm font-medium">
-                        {loyaltyConfig.percentReward.percent}% off the order
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        No free item — discount only
-                      </p>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm">Or choose one free item</Label>
+                <div className="space-y-2 rounded-lg border border-border px-3 py-3">
+                  <p className="text-sm font-medium">Customer</p>
                   <p className="text-xs text-muted-foreground">
-                    Selecting a free item replaces the percent discount.
+                    Attach a customer for punches, points, targeted coupons, and
+                    on-account.
                   </p>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {LOYALTY_REWARD_ITEMS.map((reward) => {
-                      const selected =
-                        loyaltyMode === "item" &&
-                        selectedLoyaltyRewardId === reward.id
-                      return (
-                        <button
-                          key={reward.id}
+                  {attachedCustomer ? (
+                    <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
+                      <p className="font-medium">{attachedCustomer.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {attachedCustomer.phone || "No phone"}
+                        {loyaltyEff.punchCardEnabled
+                          ? ` · ${attachedCustomer.loyaltyPunches}/${loyaltyEff.punchesRequired} punches`
+                          : ""}
+                        {loyaltyEff.pointsRedeemEnabled
+                          ? ` · ${walletPoints} pts${
+                              availablePoints !== walletPoints
+                                ? ` (${availablePoints} redeemable)`
+                                : ""
+                            }`
+                          : ""}{" "}
+                        · credit {formatMoney(attachedCustomer.storeCreditPaisa)}
+                      </p>
+                      {welcomeStatus ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {welcomeStatus}
+                        </p>
+                      ) : null}
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {CrmService.deriveSegments(attachedCustomer).map((s) => (
+                          <span
+                            key={s.id}
+                            className="rounded border border-border px-1.5 py-0.5 text-[10px]"
+                          >
+                            {s.label}
+                          </span>
+                        ))}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() =>
+                          updateActivePosSession({
+                            customerId: null,
+                            customerName: "",
+                            customerPhone: "",
+                            pointsToRedeem: 0,
+                          })
+                        }
+                      >
+                        Clear customer
+                      </Button>
+                    </div>
+                  ) : (
+                    <CustomerAttachField
+                      storeId={profile?.storeId ?? null}
+                      actorId={userId}
+                      onPick={(c) =>
+                        updateActivePosSession({
+                          customerId: c.id,
+                          customerName: c.name,
+                          customerPhone: c.phone || "",
+                          pointsToRedeem: 0,
+                          chargeError: null,
+                          loyaltyMode:
+                            c.loyaltyPunches >= loyaltyEff.punchesRequired
+                              ? loyaltyMode
+                              : "off",
+                        })
+                      }
+                      onSkipPunchFallback={() =>
+                        updateActivePosSession({
+                          chargeError: punchFallbackNote,
+                        })
+                      }
+                    />
+                  )}
+                </div>
+
+                {loyaltyReady &&
+                !isPointsMember &&
+                loyaltyDiscountAllowed &&
+                !hasActiveLoyaltyPercent &&
+                loyaltyEff.punchPercentEnabled ? (
+                  <p className="rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-xs">
+                    Punch card ready — apply punch % (guests only; not with
+                    points).
+                  </p>
+                ) : null}
+
+                {isPointsMember ? (
+                  <p className="rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground">
+                    Points member — earns points (no punch card). FY visits:{" "}
+                    {attachedCustomer?.fyVisitCount ?? 0}/
+                    {promoSettings.freeItemVisitPromo.visitsRequired}
+                    {freeItemPromoOn
+                      ? freeItemVisitReady
+                        ? " · free item ready"
+                        : ""
+                      : " · free item promo off"}
+                  </p>
+                ) : (
+                  <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+                    No points member attached — punch card path only. Register
+                    for points; guests do not earn points.
+                  </p>
+                )}
+
+                {hasFnfOrCoupon ? (
+                  <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+                    Friends & Family or Coupon is on — loyalty discount is
+                    disabled.
+                  </p>
+                ) : null}
+
+                {loyaltyEff.punchCardEnabled ||
+                loyaltyEff.punchPercentEnabled ||
+                loyaltyEff.freeItemPromoEnabled ? (
+                  <div className="rounded-lg border border-border px-3 py-3">
+                    <p className="text-sm font-medium">{loyaltyConfig.name}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {loyaltyConfig.note}
+                    </p>
+                    <p className="mt-2 text-xs font-medium">
+                      Reward: {getLoyaltyRewardSummary()}
+                    </p>
+                  </div>
+                ) : null}
+
+                {loyaltyEff.pointsRedeemEnabled &&
+                isPointsMember &&
+                attachedCustomer &&
+                availablePoints > 0 ? (
+                  <div className="space-y-2 rounded-lg border border-border px-3 py-3">
+                    <Label htmlFor="pos-points">
+                      Redeem points (max {maxPointsForOrder} ·{" "}
+                      {availablePoints} available · multiples of {redeemStep})
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {formatRedeemMappingLabel()} · exclusive with punch % /
+                      free item
+                    </p>
+                    <Input
+                      id="pos-points"
+                      type="number"
+                      min={0}
+                      step={redeemStep}
+                      max={maxPointsForOrder}
+                      value={pointsToRedeem}
+                      onChange={(e) => {
+                        const next = snapRedeemPoints(
+                          Number(e.target.value) || 0,
+                          maxPointsForOrder
+                        )
+                        if (next <= 0) {
+                          updateActivePosSession({ pointsToRedeem: 0 })
+                        } else {
+                          applyLoyaltyPoints(next)
+                        }
+                      }}
+                      disabled={cart.length === 0 || !loyaltyDiscountAllowed}
+                    />
+                    <div className="flex flex-wrap gap-1.5">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={
+                          !loyaltyDiscountAllowed ||
+                          maxPointsForOrder < redeemStep
+                        }
+                        onClick={() =>
+                          applyLoyaltyPoints(
+                            snapRedeemPoints(
+                              pointsToRedeem + redeemStep,
+                              maxPointsForOrder
+                            )
+                          )
+                        }
+                      >
+                        +{redeemStep}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={
+                          !loyaltyDiscountAllowed ||
+                          maxPointsForOrder < redeemStep
+                        }
+                        onClick={() => applyLoyaltyPoints(maxPointsForOrder)}
+                      >
+                        Max {maxPointsForOrder}
+                      </Button>
+                      {effectivePointsToRedeem > 0 ? (
+                        <Button
                           type="button"
-                          onClick={() => selectLoyaltyReward(reward.id)}
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            updateActivePosSession({ pointsToRedeem: 0 })
+                          }
+                        >
+                          Clear
+                        </Button>
+                      ) : null}
+                    </div>
+                    {totals.pointsDiscount > 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        −{formatMoney(totals.pointsDiscount)} from points
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {eligibleCoupons.length > 0 ? (
+                  <div className="space-y-2 rounded-lg border border-border px-3 py-3">
+                    <p className="text-sm font-medium">Eligible offers</p>
+                    <p className="text-xs text-muted-foreground">
+                      Applying a coupon clears Friends & Family and loyalty
+                      discount.
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {eligibleCoupons.slice(0, 6).map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
                           className={cn(
-                            "rounded-lg border px-3 py-2.5 text-left transition-colors active:scale-[0.99]",
-                            selected
-                              ? "border-primary bg-primary/10"
+                            "rounded-md border px-2.5 py-1 text-xs",
+                            couponCode === c.code
+                              ? "border-primary bg-primary text-primary-foreground"
                               : "border-border hover:bg-muted"
                           )}
+                          onClick={() => setCouponCode(c.code)}
                         >
-                          <p className="text-sm font-medium">{reward.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {reward.weight} · worth {formatMoney(reward.value)}
-                          </p>
+                          {c.code}
+                          {c.segmentScope?.length
+                            ? ` · ${c.segmentScope.join("/")}`
+                            : ""}
                         </button>
-                      )
-                    })}
+                      ))}
+                    </div>
                   </div>
-                </div>
+                ) : null}
+
+                {loyaltyEff.punchPercentEnabled && !isPointsMember ? (
+                  <div className="space-y-2">
+                    <Label className="text-sm">
+                      Punch % reward (punch-card guests)
+                    </Label>
+                    <div className="grid gap-2">
+                      <button
+                        type="button"
+                        onClick={chooseLoyaltyPercent}
+                        disabled={!loyaltyDiscountAllowed && !loyaltyPercentOn}
+                        className={cn(
+                          "rounded-lg border px-3 py-2.5 text-left transition-colors active:scale-[0.99]",
+                          loyaltyPercentOn
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:bg-muted",
+                          !loyaltyDiscountAllowed &&
+                            !loyaltyPercentOn &&
+                            "opacity-50"
+                        )}
+                      >
+                        <p className="text-sm font-medium">
+                          {loyaltyEff.percentReward.percent}% off the order
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Not with points · guests only
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {freeItemPromoOn && isPointsMember ? (
+                  <div className="space-y-2">
+                    <Label className="text-sm">
+                      Free item (FY visits ≥{" "}
+                      {promoSettings.freeItemVisitPromo.visitsRequired})
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {freeItemVisitReady
+                        ? "Eligible — exclusive with points redeem. Tap again to clear."
+                        : `Need ${promoSettings.freeItemVisitPromo.visitsRequired} visits this FY (now ${attachedCustomer?.fyVisitCount ?? 0}). Resets each financial year.`}
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {LOYALTY_REWARD_ITEMS.map((reward) => {
+                        const selected = selectedLoyaltyRewardId === reward.id
+                        return (
+                          <button
+                            key={reward.id}
+                            type="button"
+                            onClick={() => selectLoyaltyReward(reward.id)}
+                            disabled={
+                              (!freeItemVisitReady || !loyaltyDiscountAllowed) &&
+                              !selected
+                            }
+                            className={cn(
+                              "rounded-lg border px-3 py-2.5 text-left transition-colors active:scale-[0.99]",
+                              selected
+                                ? "border-primary bg-primary/10"
+                                : "border-border hover:bg-muted",
+                              (!freeItemVisitReady || !loyaltyDiscountAllowed) &&
+                                !selected &&
+                                "opacity-50"
+                            )}
+                          >
+                            <p className="text-sm font-medium">{reward.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {reward.weight} · worth{" "}
+                              {formatMoney(reward.value)}
+                            </p>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : null}
 
                 {hasActiveLoyaltyPercent ? (
                   <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">

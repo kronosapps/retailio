@@ -78,11 +78,11 @@ export function buildReceiptText(ctx: ReceiptContext): string {
     return sum + Math.max(0, snap.listLinePaisa - snap.promoLinePaisa)
   }, 0)
   if (promoOff > 0) {
-    lines.push(`Promotions: −${formatMoney(promoOff)}`)
+    lines.push(`Product promo: −${formatMoney(promoOff)}`)
   }
   if ((sale.totals.couponDiscount ?? 0) > 0) {
     lines.push(
-      `Coupon ${sale.totals.couponCode ?? ""}: −${formatMoney(sale.totals.couponDiscount ?? 0)}`
+      `Campaign ${sale.totals.couponCode ?? ""}: −${formatMoney(sale.totals.couponDiscount ?? 0)}`
     )
   }
   if (sale.totals.friendsFamilyDiscount > 0) {
@@ -92,12 +92,25 @@ export function buildReceiptText(ctx: ReceiptContext): string {
   }
   if (sale.totals.occasionDiscount > 0) {
     lines.push(
-      `${sale.totals.occasionName ?? "Occasion"} (${sale.totals.occasionPercent}%): −${formatMoney(sale.totals.occasionDiscount)}`
+      `${sale.totals.occasionName ?? "Festival / occasion"} (${sale.totals.occasionPercent}%): −${formatMoney(sale.totals.occasionDiscount)}`
     )
   }
   if (sale.totals.loyaltyDiscount > 0) {
     lines.push(
-      `${sale.totals.loyaltyLabel ?? "Loyalty"}: −${formatMoney(sale.totals.loyaltyDiscount)}`
+      `${sale.totals.loyaltyLabel ?? "Punch reward"}: −${formatMoney(sale.totals.loyaltyDiscount)}`
+    )
+  }
+  if (sale.loyalty?.mode === "item" && sale.loyalty.freeItemName) {
+    lines.push(`Free item promo: ${sale.loyalty.freeItemName}`)
+  }
+  if ((sale.totals.pointsDiscount ?? 0) > 0) {
+    lines.push(
+      `Loyalty points (−${sale.totals.pointsRedeemed ?? 0} pts): −${formatMoney(sale.totals.pointsDiscount ?? 0)}`
+    )
+  }
+  if ((sale.totals.storeCreditAppliedPaisa ?? 0) > 0) {
+    lines.push(
+      `Store credit: −${formatMoney(sale.totals.storeCreditAppliedPaisa ?? 0)}`
     )
   }
   lines.push(`Taxable: ${formatMoney(sale.totals.taxableAmount)}`)
@@ -110,6 +123,49 @@ export function buildReceiptText(ctx: ReceiptContext): string {
   lines.push(`*Total: ${formatMoney(sale.totals.total)}*`)
   lines.push("------------------------------")
 
+  const pointsEarned = sale.loyalty?.pointsEarned
+  const pointsAfter = sale.loyalty?.pointsBalanceAfter
+  if (
+    (sale.totals.pointsRedeemed ?? 0) > 0 ||
+    (typeof pointsEarned === "number" && pointsEarned > 0) ||
+    typeof pointsAfter === "number"
+  ) {
+    if (typeof pointsEarned === "number" && pointsEarned > 0) {
+      lines.push(`Points earned: +${pointsEarned}`)
+    }
+    if ((sale.totals.pointsRedeemed ?? 0) > 0) {
+      lines.push(`Points redeemed: −${sale.totals.pointsRedeemed}`)
+    }
+    if (typeof pointsAfter === "number") {
+      lines.push(`Points balance: ${pointsAfter}`)
+    }
+  }
+
+  const punchesAfter = sale.loyalty?.punchesAfter
+  if (
+    typeof punchesAfter === "number" ||
+    sale.loyalty?.punchStamped
+  ) {
+    if (sale.loyalty?.punchStamped) {
+      lines.push(
+        `Punch card: ${sale.loyalty.punchesBefore ?? "?"} → ${punchesAfter ?? "?"} (stamped)`
+      )
+    } else if (typeof punchesAfter === "number") {
+      lines.push(`Punch card: ${punchesAfter} punches`)
+    }
+  }
+
+  const visitsAfter = sale.loyalty?.visitCountAfter
+  const fyVisits = sale.loyalty?.fyVisitCountAfter
+  if (typeof visitsAfter === "number" || typeof fyVisits === "number") {
+    if (typeof visitsAfter === "number") {
+      lines.push(`Store visits: ${visitsAfter}`)
+    }
+    if (typeof fyVisits === "number") {
+      const fy = sale.loyalty?.fyKey ? ` (FY ${sale.loyalty.fyKey})` : ""
+      lines.push(`FY visits: ${fyVisits}${fy}`)
+    }
+  }
   if (payment) {
     lines.push(`Paid via: ${payment.paymentMethod}`)
     lines.push(`Payment ID: ${payment.paymentId}`)

@@ -5,7 +5,15 @@ import {
   getActiveOccasionDiscount,
   type OrderTotals,
 } from "@/data/discounts"
-import { loyaltyConfig } from "@/data/loyalty"
+import {
+  getEffectiveLoyalty,
+  maxRedeemablePoints,
+  paisaFromPointsRedeemed,
+} from "@/data/loyalty"
+import {
+  getPromoSettings,
+  isBirthdayInWindow,
+} from "@/data/promoSettings"
 import { splitInclusiveGst, taxConfig } from "@/data/tax"
 import { type Paisa, percentOfPaisa, roundPaisa, rupeesToPaisa } from "@/lib/money"
 import { productRepository } from "@/repositories/ProductRepository"
@@ -61,6 +69,14 @@ export type PriceOrderInput = {
   friendsFamilyPercent?: number
   redeemLoyaltyPercent?: boolean
   couponCode?: string | null
+  /** Points the cashier wants to redeem (capped by balance + payable). */
+  pointsToRedeem?: number
+  /** Available loyalty points on the attached customer. */
+  availablePoints?: number
+  /** CRM segment ids for coupon targeting (e.g. vip). */
+  customerSegments?: string[]
+  /** YYYY-MM-DD — enables birthday promo when configured. */
+  customerBirthday?: string | null
   at?: Date
 }
 
@@ -69,6 +85,8 @@ export type PriceOrderTotals = OrderTotals & {
   couponCode: string | null
   /** List − promo subtotal (line promotions). */
   promotionalDiscount: Paisa
+  pointsDiscount: Paisa
+  pointsRedeemed: number
 }
 
 export type PriceOrderResult = {
@@ -177,6 +195,7 @@ export class PricingService {
     endsOn: string
     minSubtotalRupees?: number
     maxRedemptions?: number | null
+    segmentScope?: string[]
     notes?: string | null
     storeId?: string | null
     actorId?: string | null
@@ -210,6 +229,9 @@ export class PricingService {
         ? 0
         : couponRepository.getById(input.id!)?.redemptionCount || 0,
       notes: input.notes ?? null,
+      segmentScope: (input.segmentScope || [])
+        .map((s) => s.trim())
+        .filter(Boolean),
       storeId: input.storeId ?? null,
       createdAt: now,
       updatedAt: now,
@@ -248,6 +270,7 @@ export class PricingService {
     category: string | null | undefined,
     at = new Date()
   ): PromotionRecord | null {
+    if (!getPromoSettings().masters.productPromotionsEnabled) return null
     const today = dateKey(at)
     const key = sku.trim().toUpperCase()
     const cat = category?.trim() || ""
@@ -287,35 +310,87 @@ export class PricingService {
   }
 
   /**
-   * Full cart pricing: promo → coupon → F&F → occasion → loyalty %.
-   * Returns line snapshots + order totals (GST inclusive stack preserved).
+   * Full cart pricing with RetailOS discount stacking rules:
+   * - Festival and loyalty are independent (may stack together)
+   * - F&F XOR Coupon; either may stack with festival
+   * - Loyalty discount = points XOR punch% XOR free-item (one only)
+   * - Loyalty blocked when F&F or Coupon is on
    */
   static priceOrder(input: PriceOrderInput): PriceOrderResult {
     const at = input.at || new Date()
-    const occasion = getActiveOccasionDiscount(at)
-    const fnf = clampDiscountPercent(
+    const settings = getPromoSettings()
+    const orderPromosOn = settings.masters.orderPromotionsEnabled
+    const occasion = orderPromosOn ? getActiveOccasionDiscount(at) : null
+
+    let fnf = clampDiscountPercent(
       input.friendsFamilyPercent || 0,
-      discountConfig.friendsAndFamily.maxPercent
+      settings.friendsAndFamily.maxPercent ||
+        discountConfig.friendsAndFamily.maxPercent
     )
+    const couponRequested = Boolean(input.couponCode?.trim())
+    // F&F XOR Coupon — prefer F&F when both somehow set
+    const couponCodeEffective =
+      fnf > 0 ? null : input.couponCode?.trim() || null
+    if (couponCodeEffective) {
+      fnf = 0
+    }
+    const hasFnfOrCoupon = fnf > 0 || Boolean(couponCodeEffective)
+
+    // Loyalty redeem independent of festival; blocked by F&F/Coupon
+    const loyaltyDiscountAllowed = !hasFnfOrCoupon
+
+    const freeItemOn =
+      settings.freeItemVisitPromo.enabled ||
+      settings.masters.freeItemPromoEnabled
+    const wantsFreeItem =
+      loyaltyDiscountAllowed &&
+      freeItemOn &&
+      input.lines.some((l) => l.isLoyaltyReward && l.qty > 0)
+    const wantsPunchPercent =
+      loyaltyDiscountAllowed &&
+      !wantsFreeItem &&
+      settings.masters.punchPercentEnabled &&
+      Boolean(input.redeemLoyaltyPercent)
+    const pointsToRedeem =
+      loyaltyDiscountAllowed &&
+      !wantsFreeItem &&
+      !wantsPunchPercent &&
+      settings.masters.pointsRedeemEnabled
+        ? input.pointsToRedeem
+        : 0
+    const redeemLoyaltyPercent = wantsPunchPercent
+
+    const birthdayOk =
+      orderPromosOn &&
+      isBirthdayInWindow(input.customerBirthday, at, settings.birthday)
+    const birthdayPercent = birthdayOk ? settings.birthday.percent : 0
+    const birthdayLabel = birthdayOk ? settings.birthday.label : null
+    const loyaltyEff = getEffectiveLoyalty()
 
     // 1) Line-level promo
     const intermediate = input.lines.map((line) => {
-      if (line.isLoyaltyReward || line.qty <= 0) {
+      const isFreeReward =
+        Boolean(line.isLoyaltyReward) && wantsFreeItem && freeItemOn
+      if (isFreeReward || line.qty <= 0) {
         const snap: PriceSnapshot = {
           listUnitPaisa: 0,
           promoUnitPaisa: 0,
           listLinePaisa: 0,
           promoLinePaisa: 0,
           netLinePaisa: 0,
-          explanation: "Loyalty reward (₹0).",
-          appliedRules: [
-            {
-              type: "LOYALTY",
-              id: "reward-item",
-              label: "Free loyalty item",
-              amountPaisa: 0,
-            },
-          ],
+          explanation: isFreeReward
+            ? "Loyalty reward (₹0)."
+            : "Empty line.",
+          appliedRules: isFreeReward
+            ? [
+                {
+                  type: "LOYALTY",
+                  id: "reward-item",
+                  label: "Free loyalty item",
+                  amountPaisa: 0,
+                },
+              ]
+            : [],
         }
         return {
           ...line,
@@ -353,17 +428,22 @@ export class PricingService {
       intermediate.reduce((s, l) => s + l.promoLinePaisa, 0)
     )
 
-    // 2) Coupon on promo subtotal
+    // 2) Coupon on promo subtotal (optional segment targeting)
     let coupon: CouponRecord | null = null
     let couponDiscount = 0
-    if (input.couponCode?.trim()) {
-      coupon = couponRepository.getByCode(input.couponCode)
+    if (orderPromosOn && couponCodeEffective) {
+      coupon = couponRepository.getByCode(couponCodeEffective)
       const today = dateKey(at)
+      const customerSegs = new Set(input.customerSegments || [])
+      const segmentOk =
+        !coupon?.segmentScope?.length ||
+        coupon.segmentScope.some((s) => customerSegs.has(s))
       if (
         coupon &&
         coupon.active &&
         inWindow(today, coupon.startsOn, coupon.endsOn) &&
         promoSubtotal >= coupon.minSubtotalPaisa &&
+        segmentOk &&
         (coupon.maxRedemptions == null ||
           coupon.redemptionCount < coupon.maxRedemptions)
       ) {
@@ -393,14 +473,13 @@ export class PricingService {
         applyOccasion: Boolean(input.applyOccasion),
         occasion,
         friendsFamilyPercent: fnf,
-        redeemLoyalty: Boolean(input.redeemLoyaltyPercent),
+        redeemLoyalty: redeemLoyaltyPercent,
       }
     )
 
-    // Adjust: calculateOrderTotals used promo gross; we need coupon between promo and F&F.
-    // Recompute manually for correctness when coupon present.
+    // Adjust: recalculate when coupon and/or birthday layer on top of the stack.
     let totals: PriceOrderTotals
-    if (couponDiscount > 0) {
+    if (couponDiscount > 0 || birthdayPercent > 0) {
       const friendsFamilyDiscount = percentOfPaisa(afterCoupon, fnf)
       const afterFriendsFamily = Math.max(0, afterCoupon - friendsFamilyDiscount)
       const occasionPercent =
@@ -410,25 +489,34 @@ export class PricingService {
           ? percentOfPaisa(afterFriendsFamily, occasionPercent)
           : 0
       const afterOccasion = Math.max(0, afterFriendsFamily - occasionDiscount)
+      const birthdayDiscount =
+        birthdayPercent > 0
+          ? percentOfPaisa(afterOccasion, birthdayPercent)
+          : 0
+      const afterBirthday = Math.max(0, afterOccasion - birthdayDiscount)
       let loyaltyDiscount = 0
       let loyaltyLabel: string | null = null
-      if (input.redeemLoyaltyPercent) {
+      if (redeemLoyaltyPercent) {
         loyaltyDiscount = percentOfPaisa(
-          afterOccasion,
-          loyaltyConfig.percentReward.percent
+          afterBirthday,
+          loyaltyEff.percentReward.percent
         )
-        loyaltyLabel = loyaltyConfig.percentReward.label
+        loyaltyLabel = loyaltyEff.percentReward.label
       }
-      const total = Math.max(0, afterOccasion - loyaltyDiscount)
+      const total = Math.max(0, afterBirthday - loyaltyDiscount)
       const gst = splitInclusiveGst(total, taxConfig.gst.percent)
+      const occasionNameParts = [
+        occasion?.name ?? null,
+        birthdayDiscount > 0 ? birthdayLabel : null,
+      ].filter(Boolean)
       totals = {
         grossSubtotal: promoSubtotal,
         friendsFamilyDiscount,
         friendsFamilyPercent: fnf,
         afterFriendsFamily,
-        occasionDiscount,
-        occasionPercent,
-        occasionName: occasion?.name ?? null,
+        occasionDiscount: occasionDiscount + birthdayDiscount,
+        occasionPercent: occasionPercent + birthdayPercent,
+        occasionName: occasionNameParts.join(" + ") || null,
         loyaltyDiscount,
         loyaltyLabel,
         total,
@@ -445,6 +533,8 @@ export class PricingService {
         couponDiscount,
         couponCode: coupon?.code ?? null,
         promotionalDiscount: 0,
+        pointsDiscount: 0,
+        pointsRedeemed: 0,
       }
     } else {
       totals = {
@@ -452,6 +542,8 @@ export class PricingService {
         couponDiscount: 0,
         couponCode: null,
         promotionalDiscount: 0,
+        pointsDiscount: 0,
+        pointsRedeemed: 0,
         grossSubtotal: promoSubtotal || baseTotals.grossSubtotal,
       }
     }
@@ -465,6 +557,34 @@ export class PricingService {
       ...totals,
       grossSubtotal: listGross || totals.grossSubtotal,
       promotionalDiscount,
+    }
+
+    // 3b) Loyalty points redeem (after punch %, before line allocation)
+    const wantPoints = Math.max(0, Math.floor(pointsToRedeem || 0))
+    const availablePoints = Math.max(0, Math.floor(input.availablePoints || 0))
+    if (wantPoints > 0 && availablePoints > 0 && totals.total > 0) {
+      const pointsRedeemed = maxRedeemablePoints(
+        totals.total,
+        Math.min(wantPoints, availablePoints)
+      )
+      const pointsDiscount = paisaFromPointsRedeemed(pointsRedeemed)
+      if (pointsDiscount > 0) {
+        const newTotal = Math.max(0, totals.total - pointsDiscount)
+        const gst = splitInclusiveGst(newTotal, taxConfig.gst.percent)
+        totals = {
+          ...totals,
+          total: newTotal,
+          taxableAmount: gst.taxableAmount,
+          gstAmount: gst.gstAmount,
+          gstPercent: gst.gstPercent,
+          cgstAmount: gst.cgstAmount,
+          sgstAmount: gst.sgstAmount,
+          cgstPercent: gst.cgstPercent,
+          sgstPercent: gst.sgstPercent,
+          pointsDiscount,
+          pointsRedeemed,
+        }
+      }
     }
 
     // 4) Allocate net to lines proportionally by promoLine
@@ -545,6 +665,19 @@ export class PricingService {
             type: "LOYALTY",
             id: "loyalty-percent",
             label: totals.loyaltyLabel || "Loyalty",
+            amountPaisa: share,
+          })
+        }
+      }
+      if (totals.pointsDiscount > 0 && line.promoLinePaisa > 0) {
+        const share = roundPaisa(
+          (line.promoLinePaisa / allocBase) * totals.pointsDiscount
+        )
+        if (share > 0) {
+          rules.push({
+            type: "POINTS",
+            id: "loyalty-points",
+            label: `Points (−${totals.pointsRedeemed})`,
             amountPaisa: share,
           })
         }

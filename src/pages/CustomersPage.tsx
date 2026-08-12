@@ -1,8 +1,9 @@
-import { useMemo, useState, type FormEvent } from "react"
-import { Trash2, UserPlus } from "lucide-react"
+import { Link } from "react-router-dom"
+import { useEffect, useMemo, useState, type FormEvent } from "react"
+import { Download, Megaphone, Trash2, UserPlus } from "lucide-react"
 
 import { MobileListCard, ResponsiveList } from "@/components/ResponsiveList"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
@@ -11,6 +12,7 @@ import {
   CustomerService,
   type CustomerRecord,
 } from "@/modules/customer"
+import { CrmError, CrmService, type CustomerSegmentId } from "@/modules/crm"
 import { useAuth } from "@/providers/AuthProvider"
 
 type FormState = {
@@ -27,16 +29,14 @@ const EMPTY_FORM: FormState = {
   notes: "",
 }
 
-function formatWhen(iso: string | null): string {
-  if (!iso) return "—"
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    })
-  } catch {
-    return iso
-  }
+function downloadCsv(filename: string, csv: string) {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 export function CustomersPage() {
@@ -46,9 +46,22 @@ export function CustomersPage() {
   )
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [query, setQuery] = useState("")
+  const [segment, setSegment] = useState<CustomerSegmentId | "all">("all")
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [campaignBody, setCampaignBody] = useState("")
+  const [campaignMsg, setCampaignMsg] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void CrmService.hydrateDeps().then(() => {
+      if (!cancelled) refresh()
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   function refresh() {
     setItems(CustomerService.list())
@@ -56,14 +69,19 @@ export function CustomersPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return items
-    return items.filter(
-      (item) =>
+    return items.filter((item) => {
+      if (segment !== "all") {
+        const segs = CrmService.deriveSegments(item)
+        if (!segs.some((s) => s.id === segment)) return false
+      }
+      if (!q) return true
+      return (
         item.name.toLowerCase().includes(q) ||
         (item.phone || "").includes(q) ||
         (item.email || "").toLowerCase().includes(q)
-    )
-  }, [items, query])
+      )
+    })
+  }, [items, query, segment])
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -112,13 +130,52 @@ export function CustomersPage() {
     }
   }
 
+  function onExport() {
+    const csv = CrmService.exportSegmentCsv(segment)
+    const label = segment === "all" ? "all" : segment
+    downloadCsv(`customers-${label}.csv`, csv)
+  }
+
+  async function onCampaign(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setCampaignMsg(null)
+    if (segment === "all") {
+      setError("Pick a segment before sending a campaign.")
+      return
+    }
+    setBusy(true)
+    try {
+      const result = await CrmService.queueSegmentCampaign({
+        segmentId: segment,
+        body: campaignBody,
+        actorId: userId,
+        storeId: profile?.storeId ?? null,
+      })
+      setCampaignBody("")
+      setCampaignMsg(
+        `Queued ${result.queued} message${result.queued === 1 ? "" : "s"}${
+          result.skipped ? ` · skipped ${result.skipped} without phone` : ""
+        }.`
+      )
+    } catch (err) {
+      setError(
+        err instanceof CrmError || err instanceof Error
+          ? err.message
+          : "Could not queue campaign."
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Customers</h1>
         <p className="text-sm text-muted-foreground">
-          Store customer directory — synced to Firestore and Sheets when
-          configured.
+          CRM directory — profile, purchases, store credit, loyalty, and
+          segments. Open a customer for the full view.
         </p>
       </div>
 
@@ -195,13 +252,71 @@ export function CustomersPage() {
         <p className="text-sm text-muted-foreground">
           {filtered.length} customer{filtered.length === 1 ? "" : "s"}
         </p>
-        <Input
-          className="sm:max-w-xs"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search name or phone"
-        />
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <select
+            className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+            value={segment}
+            onChange={(e) =>
+              setSegment(e.target.value as CustomerSegmentId | "all")
+            }
+          >
+            <option value="all">All segments</option>
+            <option value="vip">VIP</option>
+            <option value="regular">Regular</option>
+            <option value="new">New</option>
+            <option value="at_risk">At risk</option>
+            <option value="credit_holder">Store credit</option>
+            <option value="loyalty_ready">Loyalty ready</option>
+          </select>
+          <Input
+            className="sm:max-w-xs"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search name or phone"
+          />
+          <Button type="button" variant="outline" size="sm" onClick={onExport}>
+            <Download data-icon="inline-start" />
+            Export CSV
+          </Button>
+        </div>
       </div>
+
+      <form
+        className="flex flex-col gap-3 rounded-xl border border-border p-4 sm:flex-row sm:items-end"
+        onSubmit={(e) => void onCampaign(e)}
+      >
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <Label htmlFor="crm-campaign" className="flex items-center gap-1.5">
+            <Megaphone className="size-3.5" />
+            Segment campaign
+          </Label>
+          <Input
+            id="crm-campaign"
+            value={campaignBody}
+            onChange={(e) => setCampaignBody(e.target.value)}
+            placeholder={
+              segment === "all"
+                ? "Select a segment first, then write a message"
+                : `Message all “${segment}” customers with a phone`
+            }
+            disabled={segment === "all"}
+          />
+          {campaignMsg ? (
+            <p className="text-xs text-muted-foreground">{campaignMsg}</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Queues WhatsApp campaign notifications for the filtered segment.
+            </p>
+          )}
+        </div>
+        <Button
+          type="submit"
+          variant="outline"
+          disabled={busy || segment === "all" || !campaignBody.trim()}
+        >
+          Queue campaign
+        </Button>
+      </form>
 
       {filtered.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
@@ -213,7 +328,14 @@ export function CustomersPage() {
           cards={filtered.map((customer) => (
             <MobileListCard
               key={customer.id}
-              title={customer.name}
+              title={
+                <Link
+                  to={`/customers/${customer.id}`}
+                  className="hover:underline"
+                >
+                  {customer.name}
+                </Link>
+              }
               meta={
                 <>
                   <div>
@@ -222,23 +344,38 @@ export function CustomersPage() {
                   </div>
                   <div>
                     {customer.visitCount} visits ·{" "}
-                    {formatMoney(customer.totalSpendPaisa)} · Last{" "}
-                    {formatWhen(customer.lastPurchaseAt)}
+                    {formatMoney(customer.totalSpendPaisa)} ·{" "}
+                    {customer.loyaltyPoints} pts · redeemed{" "}
+                    {customer.loyaltyPointsRedeemed || 0} · credit{" "}
+                    {formatMoney(customer.storeCreditPaisa)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {CrmService.deriveSegments(customer)
+                      .map((s) => s.label)
+                      .join(" · ") || "—"}
                   </div>
                 </>
               }
               actions={
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="min-h-10"
-                  disabled={deletingId === customer.id}
-                  onClick={() => void onDelete(customer.id)}
-                >
-                  <Trash2 data-icon="inline-start" />
-                  Delete
-                </Button>
+                <div className="flex gap-2">
+                  <Link
+                    to={`/customers/${customer.id}`}
+                    className={buttonVariants({ variant: "outline", size: "sm" })}
+                  >
+                    Open
+                  </Link>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="min-h-10"
+                    disabled={deletingId === customer.id}
+                    onClick={() => void onDelete(customer.id)}
+                  >
+                    <Trash2 data-icon="inline-start" />
+                    Delete
+                  </Button>
+                </div>
               }
             />
           ))}
@@ -251,7 +388,9 @@ export function CustomersPage() {
                     <th className="px-3 py-2 font-medium">Phone</th>
                     <th className="px-3 py-2 font-medium">Visits</th>
                     <th className="px-3 py-2 font-medium">Spend</th>
-                    <th className="px-3 py-2 font-medium">Last purchase</th>
+                    <th className="px-3 py-2 font-medium">Points</th>
+                    <th className="px-3 py-2 font-medium">Redeemed</th>
+                    <th className="px-3 py-2 font-medium">Credit</th>
                     <th className="px-3 py-2 font-medium" />
                   </tr>
                 </thead>
@@ -262,12 +401,17 @@ export function CustomersPage() {
                       className="border-b border-border/60 last:border-0"
                     >
                       <td className="px-3 py-2">
-                        <div className="font-medium">{customer.name}</div>
-                        {customer.email ? (
-                          <div className="text-xs text-muted-foreground">
-                            {customer.email}
-                          </div>
-                        ) : null}
+                        <Link
+                          to={`/customers/${customer.id}`}
+                          className="font-medium hover:underline"
+                        >
+                          {customer.name}
+                        </Link>
+                        <div className="text-xs text-muted-foreground">
+                          {CrmService.deriveSegments(customer)
+                            .map((s) => s.label)
+                            .join(" · ") || "—"}
+                        </div>
                       </td>
                       <td className="px-3 py-2 font-mono text-xs">
                         {customer.phone || "—"}
@@ -278,20 +422,37 @@ export function CustomersPage() {
                       <td className="px-3 py-2 tabular-nums">
                         {formatMoney(customer.totalSpendPaisa)}
                       </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">
-                        {formatWhen(customer.lastPurchaseAt)}
+                      <td className="px-3 py-2 tabular-nums">
+                        {customer.loyaltyPoints}
+                      </td>
+                      <td className="px-3 py-2 tabular-nums">
+                        {customer.loyaltyPointsRedeemed || 0}
+                      </td>
+                      <td className="px-3 py-2 tabular-nums">
+                        {formatMoney(customer.storeCreditPaisa)}
                       </td>
                       <td className="px-3 py-2 text-right">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          disabled={deletingId === customer.id}
-                          onClick={() => void onDelete(customer.id)}
-                        >
-                          <Trash2 data-icon="inline-start" />
-                          Delete
-                        </Button>
+                        <div className="flex justify-end gap-1">
+                          <Link
+                            to={`/customers/${customer.id}`}
+                            className={buttonVariants({
+                              variant: "ghost",
+                              size: "sm",
+                            })}
+                          >
+                            Open
+                          </Link>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={deletingId === customer.id}
+                            onClick={() => void onDelete(customer.id)}
+                          >
+                            <Trash2 data-icon="inline-start" />
+                            Delete
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}

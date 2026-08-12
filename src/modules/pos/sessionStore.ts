@@ -22,9 +22,17 @@ export type PosSession = {
   friendsFamilyPercent: number
   /** Applied coupon code (uppercase); empty = none. */
   couponCode: string
+  /** Attached CRM customer for loyalty / offers / on-account. */
+  customerId: string | null
+  customerName: string
+  customerPhone: string
+  /** Loyalty points to redeem on this order. */
+  pointsToRedeem: number
   discountTab: string
   menuPanel: PosMenuPanel
   category: MenuCategory
+  /** Punch % reward applied on this order (independent of free item). */
+  loyaltyPercentOn: boolean
   loyaltyMode: PosLoyaltyMode
   selectedLoyaltyRewardId: string | null
   lastInvoiceId: string | null
@@ -46,9 +54,14 @@ export function emptyPosSession(id: PosSessionId): PosSession {
     applyOccasion: false,
     friendsFamilyPercent: 0,
     couponCode: "",
+    customerId: null,
+    customerName: "",
+    customerPhone: "",
+    pointsToRedeem: 0,
     discountTab: "occasion",
     menuPanel: "menu",
     category: "All",
+    loyaltyPercentOn: false,
     loyaltyMode: "off",
     selectedLoyaltyRewardId: null,
     lastInvoiceId: null,
@@ -81,7 +94,19 @@ export function getPosSessionStore(): PosSessionStoreState {
 
 export function getActivePosSession(): PosSession {
   const s = state.sessions[state.activeSessionId]
-  return { ...s, couponCode: s.couponCode ?? "" }
+  const loyaltyPercentOn =
+    typeof s.loyaltyPercentOn === "boolean"
+      ? s.loyaltyPercentOn
+      : s.loyaltyMode === "percent"
+  return {
+    ...s,
+    couponCode: s.couponCode ?? "",
+    customerId: s.customerId ?? null,
+    customerName: s.customerName ?? "",
+    customerPhone: s.customerPhone ?? "",
+    pointsToRedeem: s.pointsToRedeem ?? 0,
+    loyaltyPercentOn,
+  }
 }
 
 export function subscribePosSessions(listener: Listener) {

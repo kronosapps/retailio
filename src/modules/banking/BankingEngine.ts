@@ -46,6 +46,9 @@ export class BankingEngine {
     this.subscriber.on(EventTypes.SUPPLIER_PAYMENT_RECORDED, (event) => {
       this.onSupplierPayment(event)
     })
+    this.subscriber.on(EventTypes.CUSTOMER_AR_SETTLED, (event) => {
+      this.onArSettled(event)
+    })
   }
 
   stop() {
@@ -57,6 +60,8 @@ export class BankingEngine {
     const payload = event.payload as PaymentReceivedPayload
     if (payload.status && payload.status !== "Paid") return
     if (!payload.paymentId || typeof payload.amount !== "number") return
+    // Charge-account sales — no cash/UPI movement until AR is settled.
+    if (payload.paymentMethod === "OnAccount") return
 
     try {
       BankingService.recordSalePayment({
@@ -114,6 +119,47 @@ export class BankingEngine {
     } catch (err) {
       if (import.meta.env.DEV) {
         console.warn("[BankingEngine] supplier payment ledger failed", err)
+      }
+    }
+  }
+
+  private onArSettled(event: DomainEvent) {
+    const payload = event.payload as {
+      id?: string
+      amount?: number
+      amountPaisa?: number
+      method?: string
+      paymentMethod?: string
+      settledAt?: string | null
+      storeId?: string | null
+      customerName?: string
+    }
+    if (!payload?.id) return
+    const amountRupees =
+      typeof payload.amount === "number"
+        ? payload.amount
+        : typeof payload.amountPaisa === "number"
+          ? payload.amountPaisa / 100
+          : null
+    if (amountRupees == null || amountRupees <= 0) return
+
+    try {
+      BankingService.recordSalePayment({
+        paymentId: payload.id,
+        amountRupees,
+        paymentMethod:
+          payload.method === "Cash" || payload.paymentMethod === "Cash"
+            ? "Cash"
+            : "UPI",
+        invoiceNumber: payload.customerName
+          ? `AR ${payload.customerName}`
+          : "AR settlement",
+        storeId: payload.storeId ?? event.storeId,
+        paidAt: payload.settledAt,
+      })
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn("[BankingEngine] AR settlement ledger failed", err)
       }
     }
   }
