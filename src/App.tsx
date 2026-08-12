@@ -143,8 +143,8 @@ const ExpenseReportPage = lazy(() =>
   }))
 )
 const GstReportsPage = lazy(() =>
-  import("@/pages/utilities/AnalysisPages").then((m) => ({
-    default: m.GstReportsPage,
+  import("@/pages/utilities/GstBillingPage").then((m) => ({
+    default: m.GstBillingPage,
   }))
 )
 const TcsReportsPage = lazy(() =>

@@ -359,6 +359,7 @@ export function PosPage() {
         availablePoints,
         customerSegments,
         customerBirthday: attachedCustomer?.birthday ?? null,
+        customerGstin: attachedCustomer?.gstin ?? null,
       }),
     [
       cart,
@@ -370,6 +371,7 @@ export function PosPage() {
       availablePoints,
       customerSegments,
       attachedCustomer?.birthday,
+      attachedCustomer?.gstin,
     ]
   )
   const totals = priced.totals
@@ -685,6 +687,7 @@ export function PosPage() {
           lineTotalPaisa: line.lineTotalPaisa,
           isLoyaltyReward: line.isLoyaltyReward,
           priceSnapshot: line.priceSnapshot,
+          taxSnapshot: line.taxSnapshot,
         })),
         totals: {
           grossSubtotal: totals.grossSubtotal,
@@ -706,7 +709,17 @@ export function PosPage() {
           sgstAmount: totals.sgstAmount,
           cgstPercent: totals.cgstPercent,
           sgstPercent: totals.sgstPercent,
+          igstAmount: totals.igstAmount,
+          igstPercent: totals.igstPercent,
           total: totals.total,
+        },
+        tax: {
+          pricingMode: priced.tax.pricingMode,
+          supplyType: priced.tax.supplyType,
+          partyType: priced.tax.partyType,
+          placeOfSupply: priced.tax.placeOfSupply,
+          customerGstin: priced.tax.customerGstin,
+          storeGstin: priced.tax.storeGstin,
         },
         loyalty: {
           mode: hasActiveLoyaltyItem

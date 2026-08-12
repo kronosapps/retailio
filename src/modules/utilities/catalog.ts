@@ -190,8 +190,9 @@ export const UTILITY_TOOLS: UtilityTool[] = [
   {
     id: "gst",
     group: "statutory",
-    title: "GST Reports",
-    description: "Operational GST summary from invoices",
+    title: "GST / Tax Billing",
+    description:
+      "HSN, rates, CGST/SGST/IGST, B2B/B2C, tax credit notes — filing placeholders",
     path: "/utilities/gst",
     roles: ["admin", "manager"],
   },
