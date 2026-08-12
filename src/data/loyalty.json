@@ -1,9 +1,18 @@
 {
   "name": "Punch Card",
   "punchesRequired": 5,
-  "note": "Offline loyalty — stamp the physical punch card each paid visit. On the 5th punch, redeem either 20% off the order or one free item from the redeemable list — not both.",
+  "note": "Loyalty stamps each paid visit. On the 5th punch, redeem either 20% off the order or one free item from the redeemable list — not both. Points: 1 per ₹1 spent.",
   "percentReward": {
     "percent": 20,
     "label": "5th punch 20% off"
+  },
+  "points": {
+    "paisaPerPoint": 100,
+    "label": "Loyalty points"
+  },
+  "segments": {
+    "vipMinSpendPaisa": 2500000,
+    "regularMinVisits": 5,
+    "atRiskDays": 60
   }
 }

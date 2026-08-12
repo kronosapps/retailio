@@ -53,18 +53,35 @@ export class AccountingRules {
       source?: JournalEntry["source"]
       /** Override catalog-derived COGS (tests). */
       cogsPaisa?: number
+      /** Store credit applied toward this sale (paisa). */
+      storeCreditAppliedPaisa?: number
     }
   ): JournalEntry {
     const taxable = sale.totals.taxableAmount || 0
     const gst = sale.totals.gstAmount || 0
     const total = sale.totals.total || taxable + gst
+    const creditApplied = Math.min(
+      total,
+      Math.max(
+        0,
+        Math.round(
+          opts?.storeCreditAppliedPaisa ??
+            sale.totals.storeCreditAppliedPaisa ??
+            0
+        )
+      )
+    )
+    const tenderAmount = Math.max(0, total - creditApplied)
     const tender = tenderAccount(sale.paymentMethod)
     const cogs =
       typeof opts?.cogsPaisa === "number"
         ? Math.max(0, Math.round(opts.cogsPaisa))
         : saleCogsPaisa(sale)
     const lines = balanceLines([
-      journalLine(tender, total, 0),
+      ...(tenderAmount > 0 ? [journalLine(tender, tenderAmount, 0)] : []),
+      ...(creditApplied > 0
+        ? [journalLine(ACCOUNT_CODES.CUSTOMER_CREDIT, creditApplied, 0)]
+        : []),
       journalLine(ACCOUNT_CODES.SALES, 0, taxable),
       ...(gst > 0 ? [journalLine(ACCOUNT_CODES.GST_PAYABLE, 0, gst)] : []),
       ...(cogs > 0
@@ -429,6 +446,43 @@ export class AccountingRules {
       source: opts?.source ?? "posted",
       eventId: opts?.eventId ?? null,
       storeId: note.storeId,
+    }
+  }
+
+  /** When store credit is applied toward a sale — Dr Customer Credits / Cr Sales. */
+  static fromCreditNoteApplied(
+    input: {
+      id: string
+      creditNoteNumber?: string
+      amountPaisa: number
+      invoiceId?: string | null
+      storeId?: string | null
+      appliedAt?: string
+    },
+    opts?: { eventId?: string | null; source?: JournalEntry["source"] }
+  ): JournalEntry | null {
+    const amount = Math.max(0, Math.round(input.amountPaisa))
+    if (amount <= 0) return null
+    const at = input.appliedAt || new Date().toISOString()
+    return {
+      id: `je_cna_${input.id}_${Math.round(amount)}`,
+      date: at.slice(0, 10),
+      createdAt: at,
+      description: `Store credit applied${
+        input.invoiceId ? ` on ${input.invoiceId}` : ""
+      }`,
+      referenceType: "credit_note_applied",
+      referenceId: `${input.id}:${input.invoiceId || at}`,
+      operatorId: null,
+      operatorName: null,
+      paymentMethod: null,
+      lines: [
+        journalLine(ACCOUNT_CODES.CUSTOMER_CREDIT, amount, 0),
+        journalLine(ACCOUNT_CODES.SALES, 0, amount),
+      ],
+      source: opts?.source ?? "posted",
+      eventId: opts?.eventId ?? null,
+      storeId: input.storeId ?? null,
     }
   }
 

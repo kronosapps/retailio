@@ -7,6 +7,7 @@ import {
 } from "react"
 
 import { CustomerService } from "@/modules/customer"
+import { CrmService } from "@/modules/crm"
 import { useAuth } from "@/providers/AuthProvider"
 import { invoiceRepository } from "@/repositories/InvoiceRepository"
 import { paymentRepository } from "@/repositories/PaymentRepository"
@@ -280,6 +281,29 @@ export function usePayment() {
           purchasedAt: paidAt,
         })
 
+        let storeCreditAppliedPaisa = Math.max(
+          0,
+          Math.round(settlement.storeCreditAppliedPaisa || 0)
+        )
+        if (customer && storeCreditAppliedPaisa > 0) {
+          storeCreditAppliedPaisa = Math.min(
+            storeCreditAppliedPaisa,
+            customer.storeCreditPaisa,
+            invoice.amountPaisa
+          )
+          if (storeCreditAppliedPaisa > 0) {
+            const applied = await CrmService.applyStoreCredit({
+              customerId: customer.id,
+              amountPaisa: storeCreditAppliedPaisa,
+              invoiceId: invoice.invoiceId,
+              actorId: userId,
+            })
+            storeCreditAppliedPaisa = applied.appliedPaisa
+          }
+        } else {
+          storeCreditAppliedPaisa = 0
+        }
+
         // Repository persists + publishes PAYMENT_RECEIVED → SyncManager → Sheets
         const paid = await paymentRepository.update(payment.paymentId, {
           status: "Paid",
@@ -292,6 +316,7 @@ export function usePayment() {
           upiTxnLast4,
           cashReceiptNumber,
           cashReceiptId,
+          storeCreditAppliedPaisa,
         })
 
         await invoiceRepository.updatePaymentFields(invoice.invoiceId, {
@@ -301,7 +326,21 @@ export function usePayment() {
           customerName,
           customerId: customer?.id ?? null,
           customerPhone: customer?.phone ?? (customerPhone.trim() || null),
+          storeCreditAppliedPaisa,
         })
+
+        if (customer) {
+          const sale = await invoiceRepository.getById(invoice.invoiceId)
+          const redeemedLoyalty =
+            sale?.loyalty?.mode === "percent" ||
+            sale?.loyalty?.mode === "item"
+          await CrmService.recordPaidPurchase({
+            customerId: customer.id,
+            purchasePaisa: invoice.amountPaisa,
+            redeemedLoyalty,
+            actorId: userId,
+          })
+        }
 
         const tallyRef =
           paid.paymentMethod === "UPI"
@@ -312,7 +351,11 @@ export function usePayment() {
           paymentId: paid.paymentId,
           invoiceId: paid.invoiceId,
           event: "MARKED_PAID",
-          message: `Session ${paid.paymentId} marked paid via ${paid.paymentMethod} (${tallyRef}).`,
+          message: `Session ${paid.paymentId} marked paid via ${paid.paymentMethod} (${tallyRef})${
+            storeCreditAppliedPaisa > 0
+              ? ` · store credit −${(storeCreditAppliedPaisa / 100).toFixed(2)}`
+              : ""
+          }.`,
         })
 
         setPayment(paid)
@@ -322,7 +365,9 @@ export function usePayment() {
         setError(
           err instanceof PaymentError
             ? err.message
-            : "Could not mark payment as paid."
+            : err instanceof Error
+              ? err.message
+              : "Could not mark payment as paid."
         )
       } finally {
         setBusy(false)

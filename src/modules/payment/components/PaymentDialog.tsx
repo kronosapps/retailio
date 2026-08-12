@@ -99,11 +99,20 @@ function PaymentDialogSession({
   const [phoneSuggestions, setPhoneSuggestions] = useState<CustomerRecord[]>([])
   const [showNameSuggestions, setShowNameSuggestions] = useState(false)
   const [showPhoneSuggestions, setShowPhoneSuggestions] = useState(false)
+  const [matchedCustomer, setMatchedCustomer] = useState<CustomerRecord | null>(
+    null
+  )
+  const [applyStoreCredit, setApplyStoreCredit] = useState(false)
   const suggestBlurTimer = useRef<number | null>(null)
 
+  const storeCreditAvailable = matchedCustomer?.storeCreditPaisa ?? 0
+  const storeCreditAppliedPaisa = applyStoreCredit
+    ? Math.min(storeCreditAvailable, invoice.amountPaisa)
+    : 0
+
   const dueRupees = useMemo(
-    () => cashDueRupees(invoice.amountPaisa),
-    [invoice.amountPaisa]
+    () => cashDueRupees(Math.max(0, invoice.amountPaisa - storeCreditAppliedPaisa)),
+    [invoice.amountPaisa, storeCreditAppliedPaisa]
   )
 
   const cashReceived = useMemo(() => {
@@ -113,7 +122,10 @@ function PaymentDialogSession({
   }, [cashReceivedDigits])
 
   const cashChange = cashReceived - dueRupees
-  const canCompleteCash = cashReceived >= dueRupees && dueRupees > 0
+  const canCompleteCash =
+    dueRupees === 0
+      ? storeCreditAppliedPaisa >= invoice.amountPaisa
+      : cashReceived >= dueRupees && dueRupees > 0
 
   function clearSuggestBlur() {
     if (suggestBlurTimer.current != null) {
@@ -133,6 +145,8 @@ function PaymentDialogSession({
   function applyCustomer(customer: CustomerRecord) {
     setCustomerName(customer.name)
     setCustomerPhone(customer.phone || "")
+    setMatchedCustomer(customer)
+    setApplyStoreCredit(customer.storeCreditPaisa > 0)
     setNameSuggestions([])
     setPhoneSuggestions([])
     setShowNameSuggestions(false)
@@ -141,6 +155,8 @@ function PaymentDialogSession({
 
   function onCustomerNameChange(value: string) {
     setCustomerName(value)
+    setMatchedCustomer(null)
+    setApplyStoreCredit(false)
     if (isWalkInName(value) || value.trim().length < 1) {
       setNameSuggestions([])
       setShowNameSuggestions(false)
@@ -154,6 +170,8 @@ function PaymentDialogSession({
   function onCustomerPhoneChange(value: string) {
     const cleaned = value.replace(/[^\d+\s-]/g, "").slice(0, 16)
     setCustomerPhone(cleaned)
+    setMatchedCustomer(null)
+    setApplyStoreCredit(false)
     const digits = cleaned.replace(/\D/g, "")
     if (digits.length < 3) {
       setPhoneSuggestions([])
@@ -169,6 +187,8 @@ function PaymentDialogSession({
     if (exact && digits.length >= 10) {
       setCustomerName(exact.name)
       setCustomerPhone(exact.phone || cleaned)
+      setMatchedCustomer(exact)
+      setApplyStoreCredit(exact.storeCreditPaisa > 0)
       setShowPhoneSuggestions(false)
     }
   }
@@ -217,7 +237,11 @@ function PaymentDialogSession({
       setConfirmError("Enter exactly 4 digits from the UPI transaction ID.")
       return
     }
-    await markPaid({ method: "UPI", upiTxnLast4: last4 })
+    await markPaid({
+      method: "UPI",
+      upiTxnLast4: last4,
+      storeCreditAppliedPaisa,
+    })
     setConfirmOpen(false)
     setUpiLast4("")
   }
@@ -228,12 +252,16 @@ function PaymentDialogSession({
       setConfirmError("Cash received must cover the amount due.")
       return
     }
-    await markPaid({ method: "Cash" })
+    await markPaid({ method: "Cash", storeCreditAppliedPaisa })
     setCashTenderOpen(false)
     setCashReceivedDigits("")
   }
 
   function onPrimaryAction() {
+    if (dueRupees === 0 && storeCreditAppliedPaisa > 0) {
+      void markPaid({ method: "Cash", storeCreditAppliedPaisa })
+      return
+    }
     if (method === "Cash") openCashTender()
     else openUpiConfirm()
   }
@@ -317,6 +345,28 @@ function PaymentDialogSession({
               </p>
             </div>
           </div>
+
+          {storeCreditAvailable > 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={applyStoreCredit}
+                  onChange={(e) => setApplyStoreCredit(e.target.checked)}
+                  disabled={busy || payment?.status === "Paid"}
+                />
+                <span>
+                  Apply store credit (available{" "}
+                  {formatMoney(storeCreditAvailable)})
+                </span>
+              </label>
+              {storeCreditAppliedPaisa > 0 ? (
+                <span className="tabular-nums text-muted-foreground">
+                  Due {formatMoney(invoice.amountPaisa - storeCreditAppliedPaisa)}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="space-y-2">
             <Label>Payment method</Label>

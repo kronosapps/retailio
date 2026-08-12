@@ -226,6 +226,30 @@ List (base) → Promotion (SKU/category) → Coupon → Friends & Family → Occ
 
 ---
 
+## Customer CRM
+
+Module: `src/modules/crm/` (+ existing `CustomerService`). UI: `/customers`, `/customers/:id`.
+
+```text
+Customer → lifetime spend → visits → outstanding → store credit → punches / points
+```
+
+| Capability | Behavior |
+|------------|----------|
+| Profile | Edit name/phone/email/GSTIN/tags/offer note |
+| Purchase history | Invoices matched by `customerId` or phone |
+| Outstanding | Manual charge-account AR + unpaid invoice totals |
+| Store credit | From credit-note returns; apply at POS payment (FIFO notes) |
+| Loyalty | Digital punches per paid visit; reset on POS redeem |
+| Points | Earn 1 per ₹1 spent (`loyalty.json` points config) |
+| Offers | Personal offer note + active store coupons |
+| Segmentation | Derived: New / Regular / VIP / At risk / Credit / Loyalty ready |
+| Communication | Notification history for `customerId` |
+
+Events: existing `CUSTOMER_*`, `CREDIT_NOTE_ISSUED`, **`CREDIT_NOTE_APPLIED`** (now published on redeem).
+
+---
+
 ## Event system
 
 Supported types (`src/events/EventTypes.ts`):

@@ -8,6 +8,7 @@ import { AppLayout } from "@/layouts/AppLayout"
 import { PosLayout } from "@/layouts/PosLayout"
 import { BankingPage } from "@/pages/BankingPage"
 import { CustomersPage } from "@/pages/CustomersPage"
+import { CustomerDetailPage } from "@/pages/CustomerDetailPage"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { PurchasingPage } from "@/pages/PurchasingPage"
 import {
@@ -192,6 +193,7 @@ export default function App() {
               <Route path="categories" element={<InventoryCategoriesPage />} />
             </Route>
             <Route path="/customers" element={<CustomersPage />} />
+            <Route path="/customers/:customerId" element={<CustomerDetailPage />} />
             <Route path="/purchasing" element={<PurchasingPage />}>
               <Route index element={<PurchasingIndexRedirect />} />
               <Route path="suppliers" element={<PurchasingSuppliersPage />} />

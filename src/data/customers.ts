@@ -20,8 +20,21 @@ export type CustomerRecord = {
   totalSpendPaisa: number
   /** Unused store credit from credit notes (paisa). */
   storeCreditPaisa: number
+  /**
+   * Charge-account AR the customer owes the store (paisa).
+   * Separate from unpaid POS invoices (also summed in CRM).
+   */
+  outstandingPaisa: number
   visitCount: number
   lastPurchaseAt: string | null
+  /** Digital punch-card stamps toward next loyalty reward. */
+  loyaltyPunches: number
+  /** Loyalty points wallet (earn on paid sales). */
+  loyaltyPoints: number
+  /** Manual tags (VIP, etc.); auto-segments are derived at read time. */
+  tags: string[]
+  /** Free-text offer / campaign note shown on CRM profile. */
+  offerNote: string | null
 }
 
 const STORAGE_KEY = "retailos.customers.v1"
@@ -31,6 +44,9 @@ export type CreateCustomerInput = {
   phone?: string
   email?: string
   notes?: string
+  gstin?: string
+  tags?: string[]
+  offerNote?: string | null
   storeId?: string | null
   createdBy?: string | null
 }
@@ -82,8 +98,41 @@ function normalizeCustomer(raw: CustomerRecord): CustomerRecord {
     )
       ? Math.max(0, Math.round((raw as CustomerRecord).storeCreditPaisa))
       : 0,
+    outstandingPaisa: Number.isFinite(
+      (raw as Partial<CustomerRecord>).outstandingPaisa
+    )
+      ? Math.max(
+          0,
+          Math.round((raw as Partial<CustomerRecord>).outstandingPaisa || 0)
+        )
+      : 0,
     visitCount: Number.isFinite(raw.visitCount) ? raw.visitCount : 0,
     lastPurchaseAt: raw.lastPurchaseAt ?? null,
+    loyaltyPunches: Number.isFinite(
+      (raw as Partial<CustomerRecord>).loyaltyPunches
+    )
+      ? Math.max(
+          0,
+          Math.floor((raw as Partial<CustomerRecord>).loyaltyPunches || 0)
+        )
+      : 0,
+    loyaltyPoints: Number.isFinite(
+      (raw as Partial<CustomerRecord>).loyaltyPoints
+    )
+      ? Math.max(
+          0,
+          Math.floor((raw as Partial<CustomerRecord>).loyaltyPoints || 0)
+        )
+      : 0,
+    tags: Array.isArray((raw as Partial<CustomerRecord>).tags)
+      ? ((raw as Partial<CustomerRecord>).tags || [])
+          .map((t) => String(t).trim())
+          .filter(Boolean)
+      : [],
+    offerNote:
+      typeof (raw as Partial<CustomerRecord>).offerNote === "string"
+        ? (raw as Partial<CustomerRecord>).offerNote!.trim() || null
+        : null,
   }
 }
 
@@ -202,6 +251,7 @@ export function buildCustomerRecord(
     phone,
     email: input.email?.trim() || undefined,
     notes: input.notes?.trim() || undefined,
+    gstin: input.gstin?.trim().toUpperCase() || undefined,
     storeId: input.storeId ?? null,
     createdAt: now,
     updatedAt: now,
@@ -209,7 +259,16 @@ export function buildCustomerRecord(
     updatedBy: input.createdBy ?? null,
     totalSpendPaisa: 0,
     storeCreditPaisa: 0,
+    outstandingPaisa: 0,
     visitCount: 0,
     lastPurchaseAt: null,
+    loyaltyPunches: 0,
+    loyaltyPoints: 0,
+    tags: Array.isArray(input.tags)
+      ? input.tags.map((t) => t.trim()).filter(Boolean)
+      : [],
+    offerNote: input.offerNote?.trim() || null,
   }
 }
+
+export const CUSTOMERS_STORAGE_KEY = STORAGE_KEY

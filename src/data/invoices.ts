@@ -53,6 +53,8 @@ export type RecordedSale = {
     /** Coupon off (paisa); 0 when unused. */
     couponDiscount?: Paisa
     couponCode?: string | null
+    /** Store credit applied at payment (paisa). */
+    storeCreditAppliedPaisa?: Paisa
     taxableAmount: Paisa
     gstAmount: Paisa
     gstPercent: number
@@ -330,6 +332,7 @@ export function updateInvoicePayment(
     customerName?: string
     customerId?: string | null
     customerPhone?: string | null
+    storeCreditAppliedPaisa?: number
   }
 ): RecordedSale | null {
   const store = readStore()
@@ -347,6 +350,16 @@ export function updateInvoicePayment(
       patch.customerPhone !== undefined
         ? patch.customerPhone
         : current.customerPhone,
+    totals:
+      patch.storeCreditAppliedPaisa !== undefined
+        ? {
+            ...current.totals,
+            storeCreditAppliedPaisa: Math.max(
+              0,
+              Math.round(patch.storeCreditAppliedPaisa)
+            ),
+          }
+        : current.totals,
   }
   const sales = [...store.sales]
   sales[index] = next

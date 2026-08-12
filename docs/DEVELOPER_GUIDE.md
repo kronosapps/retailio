@@ -56,6 +56,15 @@
 4. Product sell-price changes → `PricingService.recordPriceChange` (from `ProductService.update`).
 5. POS coupon field lives on the session; redeem count bumps only after payment succeeds.
 
+## Customer CRM
+
+1. Directory CRUD → `CustomerService`; CRM aggregates → `CrmService.getProfile`.
+2. Detail route `/customers/:id` — purchases, credit notes, loyalty, segments, notifications.
+3. Mark Paid → `upsertFromCheckout` then `CrmService.recordPaidPurchase` (punches + points).
+4. Store credit at payment → `CrmService.applyStoreCredit` (FIFO credit notes + `CREDIT_NOTE_APPLIED`); tender amount to Banking/Till is net of credit.
+5. Sale journal splits Dr Cash/UPI (net) + Dr Customer Credits (applied) when `storeCreditAppliedPaisa` is set.
+6. Do not invent a parallel customer ledger outside `customers` / `credit_notes`.
+
 ### Bulk product import
 
 1. Download template / export via `ProductImportService.downloadTemplate()` / `downloadExport()`.

@@ -67,12 +67,14 @@ export type Payment = {
   cashReceiptNumber: number | null
   /** e.g. CASH-20260805-0001 */
   cashReceiptId: string | null
+  /** Store credit applied toward this payment (paisa). */
+  storeCreditAppliedPaisa?: number | null
 }
 
 /** Details collected when cashier confirms Mark as Paid. */
 export type PaymentSettlementInput =
-  | { method: "UPI"; upiTxnLast4: string }
-  | { method: "Cash" }
+  | { method: "UPI"; upiTxnLast4: string; storeCreditAppliedPaisa?: number }
+  | { method: "Cash"; storeCreditAppliedPaisa?: number }
 
 /** Alias clarifying that Payment is a session record. */
 export type PaymentSession = Payment

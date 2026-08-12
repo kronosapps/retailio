@@ -82,6 +82,9 @@ export class AccountingEngine {
     this.subscriber.on(EventTypes.CREDIT_NOTE_ISSUED, (event) => {
       void this.onCreditNoteIssued(event)
     })
+    this.subscriber.on(EventTypes.CREDIT_NOTE_APPLIED, (event) => {
+      void this.onCreditNoteApplied(event)
+    })
   }
 
   stop() {
@@ -435,6 +438,42 @@ export class AccountingEngine {
     } catch (err) {
       if (import.meta.env.DEV) {
         console.warn("[AccountingEngine] credit note journal failed", err)
+      }
+    }
+  }
+
+  private async onCreditNoteApplied(event: DomainEvent) {
+    const payload = event.payload as {
+      id?: string
+      creditNoteNumber?: string
+      amountPaisa?: number
+      invoiceId?: string | null
+      storeId?: string | null
+    }
+    // When applied on a sale, fromSale already Dr Customer Credits.
+    if (!payload?.id || payload.invoiceId) return
+    if (typeof payload.amountPaisa !== "number" || payload.amountPaisa <= 0) {
+      return
+    }
+
+    try {
+      const refId = `${payload.id}:manual`
+      if (journalRepository.getByReference("credit_note_applied", refId)) return
+      const entry = AccountingRules.fromCreditNoteApplied(
+        {
+          id: payload.id,
+          creditNoteNumber: payload.creditNoteNumber,
+          amountPaisa: payload.amountPaisa,
+          invoiceId: null,
+          storeId: payload.storeId ?? null,
+        },
+        { eventId: event.id, source: "posted" }
+      )
+      if (!entry) return
+      await journalRepository.savePosted(entry)
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn("[AccountingEngine] credit apply journal failed", err)
       }
     }
   }
