@@ -5,6 +5,9 @@ import { rupeesToPaisa } from "@/lib/money"
 import { invoiceRepository } from "@/repositories/InvoiceRepository"
 import { refundRepository } from "@/repositories/RefundRepository"
 import { expenseRepository } from "@/repositories/ExpenseRepository"
+import { supplierInvoiceRepository } from "@/repositories/SupplierInvoiceRepository"
+import { supplierPaymentRepository } from "@/repositories/SupplierPaymentRepository"
+import { purchaseReturnRepository } from "@/repositories/PurchaseReturnRepository"
 
 import { ACCOUNT_CODES } from "./chartOfAccounts"
 import { AccountingRules, journalLine } from "./rules/AccountingRules"
@@ -19,11 +22,15 @@ export class AccountingProjectionService {
     start: Date
     end: Date
   }): Promise<JournalEntry[]> {
-    const [invoices, refunds, expenses] = await Promise.all([
-      invoiceRepository.list(),
-      refundRepository.list(),
-      expenseRepository.list(),
-    ])
+    const [invoices, refunds, expenses, purchaseInvoices, supplierPayments, purchaseReturns] =
+      await Promise.all([
+        invoiceRepository.list(),
+        refundRepository.list(),
+        expenseRepository.list(),
+        Promise.resolve(supplierInvoiceRepository.list()),
+        Promise.resolve(supplierPaymentRepository.list()),
+        Promise.resolve(purchaseReturnRepository.list()),
+      ])
 
     const entries: JournalEntry[] = []
 
@@ -98,6 +105,38 @@ export class AccountingProjectionService {
       entries.push(
         AccountingRules.fromExpense(expense, { source: "projected" })
       )
+    }
+
+    for (const pin of purchaseInvoices) {
+      if (
+        pin.status !== "POSTED" &&
+        pin.status !== "PARTIAL" &&
+        pin.status !== "PAID"
+      ) {
+        continue
+      }
+      const when = pin.postedAt || pin.createdAt
+      if (!inRange(when, range.start, range.end)) continue
+      entries.push(
+        AccountingRules.fromPurchaseInvoice(pin, { source: "projected" })
+      )
+    }
+
+    for (const pay of supplierPayments) {
+      if (!inRange(pay.paidAt, range.start, range.end)) continue
+      entries.push(
+        AccountingRules.fromSupplierPayment(pay, { source: "projected" })
+      )
+    }
+
+    for (const ret of purchaseReturns) {
+      if (ret.status !== "POSTED") continue
+      const when = ret.postedAt || ret.createdAt
+      if (!inRange(when, range.start, range.end)) continue
+      const entry = AccountingRules.fromPurchaseReturn(ret, {
+        source: "projected",
+      })
+      if (entry) entries.push(entry)
     }
 
     const stock = InventoryService.getAllStock({ includeInactive: false })

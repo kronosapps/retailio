@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 
 import { Input } from "@/components/ui/input"
+import { MobileListCard, ResponsiveList } from "@/components/ResponsiveList"
 import {
   INVENTORY_MOVEMENT_TYPES,
   InventoryService,
@@ -91,57 +92,85 @@ export function InventoryMovementsView() {
         />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full min-w-[900px] text-left text-sm">
-          <thead className="border-b bg-muted/40 text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 font-medium">Date</th>
-              <th className="px-3 py-2 font-medium">Item</th>
-              <th className="px-3 py-2 font-medium">Type</th>
-              <th className="px-3 py-2 font-medium">Qty</th>
-              <th className="px-3 py-2 font-medium">Reference</th>
-              <th className="px-3 py-2 font-medium">Reason</th>
-              <th className="px-3 py-2 font-medium">Staff</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((m) => (
-              <tr key={m.id} className="border-b last:border-0">
-                <td className="px-3 py-2 text-xs text-muted-foreground">
-                  {new Date(m.createdAt).toLocaleString()}
-                </td>
-                <td className="px-3 py-2">
-                  <div>{m.productName}</div>
-                  <div className="font-mono text-xs text-muted-foreground">
-                    {m.sku}
-                  </div>
-                </td>
-                <td className="px-3 py-2">{movementTypeLabel(m.type)}</td>
-                <td className="px-3 py-2 tabular-nums">{m.quantity}</td>
-                <td className="px-3 py-2 text-muted-foreground">
-                  {m.referenceId || "—"}
-                </td>
-                <td className="px-3 py-2 text-muted-foreground">
-                  {m.reason || "—"}
-                </td>
-                <td className="px-3 py-2">
-                  {m.createdByName || m.createdBy || "—"}
-                </td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td
-                  colSpan={7}
-                  className="px-3 py-8 text-center text-muted-foreground"
-                >
-                  No movements match your filters.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <ResponsiveList
+        cards={
+          rows.length === 0 ? (
+            <p className="rounded-lg border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">
+              No movements match your filters.
+            </p>
+          ) : (
+            rows.map((m) => (
+              <MobileListCard
+                key={m.id}
+                title={m.productName}
+                meta={
+                  <>
+                    <span className="font-mono">{m.sku}</span> ·{" "}
+                    {movementTypeLabel(m.type)} · Qty {m.quantity}
+                    <span className="mt-0.5 block">
+                      {new Date(m.createdAt).toLocaleString()} ·{" "}
+                      {m.createdByName || m.createdBy || "—"}
+                    </span>
+                  </>
+                }
+              />
+            ))
+          )
+        }
+        table={
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[900px] text-left text-sm">
+              <thead className="border-b bg-muted/40 text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Date</th>
+                  <th className="px-3 py-2 font-medium">Item</th>
+                  <th className="px-3 py-2 font-medium">Type</th>
+                  <th className="px-3 py-2 font-medium">Qty</th>
+                  <th className="px-3 py-2 font-medium">Reference</th>
+                  <th className="px-3 py-2 font-medium">Reason</th>
+                  <th className="px-3 py-2 font-medium">Staff</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((m) => (
+                  <tr key={m.id} className="border-b last:border-0">
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      {new Date(m.createdAt).toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div>{m.productName}</div>
+                      <div className="font-mono text-xs text-muted-foreground">
+                        {m.sku}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">{movementTypeLabel(m.type)}</td>
+                    <td className="px-3 py-2 tabular-nums">{m.quantity}</td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {m.referenceId || "—"}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {m.reason || "—"}
+                    </td>
+                    <td className="px-3 py-2">
+                      {m.createdByName || m.createdBy || "—"}
+                    </td>
+                  </tr>
+                ))}
+                {rows.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-3 py-8 text-center text-muted-foreground"
+                    >
+                      No movements match your filters.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        }
+      />
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { Search } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { MobileListCard, ResponsiveList } from "@/components/ResponsiveList"
 import {
   InventoryService,
   stockStatusLabel,
@@ -62,66 +63,116 @@ export function InventoryStockView() {
         />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="border-b bg-muted/40 text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 font-medium">Item</th>
-              <th className="px-3 py-2 font-medium">Current stock</th>
-              <th className="px-3 py-2 font-medium">Reorder</th>
-              <th className="px-3 py-2 font-medium">Status</th>
-              <th className="px-3 py-2 font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.sku} className="border-b last:border-0">
-                <td className="px-3 py-2">
-                  <div className="font-medium">{row.name}</div>
-                  <div className="font-mono text-xs text-muted-foreground">
-                    {row.sku}
-                  </div>
-                </td>
-                <td className="px-3 py-2">{row.quantity}</td>
-                <td className="px-3 py-2">{row.reorderLevel}</td>
-                <td className="px-3 py-2">
-                  <StatusChip status={row.status} />
-                </td>
-                <td className="px-3 py-2">
-                  <div className="flex flex-wrap gap-1">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setAction({ sku: row.sku, mode: "add" })}
-                    >
-                      Add
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        setAction({ sku: row.sku, mode: "adjust" })
-                      }
-                    >
-                      Adjust
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setHistorySku(row.sku)}
-                    >
-                      History
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ResponsiveList
+        cards={rows.map((row) => (
+          <MobileListCard
+            key={row.sku}
+            title={row.name}
+            meta={
+              <>
+                <span className="font-mono">{row.sku}</span> · Qty {row.quantity}{" "}
+                · Reorder {row.reorderLevel}
+              </>
+            }
+            badge={<StatusChip status={row.status} />}
+            actions={
+              <>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="min-h-10"
+                  onClick={() => setAction({ sku: row.sku, mode: "add" })}
+                >
+                  Add
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="min-h-10"
+                  onClick={() => setAction({ sku: row.sku, mode: "adjust" })}
+                >
+                  Adjust
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="min-h-10"
+                  onClick={() => setHistorySku(row.sku)}
+                >
+                  History
+                </Button>
+              </>
+            }
+          />
+        ))}
+        table={
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead className="border-b bg-muted/40 text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Item</th>
+                  <th className="px-3 py-2 font-medium">Current stock</th>
+                  <th className="px-3 py-2 font-medium">Reorder</th>
+                  <th className="px-3 py-2 font-medium">Status</th>
+                  <th className="px-3 py-2 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.sku} className="border-b last:border-0">
+                    <td className="px-3 py-2">
+                      <div className="font-medium">{row.name}</div>
+                      <div className="font-mono text-xs text-muted-foreground">
+                        {row.sku}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">{row.quantity}</td>
+                    <td className="px-3 py-2">{row.reorderLevel}</td>
+                    <td className="px-3 py-2">
+                      <StatusChip status={row.status} />
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-wrap gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setAction({ sku: row.sku, mode: "add" })
+                          }
+                        >
+                          Add
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setAction({ sku: row.sku, mode: "adjust" })
+                          }
+                        >
+                          Adjust
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setHistorySku(row.sku)}
+                        >
+                          History
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        }
+      />
 
       {historySku && (
         <section className="rounded-lg border p-4">

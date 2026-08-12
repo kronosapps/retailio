@@ -9,6 +9,19 @@ import { PosLayout } from "@/layouts/PosLayout"
 import { BankingPage } from "@/pages/BankingPage"
 import { CustomersPage } from "@/pages/CustomersPage"
 import { DashboardPage } from "@/pages/DashboardPage"
+import { PurchasingPage } from "@/pages/PurchasingPage"
+import {
+  PurchasingGoodsReceivedPage,
+  PurchasingIndexRedirect,
+  PurchasingInvoicesPage,
+  PurchasingMatchPage,
+  PurchasingOrdersPage,
+  PurchasingPaymentsPage,
+  PurchasingQuickPage,
+  PurchasingReturnsPage,
+  PurchasingStatementsPage,
+  PurchasingSuppliersPage,
+} from "@/pages/purchasing/PurchasingSuppliersPage"
 import { InventoryPage } from "@/pages/InventoryPage"
 import { InventoryIndexRedirect } from "@/pages/inventory/InventoryItemsPage"
 import { InventoryItemsPage } from "@/pages/inventory/InventoryItemsPage"
@@ -157,6 +170,24 @@ export default function App() {
               <Route path="categories" element={<InventoryCategoriesPage />} />
             </Route>
             <Route path="/customers" element={<CustomersPage />} />
+            <Route path="/purchasing" element={<PurchasingPage />}>
+              <Route index element={<PurchasingIndexRedirect />} />
+              <Route path="suppliers" element={<PurchasingSuppliersPage />} />
+              <Route path="quick" element={<PurchasingQuickPage />} />
+              <Route path="orders" element={<PurchasingOrdersPage />} />
+              <Route
+                path="goods-received"
+                element={<PurchasingGoodsReceivedPage />}
+              />
+              <Route path="invoices" element={<PurchasingInvoicesPage />} />
+              <Route path="payments" element={<PurchasingPaymentsPage />} />
+              <Route path="returns" element={<PurchasingReturnsPage />} />
+              <Route
+                path="statements"
+                element={<PurchasingStatementsPage />}
+              />
+              <Route path="match" element={<PurchasingMatchPage />} />
+            </Route>
             <Route path="/transactions" element={<TransactionsPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route

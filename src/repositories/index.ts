@@ -29,4 +29,20 @@ export {
   supplierRepository,
   SupplierRepository,
 } from "./SupplierRepository"
+export {
+  goodsReceiptRepository,
+  GoodsReceiptRepository,
+} from "./GoodsReceiptRepository"
+export {
+  purchaseOrderRepository,
+  PurchaseOrderRepository,
+} from "./PurchaseOrderRepository"
+export {
+  supplierInvoiceRepository,
+  SupplierInvoiceRepository,
+} from "./SupplierInvoiceRepository"
+export {
+  supplierPaymentRepository,
+  SupplierPaymentRepository,
+} from "./SupplierPaymentRepository"
 export { expenseRepository, ExpenseRepository } from "./ExpenseRepository"

@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from "react"
 import { Trash2, UserPlus } from "lucide-react"
 
+import { MobileListCard, ResponsiveList } from "@/components/ResponsiveList"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -208,61 +209,97 @@ export function CustomersPage() {
           sale paid.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="w-full min-w-[640px] text-left text-sm">
-            <thead className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 font-medium">Name</th>
-                <th className="px-3 py-2 font-medium">Phone</th>
-                <th className="px-3 py-2 font-medium">Visits</th>
-                <th className="px-3 py-2 font-medium">Spend</th>
-                <th className="px-3 py-2 font-medium">Last purchase</th>
-                <th className="px-3 py-2 font-medium" />
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((customer) => (
-                <tr
-                  key={customer.id}
-                  className="border-b border-border/60 last:border-0"
-                >
-                  <td className="px-3 py-2">
-                    <div className="font-medium">{customer.name}</div>
-                    {customer.email ? (
-                      <div className="text-xs text-muted-foreground">
-                        {customer.email}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs">
+        <ResponsiveList
+          cards={filtered.map((customer) => (
+            <MobileListCard
+              key={customer.id}
+              title={customer.name}
+              meta={
+                <>
+                  <div>
                     {customer.phone || "—"}
-                  </td>
-                  <td className="px-3 py-2 tabular-nums">
-                    {customer.visitCount}
-                  </td>
-                  <td className="px-3 py-2 tabular-nums">
-                    {formatMoney(customer.totalSpendPaisa)}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                    {customer.email ? ` · ${customer.email}` : ""}
+                  </div>
+                  <div>
+                    {customer.visitCount} visits ·{" "}
+                    {formatMoney(customer.totalSpendPaisa)} · Last{" "}
                     {formatWhen(customer.lastPurchaseAt)}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={deletingId === customer.id}
-                      onClick={() => void onDelete(customer.id)}
+                  </div>
+                </>
+              }
+              actions={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="min-h-10"
+                  disabled={deletingId === customer.id}
+                  onClick={() => void onDelete(customer.id)}
+                >
+                  <Trash2 data-icon="inline-start" />
+                  Delete
+                </Button>
+              }
+            />
+          ))}
+          table={
+            <div className="overflow-x-auto rounded-xl border border-border">
+              <table className="w-full min-w-[640px] text-left text-sm">
+                <thead className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">Name</th>
+                    <th className="px-3 py-2 font-medium">Phone</th>
+                    <th className="px-3 py-2 font-medium">Visits</th>
+                    <th className="px-3 py-2 font-medium">Spend</th>
+                    <th className="px-3 py-2 font-medium">Last purchase</th>
+                    <th className="px-3 py-2 font-medium" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((customer) => (
+                    <tr
+                      key={customer.id}
+                      className="border-b border-border/60 last:border-0"
                     >
-                      <Trash2 data-icon="inline-start" />
-                      Delete
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                      <td className="px-3 py-2">
+                        <div className="font-medium">{customer.name}</div>
+                        {customer.email ? (
+                          <div className="text-xs text-muted-foreground">
+                            {customer.email}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2 font-mono text-xs">
+                        {customer.phone || "—"}
+                      </td>
+                      <td className="px-3 py-2 tabular-nums">
+                        {customer.visitCount}
+                      </td>
+                      <td className="px-3 py-2 tabular-nums">
+                        {formatMoney(customer.totalSpendPaisa)}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                        {formatWhen(customer.lastPurchaseAt)}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={deletingId === customer.id}
+                          onClick={() => void onDelete(customer.id)}
+                        >
+                          <Trash2 data-icon="inline-start" />
+                          Delete
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          }
+        />
       )}
     </div>
   )

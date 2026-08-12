@@ -151,8 +151,13 @@ export function appendLedgerEntry(input: {
     throw new Error("Amount must be greater than zero.")
   }
 
-  // Idempotent for sale/refund when same reference already recorded
-  if (input.reference && (input.source === "sale" || input.source === "refund")) {
+  // Idempotent for sale/refund/supplier_payment when same reference already recorded
+  if (
+    input.reference &&
+    (input.source === "sale" ||
+      input.source === "refund" ||
+      input.source === "supplier_payment")
+  ) {
     const existing = store.entries.find(
       (e) => e.reference === input.reference && e.source === input.source
     )

@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Pencil, Plus, Search } from "lucide-react"
 
+import { MobileListCard, ResponsiveList } from "@/components/ResponsiveList"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Dialog,
@@ -312,87 +313,155 @@ export function InventoryItemsView() {
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full min-w-[880px] text-left text-sm">
-          <thead className="border-b bg-muted/40 text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 font-medium">Item</th>
-              <th className="px-3 py-2 font-medium">SKU</th>
-              <th className="px-3 py-2 font-medium">Barcode</th>
-              <th className="px-3 py-2 font-medium">Category</th>
-              <th className="px-3 py-2 font-medium">Price</th>
-              <th className="px-3 py-2 font-medium">Stock</th>
-              <th className="px-3 py-2 font-medium">Reorder</th>
-              <th className="px-3 py-2 font-medium">Status</th>
-              <th className="px-3 py-2 font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((row) => (
-              <tr
+      <ResponsiveList
+        cards={
+          filtered.length === 0 ? (
+            <p className="rounded-lg border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">
+              No items match your filters.
+            </p>
+          ) : (
+            filtered.map((row) => (
+              <MobileListCard
                 key={row.sku}
-                className="border-b last:border-0 hover:bg-muted/30"
-              >
-                <td className="px-3 py-2">
+                title={
                   <button
                     type="button"
-                    className="text-left font-medium hover:underline"
+                    className="text-left hover:underline"
                     onClick={() => setSelectedSku(row.sku)}
                   >
                     {row.name}
+                    {!row.active ? (
+                      <span className="ml-2 text-xs font-normal text-muted-foreground">
+                        Inactive
+                      </span>
+                    ) : null}
                   </button>
-                  {!row.active && (
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      Inactive
-                    </span>
-                  )}
-                </td>
-                <td className="px-3 py-2 font-mono text-xs">{row.sku}</td>
-                <td className="px-3 py-2 text-muted-foreground">
-                  {row.barcode || "—"}
-                </td>
-                <td className="px-3 py-2">{row.category}</td>
-                <td className="px-3 py-2">₹{row.sellingPrice}</td>
-                <td className="px-3 py-2">{row.quantity}</td>
-                <td className="px-3 py-2">{row.reorderLevel}</td>
-                <td className="px-3 py-2">{statusBadge(row.status)}</td>
-                <td className="px-3 py-2">
-                  <div className="flex gap-1">
+                }
+                meta={
+                  <>
+                    <div>
+                      {row.sku} · {row.category}
+                    </div>
+                    <div>
+                      ₹{row.sellingPrice} · Stock {row.quantity} · Reorder{" "}
+                      {row.reorderLevel}
+                    </div>
+                  </>
+                }
+                badge={statusBadge(row.status)}
+                actions={
+                  <>
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
+                      className="min-h-10"
                       onClick={() => openEdit(row)}
                     >
                       <Pencil className="size-3.5" />
+                      Edit
                     </Button>
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
+                      className="min-h-10"
                       onClick={() =>
                         setStockAction({ sku: row.sku, mode: "add" })
                       }
                     >
                       + Stock
                     </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td
-                  colSpan={9}
-                  className="px-3 py-8 text-center text-muted-foreground"
-                >
-                  No items match your filters.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                  </>
+                }
+              />
+            ))
+          )
+        }
+        table={
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[880px] text-left text-sm">
+              <thead className="border-b bg-muted/40 text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Item</th>
+                  <th className="px-3 py-2 font-medium">SKU</th>
+                  <th className="px-3 py-2 font-medium">Barcode</th>
+                  <th className="px-3 py-2 font-medium">Category</th>
+                  <th className="px-3 py-2 font-medium">Price</th>
+                  <th className="px-3 py-2 font-medium">Stock</th>
+                  <th className="px-3 py-2 font-medium">Reorder</th>
+                  <th className="px-3 py-2 font-medium">Status</th>
+                  <th className="px-3 py-2 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((row) => (
+                  <tr
+                    key={row.sku}
+                    className="border-b last:border-0 hover:bg-muted/30"
+                  >
+                    <td className="px-3 py-2">
+                      <button
+                        type="button"
+                        className="text-left font-medium hover:underline"
+                        onClick={() => setSelectedSku(row.sku)}
+                      >
+                        {row.name}
+                      </button>
+                      {!row.active && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          Inactive
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-xs">{row.sku}</td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {row.barcode || "—"}
+                    </td>
+                    <td className="px-3 py-2">{row.category}</td>
+                    <td className="px-3 py-2">₹{row.sellingPrice}</td>
+                    <td className="px-3 py-2">{row.quantity}</td>
+                    <td className="px-3 py-2">{row.reorderLevel}</td>
+                    <td className="px-3 py-2">{statusBadge(row.status)}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEdit(row)}
+                        >
+                          <Pencil className="size-3.5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setStockAction({ sku: row.sku, mode: "add" })
+                          }
+                        >
+                          + Stock
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={9}
+                      className="px-3 py-8 text-center text-muted-foreground"
+                    >
+                      No items match your filters.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        }
+      />
 
       {selected && (
         <ItemDetailPanel
@@ -408,7 +477,7 @@ export function InventoryItemsView() {
       )}
 
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogContent className="h-[100dvh] max-h-[100dvh] w-full max-w-full overflow-y-auto rounded-none p-4 sm:max-w-full md:h-auto md:max-h-[90vh] md:max-w-lg md:rounded-xl">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit item" : "Add item"}</DialogTitle>
           </DialogHeader>

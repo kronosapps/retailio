@@ -1,8 +1,14 @@
+import type { PurchaseInvoiceRecord } from "@/data/purchaseInvoices"
+import type { PurchaseReturnRecord } from "@/data/purchaseReturns"
+import type { SupplierPaymentRecord } from "@/data/supplierPayments"
 import { EventSubscriber } from "@/events/EventSubscriber"
 import { EventTypes, type DomainEvent } from "@/events/EventTypes"
 import { invoiceRepository } from "@/repositories/InvoiceRepository"
 import { journalRepository } from "@/repositories/JournalRepository"
 import type { ExpenseRecord } from "@/repositories/ExpenseRepository"
+import { purchaseReturnRepository } from "@/repositories/PurchaseReturnRepository"
+import { supplierInvoiceRepository } from "@/repositories/SupplierInvoiceRepository"
+import { supplierPaymentRepository } from "@/repositories/SupplierPaymentRepository"
 
 import { AccountingRules } from "./rules/AccountingRules"
 
@@ -50,6 +56,15 @@ export class AccountingEngine {
     })
     this.subscriber.on(EventTypes.EXPENSE_CREATED, (event) => {
       void this.onExpense(event)
+    })
+    this.subscriber.on(EventTypes.PURCHASE_INVOICE_POSTED, (event) => {
+      void this.onPurchaseInvoicePosted(event)
+    })
+    this.subscriber.on(EventTypes.SUPPLIER_PAYMENT_RECORDED, (event) => {
+      void this.onSupplierPayment(event)
+    })
+    this.subscriber.on(EventTypes.PURCHASE_RETURN_POSTED, (event) => {
+      void this.onPurchaseReturnPosted(event)
     })
   }
 
@@ -125,6 +140,144 @@ export class AccountingEngine {
     } catch (err) {
       if (import.meta.env.DEV) {
         console.warn("[AccountingEngine] expense journal failed", err)
+      }
+    }
+  }
+
+  private async onPurchaseInvoicePosted(event: DomainEvent) {
+    const payload = event.payload as { id?: string }
+    const invoiceId = payload?.id
+    if (!invoiceId) return
+
+    try {
+      if (journalRepository.getByReference("purchase_invoice", invoiceId)) {
+        return
+      }
+
+      const invoice =
+        supplierInvoiceRepository.getById(invoiceId) ||
+        (payload as PurchaseInvoiceRecord)
+      if (!invoice?.id || !invoice.totalPaisa) return
+      if (
+        invoice.status !== "POSTED" &&
+        invoice.status !== "PARTIAL" &&
+        invoice.status !== "PAID"
+      ) {
+        return
+      }
+
+      const entry = AccountingRules.fromPurchaseInvoice(invoice, {
+        eventId: event.id,
+        source: "posted",
+      })
+      await journalRepository.savePosted(entry)
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn("[AccountingEngine] purchase invoice journal failed", err)
+      }
+    }
+  }
+
+  private async onSupplierPayment(event: DomainEvent) {
+    const payload = event.payload as {
+      id?: string
+      paymentId?: string
+      amountPaisa?: number
+      amount?: number
+      paymentMethod?: string
+      method?: string
+      purchaseInvoiceId?: string
+      invoiceNumber?: string
+      paidAt?: string
+      storeId?: string | null
+      createdBy?: string | null
+      paymentNumber?: string
+      supplierId?: string
+      supplierName?: string
+      status?: string
+    }
+    const paymentId = payload.paymentId || payload.id
+    if (!paymentId) return
+
+    try {
+      if (journalRepository.getByReference("supplier_payment", paymentId)) {
+        return
+      }
+
+      let payment = supplierPaymentRepository.getById(paymentId)
+      if (!payment) {
+        const amountPaisa =
+          typeof payload.amountPaisa === "number"
+            ? payload.amountPaisa
+            : typeof payload.amount === "number"
+              ? Math.round(payload.amount * 100)
+              : null
+        if (amountPaisa == null) return
+        payment = {
+          id: paymentId,
+          paymentNumber: payload.paymentNumber || paymentId,
+          supplierId: payload.supplierId || "",
+          supplierName: payload.supplierName || "",
+          purchaseInvoiceId: payload.purchaseInvoiceId || "",
+          invoiceNumber: payload.invoiceNumber || "",
+          amountPaisa,
+          allocations: [
+            {
+              purchaseInvoiceId: payload.purchaseInvoiceId || "",
+              invoiceNumber: payload.invoiceNumber || "",
+              amountPaisa,
+            },
+          ],
+          method: payload.paymentMethod === "Cash" || payload.method === "Cash"
+            ? "Cash"
+            : "UPI",
+          status: "Paid",
+          paidAt: payload.paidAt || new Date().toISOString(),
+          notes: null,
+          storeId: payload.storeId ?? null,
+          createdAt: payload.paidAt || new Date().toISOString(),
+          updatedAt: payload.paidAt || new Date().toISOString(),
+          createdBy: payload.createdBy ?? null,
+        } satisfies SupplierPaymentRecord
+      }
+
+      const entry = AccountingRules.fromSupplierPayment(payment, {
+        eventId: event.id,
+        source: "posted",
+      })
+      await journalRepository.savePosted(entry)
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn("[AccountingEngine] supplier payment journal failed", err)
+      }
+    }
+  }
+
+  private async onPurchaseReturnPosted(event: DomainEvent) {
+    const payload = event.payload as { id?: string }
+    const returnId = payload?.id
+    if (!returnId) return
+
+    try {
+      if (journalRepository.getByReference("purchase_return", returnId)) {
+        return
+      }
+
+      const ret =
+        purchaseReturnRepository.getById(returnId) ||
+        (payload as PurchaseReturnRecord)
+      if (!ret?.id) return
+      if (ret.status !== "POSTED") return
+
+      const entry = AccountingRules.fromPurchaseReturn(ret, {
+        eventId: event.id,
+        source: "posted",
+      })
+      if (!entry) return
+      await journalRepository.savePosted(entry)
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn("[AccountingEngine] purchase return journal failed", err)
       }
     }
   }

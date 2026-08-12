@@ -76,6 +76,7 @@ const OUT_TYPES: InventoryMovementType[] = [
   "DAMAGE",
   "WASTAGE",
   "ADJUSTMENT_OUT",
+  "PURCHASE_RETURN",
 ]
 
 /**
@@ -155,7 +156,7 @@ export class InventoryReportService {
         row.wastage += m.quantity
       } else if (m.type === "ADJUSTMENT_IN") {
         row.adjustments += m.quantity
-      } else if (m.type === "ADJUSTMENT_OUT") {
+      } else if (m.type === "ADJUSTMENT_OUT" || m.type === "PURCHASE_RETURN") {
         row.adjustments -= m.quantity
       }
       bySku.set(key, row)
@@ -281,6 +282,9 @@ function applyMovementToSummary(
       summary.adjustmentInUnits += m.quantity
       break
     case "ADJUSTMENT_OUT":
+      summary.adjustmentOutUnits += m.quantity
+      break
+    case "PURCHASE_RETURN":
       summary.adjustmentOutUnits += m.quantity
       break
   }

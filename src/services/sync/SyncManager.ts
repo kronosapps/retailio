@@ -55,6 +55,98 @@ const ROUTES: Partial<Record<string, SheetRoute>> = {
     sheet: "Suppliers",
     sync: (p, data) => p.syncSupplier(data),
   },
+  [EventTypes.SUPPLIER_UPDATED]: {
+    sheet: "Suppliers",
+    sync: (p, data) => p.syncSupplier(data),
+  },
+  [EventTypes.PURCHASE_ORDER_CREATED]: {
+    sheet: "PurchaseOrders",
+    sync: async (p, data) => {
+      if (typeof p.syncPurchaseOrder === "function") {
+        await p.syncPurchaseOrder(data)
+      }
+    },
+  },
+  [EventTypes.PURCHASE_ORDER_UPDATED]: {
+    sheet: "PurchaseOrders",
+    sync: async (p, data) => {
+      if (typeof p.syncPurchaseOrder === "function") {
+        await p.syncPurchaseOrder(data)
+      }
+    },
+  },
+  [EventTypes.PURCHASE_ORDER_ISSUED]: {
+    sheet: "PurchaseOrders",
+    sync: async (p, data) => {
+      if (typeof p.syncPurchaseOrder === "function") {
+        await p.syncPurchaseOrder(data)
+      }
+    },
+  },
+  [EventTypes.GOODS_RECEIVED]: {
+    sheet: "GoodsReceipts",
+    sync: async (p, data) => {
+      if (typeof p.syncGoodsReceipt === "function") {
+        await p.syncGoodsReceipt(data)
+      }
+    },
+  },
+  [EventTypes.PURCHASE_INVOICE_CREATED]: {
+    sheet: "PurchaseInvoices",
+    sync: async (p, data) => {
+      if (typeof p.syncPurchaseInvoice === "function") {
+        await p.syncPurchaseInvoice(data)
+      }
+    },
+  },
+  [EventTypes.PURCHASE_INVOICE_POSTED]: {
+    sheet: "PurchaseInvoices",
+    sync: async (p, data) => {
+      if (typeof p.syncPurchaseInvoice === "function") {
+        await p.syncPurchaseInvoice(data)
+      }
+    },
+  },
+  [EventTypes.PURCHASE_INVOICE_UPDATED]: {
+    sheet: "PurchaseInvoices",
+    sync: async (p, data) => {
+      if (typeof p.syncPurchaseInvoice === "function") {
+        await p.syncPurchaseInvoice(data)
+      }
+    },
+  },
+  [EventTypes.SUPPLIER_PAYMENT_RECORDED]: {
+    sheet: "SupplierPayments",
+    sync: async (p, data) => {
+      if (typeof p.syncSupplierPayment === "function") {
+        await p.syncSupplierPayment(data)
+      }
+    },
+  },
+  [EventTypes.PURCHASE_RETURN_CREATED]: {
+    sheet: "PurchaseReturns",
+    sync: async (p, data) => {
+      if (typeof p.syncPurchaseReturn === "function") {
+        await p.syncPurchaseReturn(data)
+      }
+    },
+  },
+  [EventTypes.PURCHASE_RETURN_POSTED]: {
+    sheet: "PurchaseReturns",
+    sync: async (p, data) => {
+      if (typeof p.syncPurchaseReturn === "function") {
+        await p.syncPurchaseReturn(data)
+      }
+    },
+  },
+  [EventTypes.PURCHASE_RETURN_UPDATED]: {
+    sheet: "PurchaseReturns",
+    sync: async (p, data) => {
+      if (typeof p.syncPurchaseReturn === "function") {
+        await p.syncPurchaseReturn(data)
+      }
+    },
+  },
   [EventTypes.EXPENSE_CREATED]: {
     sheet: "Expenses",
     sync: (p, data) => p.syncExpense(data),

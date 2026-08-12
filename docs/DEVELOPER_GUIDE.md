@@ -46,6 +46,16 @@
 5. Do not call Firestore or Apps Script from `ReportsPage`.
 6. Route: `/reports` (admin/manager).
 
+## Purchasing / Suppliers
+
+1. Supplier CRUD → `SupplierService` → `SupplierRepository` (never Firestore from UI).
+2. PO draft/issue → `PurchaseOrderService` → `PurchaseOrderRepository` (no stock).
+3. GRN → `PurchaseReceivingService.receiveAdHoc` or `receiveAgainstPo` → `GoodsReceiptRepository` + `InventoryService.addStock` (`PURCHASE`, `referenceId = grn.id`). Against PO: block qty > remaining; then `PurchaseOrderService.applyReceipt`.
+4. Purchase invoice → `SupplierInvoiceService.createFromGrns` / `post` (from posted unbilled GRNs with unit costs). Emits `PURCHASE_INVOICE_POSTED` → AccountingEngine (Dr Inventory / Cr AP). No stock.
+5. Supplier payment → `SupplierPaymentService.payInvoice` (Cash/UPI, ≤ remaining). Emits `SUPPLIER_PAYMENT_RECORDED` → AccountingEngine + BankingEngine.
+6. Routes: `/purchasing/suppliers`, `/orders`, `/goods-received`, `/invoices`, `/payments`, `/statements` (admin/manager).
+7. Do not increase stock on supplier/PO/invoice create. Expenses stay OpEx (Utilities), not inventory buys.
+
 ## Utilities
 
 1. Landing + tools catalog: `src/modules/utilities/catalog.ts` (RBAC per tool).

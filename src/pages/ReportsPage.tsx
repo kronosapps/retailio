@@ -123,7 +123,7 @@ export function ReportsPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:p-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 md:gap-6">
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
         <p className="text-sm text-muted-foreground">
@@ -132,13 +132,13 @@ export function ReportsPage() {
         </p>
       </header>
 
-      <nav className="flex flex-wrap gap-1 rounded-lg border bg-muted/40 p-1">
+      <nav className="flex gap-1 overflow-x-auto whitespace-nowrap rounded-lg border bg-muted/40 p-1">
         {REPORT_TABS.map((tab) => (
           <button
             key={tab.id}
             type="button"
             className={cn(
-              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              "min-h-10 shrink-0 rounded-md px-3 py-2 text-sm font-medium transition-colors",
               reportType === tab.id
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground"

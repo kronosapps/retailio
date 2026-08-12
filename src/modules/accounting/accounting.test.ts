@@ -67,6 +67,51 @@ describe("AccountingRules", () => {
     })
     expect(isBalanced(expense)).toBe(true)
     expect(expense.paymentMethod).toBe("Cash")
+
+    const pin = AccountingRules.fromPurchaseInvoice({
+      id: "pin-1",
+      invoiceNumber: "PIN-1",
+      totalPaisa: 40000,
+      postedAt: "2026-04-04T10:00:00.000Z",
+      billDate: "2026-04-04",
+      createdAt: "2026-04-04T09:00:00.000Z",
+      updatedBy: "t",
+      createdBy: "t",
+      storeId: "s1",
+      status: "POSTED",
+    } as never)
+    expect(isBalanced(pin)).toBe(true)
+    expect(pin.referenceType).toBe("purchase_invoice")
+
+    const spay = AccountingRules.fromSupplierPayment({
+      id: "spay-1",
+      paymentNumber: "SPAY-1",
+      invoiceNumber: "PIN-1",
+      amountPaisa: 15000,
+      method: "UPI",
+      paidAt: "2026-04-05T10:00:00.000Z",
+      createdBy: "t",
+      storeId: "s1",
+    } as never)
+    expect(isBalanced(spay)).toBe(true)
+    expect(spay.referenceType).toBe("supplier_payment")
+
+    const prn = AccountingRules.fromPurchaseReturn({
+      id: "prn-1",
+      returnNumber: "PRN-1",
+      purchaseInvoiceId: "pin-1",
+      totalPaisa: 8000,
+      postedAt: "2026-04-06T10:00:00.000Z",
+      returnedAt: "2026-04-06T10:00:00.000Z",
+      createdAt: "2026-04-06T09:00:00.000Z",
+      updatedBy: "t",
+      createdBy: "t",
+      storeId: "s1",
+      status: "POSTED",
+    } as never)
+    expect(prn).not.toBeNull()
+    expect(isBalanced(prn!)).toBe(true)
+    expect(prn!.referenceType).toBe("purchase_return")
   })
 })
 

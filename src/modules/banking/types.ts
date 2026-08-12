@@ -8,6 +8,7 @@ export type BankingEntrySource =
   | "opening"
   | "sale"
   | "refund"
+  | "supplier_payment"
   | "adjustment"
   | "mock"
 

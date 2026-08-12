@@ -1,4 +1,7 @@
 import type { RecordedSale } from "@/data/invoices"
+import type { PurchaseInvoiceRecord } from "@/data/purchaseInvoices"
+import type { PurchaseReturnRecord } from "@/data/purchaseReturns"
+import type { SupplierPaymentRecord } from "@/data/supplierPayments"
 import { rupeesToPaisa } from "@/lib/money"
 import type { ExpenseRecord } from "@/repositories/ExpenseRepository"
 
@@ -127,6 +130,115 @@ export class AccountingRules {
       source: opts?.source ?? "posted",
       eventId: opts?.eventId ?? null,
       storeId: expense.storeId,
+    }
+  }
+
+  /** Posted purchase invoice → Dr Inventory (+ GST Input) / Cr Accounts Payable. */
+  static fromPurchaseInvoice(
+    invoice: PurchaseInvoiceRecord,
+    opts?: { eventId?: string | null; source?: JournalEntry["source"] }
+  ): JournalEntry {
+    const taxable = Math.max(
+      0,
+      Math.round(invoice.subtotalPaisa ?? invoice.totalPaisa)
+    )
+    const gst = Math.max(0, Math.round(invoice.gstPaisa || 0))
+    const amount = Math.max(0, Math.round(invoice.totalPaisa))
+    const date = (invoice.postedAt || invoice.billDate || invoice.createdAt).slice(
+      0,
+      10
+    )
+    const lines =
+      gst > 0
+        ? [
+            journalLine(ACCOUNT_CODES.INVENTORY, taxable, 0),
+            journalLine(ACCOUNT_CODES.GST_INPUT, gst, 0),
+            journalLine(ACCOUNT_CODES.AP, 0, amount),
+          ]
+        : [
+            journalLine(ACCOUNT_CODES.INVENTORY, amount, 0),
+            journalLine(ACCOUNT_CODES.AP, 0, amount),
+          ]
+    return {
+      id: `je_pin_${invoice.id}`,
+      date,
+      createdAt: invoice.postedAt || invoice.createdAt,
+      description: `Purchase invoice ${invoice.invoiceNumber}`,
+      referenceType: "purchase_invoice",
+      referenceId: invoice.id,
+      operatorId: invoice.updatedBy ?? invoice.createdBy,
+      operatorName: null,
+      paymentMethod: null,
+      lines,
+      source: opts?.source ?? "posted",
+      eventId: opts?.eventId ?? null,
+      storeId: invoice.storeId,
+    }
+  }
+
+  /** Supplier payment → Dr Accounts Payable / Cr Cash|UPI. */
+  static fromSupplierPayment(
+    payment: SupplierPaymentRecord,
+    opts?: { eventId?: string | null; source?: JournalEntry["source"] }
+  ): JournalEntry {
+    const amount = Math.max(0, Math.round(payment.amountPaisa))
+    const tender = tenderAccount(payment.method)
+    return {
+      id: `je_spay_${payment.id}`,
+      date: payment.paidAt.slice(0, 10),
+      createdAt: payment.paidAt,
+      description: `Supplier payment ${payment.paymentNumber} (${payment.invoiceNumber})`,
+      referenceType: "supplier_payment",
+      referenceId: payment.id,
+      operatorId: payment.createdBy,
+      operatorName: null,
+      paymentMethod: payment.method,
+      lines: [
+        journalLine(ACCOUNT_CODES.AP, amount, 0),
+        journalLine(tender, 0, amount),
+      ],
+      source: opts?.source ?? "posted",
+      eventId: opts?.eventId ?? null,
+      storeId: payment.storeId,
+    }
+  }
+
+  /** Posted purchase return → Dr AP / Cr Inventory (+ GST Input when billed with tax). */
+  static fromPurchaseReturn(
+    ret: PurchaseReturnRecord,
+    opts?: { eventId?: string | null; source?: JournalEntry["source"] }
+  ): JournalEntry | null {
+    // Unbilled GRN-only returns have no AP to reverse.
+    if (!ret.purchaseInvoiceId || ret.totalPaisa <= 0) return null
+    const amount = Math.max(0, Math.round(ret.totalPaisa))
+    const gst = Math.max(0, Math.round(ret.gstPaisa || 0))
+    const taxable = Math.max(0, amount - gst)
+    const date = (ret.postedAt || ret.returnedAt || ret.createdAt).slice(0, 10)
+    const lines =
+      gst > 0
+        ? [
+            journalLine(ACCOUNT_CODES.AP, amount, 0),
+            journalLine(ACCOUNT_CODES.INVENTORY, 0, taxable),
+            journalLine(ACCOUNT_CODES.GST_INPUT, 0, gst),
+          ]
+        : [
+            journalLine(ACCOUNT_CODES.AP, amount, 0),
+            journalLine(ACCOUNT_CODES.INVENTORY, 0, amount),
+          ]
+    return {
+      id: `je_prn_${ret.id}`,
+      date,
+      createdAt: ret.postedAt || ret.createdAt,
+      description: `Purchase return ${ret.returnNumber}`,
+      referenceType: "purchase_return",
+      referenceId: ret.id,
+      operatorId: ret.updatedBy ?? ret.createdBy,
+      operatorName: null,
+      paymentMethod: null,
+      lines,
+      source: opts?.source ?? "posted",
+      eventId: opts?.eventId ?? null,
+      storeId: ret.storeId,
     }
   }
 

@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { MobileListCard, ResponsiveList } from "@/components/ResponsiveList"
 import { formatMoney } from "@/lib/money"
 import {
   TransactionsService,
@@ -115,53 +116,91 @@ function TxnTable({
         <CardTitle className="text-sm">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent className="overflow-x-auto pt-0">
+      <CardContent className="pt-0">
         {rows.length === 0 ? (
           <p className="py-6 text-sm text-muted-foreground">{empty}</p>
         ) : (
-          <table className="w-full min-w-[360px] text-left text-sm">
-            <thead className="text-xs text-muted-foreground">
-              <tr className="border-b border-border">
-                {headers.map((header) => (
-                  <th key={header} className="py-2 pr-2 font-medium">
-                    {header}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, index) => (
-                <tr
-                  key={`${title}-${index}-${row[0]}`}
-                  className="border-b border-border/60 last:border-0"
-                >
-                  {row.map((cell, cellIndex) => (
-                    <td
-                      key={`${index}-${cellIndex}`}
-                      className={
-                        cellIndex === 0
-                          ? "py-2 pr-2 font-mono text-xs"
-                          : cellIndex === row.length - 1
-                            ? "py-2 tabular-nums"
-                            : "py-2 pr-2"
-                      }
-                    >
-                      {cellIndex === 0 && linkPrefix ? (
-                        <Link
-                          to={`${linkPrefix}${cell}`}
-                          className="text-primary underline-offset-2 hover:underline"
-                        >
-                          {cell}
-                        </Link>
-                      ) : (
-                        cell
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <ResponsiveList
+            cards={rows.map((row, index) => {
+              const id = row[0]
+              const title =
+                linkPrefix && id ? (
+                  <Link
+                    to={`${linkPrefix}${id}`}
+                    className="font-mono text-xs text-primary underline-offset-2 hover:underline"
+                  >
+                    {id}
+                  </Link>
+                ) : (
+                  <span className="font-mono text-xs">{id}</span>
+                )
+              const metaParts = row.slice(1, -1).filter(Boolean)
+              const amount = row[row.length - 1]
+              return (
+                <MobileListCard
+                  key={`${title}-${index}-${id}`}
+                  title={title}
+                  meta={
+                    <>
+                      {metaParts.join(" · ")}
+                      {amount ? (
+                        <span className="mt-0.5 block tabular-nums font-medium text-foreground">
+                          {amount}
+                        </span>
+                      ) : null}
+                    </>
+                  }
+                />
+              )
+            })}
+            table={
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[360px] text-left text-sm">
+                  <thead className="text-xs text-muted-foreground">
+                    <tr className="border-b border-border">
+                      {headers.map((header) => (
+                        <th key={header} className="py-2 pr-2 font-medium">
+                          {header}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, index) => (
+                      <tr
+                        key={`${title}-${index}-${row[0]}`}
+                        className="border-b border-border/60 last:border-0"
+                      >
+                        {row.map((cell, cellIndex) => (
+                          <td
+                            key={`${index}-${cellIndex}`}
+                            className={
+                              cellIndex === 0
+                                ? "py-2 pr-2 font-mono text-xs"
+                                : cellIndex === row.length - 1
+                                  ? "py-2 tabular-nums"
+                                  : "py-2 pr-2"
+                            }
+                          >
+                            {cellIndex === 0 && linkPrefix ? (
+                              <Link
+                                to={`${linkPrefix}${cell}`}
+                                className="text-primary underline-offset-2 hover:underline"
+                              >
+                                {cell}
+                              </Link>
+                            ) : (
+                              cell
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            }
+          />
         )}
       </CardContent>
     </Card>

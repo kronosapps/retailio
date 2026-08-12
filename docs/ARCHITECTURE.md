@@ -51,7 +51,18 @@ No layer may skip another layer.
 
 ## Firestore collections
 
-`products` · `customers` · `suppliers` · `inventory` · `inventory_movements` · `categories` · `invoices` · `payments` · `refunds` · `expenses` · `users` · `settings` · `sync_events`
+`products` · `customers` · `suppliers` · `purchase_orders` · `goods_receipts` · `purchase_invoices` · `supplier_payments` · `inventory` · `inventory_movements` · `categories` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events`
+
+### Purchasing (Phases 1–5)
+
+- Nav: `/purchasing` (admin/manager) — Suppliers (bulk import), POs, Goods Received, Purchase Invoices (GRN + bill-only + input GST), Supplier Payments (multi-invoice), Returns, Statements, Match, Quick buy.
+- **Suppliers:** `SupplierService` → `SupplierRepository` → `suppliers` + `retailos.suppliers.v1`.
+- **Purchase Orders:** `PurchaseOrderService` → `PurchaseOrderRepository` → `purchase_orders`. Draft → Issue; does **not** change stock.
+- **Goods Received:** `PurchaseReceivingService` → `goods_receipts` → `InventoryService.addStock({ type: "PURCHASE", referenceId: grnId })`.
+- **Purchase Invoices (AP):** `SupplierInvoiceService.createFromGrns` / `post` → `purchase_invoices`. Dr Inventory / Cr AP via `PURCHASE_INVOICE_POSTED` → `AccountingEngine`. No stock change.
+- **Supplier Payments:** `SupplierPaymentService.payInvoice` → `supplier_payments`. Dr AP / Cr Cash|UPI; banking ledger out via `SUPPLIER_PAYMENT_RECORDED`.
+- Events: `SUPPLIER_*`, `PURCHASE_ORDER_*`, `GOODS_RECEIVED`, `PURCHASE_INVOICE_*`, `SUPPLIER_PAYMENT_RECORDED` (live Sheets).
+- Stock only from posted GRN; AP only from posted purchase invoice; expenses remain OpEx.
 
 Repositories own exactly one collection each (see `src/repositories/`).
 
@@ -151,7 +162,11 @@ Supported types (`src/events/EventTypes.ts`):
 - `CATEGORY_CREATED` / `CATEGORY_UPDATED`
 - `CUSTOMER_CREATED` / `CUSTOMER_UPDATED`
 - `REFUND_CREATED` / `REFUND_UPDATED` / `PAYMENT_REFUNDED`
-- `SUPPLIER_CREATED`
+- `SUPPLIER_CREATED` / `SUPPLIER_UPDATED`
+- `PURCHASE_ORDER_CREATED` / `PURCHASE_ORDER_UPDATED` / `PURCHASE_ORDER_ISSUED`
+- `GOODS_RECEIVED`
+- `PURCHASE_INVOICE_CREATED` / `PURCHASE_INVOICE_POSTED` / `PURCHASE_INVOICE_UPDATED`
+- `SUPPLIER_PAYMENT_RECORDED`
 - `EXPENSE_CREATED`
 
 Flow: repository write → `EventPublisher.publish` → `EventBus` → `SyncManager` enqueues → provider.

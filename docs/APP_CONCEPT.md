@@ -199,9 +199,10 @@ Canonical docs: [`ARCHITECTURE.md`](./ARCHITECTURE.md), [`DEVELOPER_GUIDE.md`](.
 
 - Admin Staff page: list/create staff; roles admin|manager|cashier.
 
-### Expenses / Suppliers
+### Expenses / Suppliers / Purchasing
 
-- Types/events and repos exist; Sheets sync aware; less prominent in main nav depending on UI completeness.
+- Expenses: Utilities → Add Expense / Expense Reports.
+- **Purchasing:** `/purchasing/suppliers` · `/orders` · `/goods-received` · `/invoices` · `/payments` · `/returns` · `/statements` · `/match` · `/quick` — PO → GRN (stock) → purchase invoice (AP + input GST) → supplier payment; bill-only invoices; quick buy; purchase returns.
 
 ---
 
@@ -209,7 +210,7 @@ Canonical docs: [`ARCHITECTURE.md`](./ARCHITECTURE.md), [`DEVELOPER_GUIDE.md`](.
 
 ### Firestore collections (typical)
 
-`products`, `customers`, `suppliers`, `inventory`, `invoices`, `payments`, `expenses`, `users`, `settings`, `sync_events`  
+`products`, `customers`, `suppliers`, `purchase_orders`, `goods_receipts`, `purchase_invoices`, `supplier_payments`, `inventory`, `invoices`, `payments`, `expenses`, `users`, `settings`, `sync_events`  
 (Refunds may use payments/refunds pattern via RefundRepository.)
 
 ### Cross-device sync design

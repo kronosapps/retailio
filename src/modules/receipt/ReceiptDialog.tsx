@@ -199,8 +199,11 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
         if (!next) onClose()
       }}
     >
-      <DialogContent className="max-h-[min(92vh,820px)] max-w-md overflow-y-auto sm:max-w-lg" showCloseButton={false}>
-        <DialogHeader>
+      <DialogContent
+        className="flex h-[100dvh] max-h-[100dvh] w-full max-w-full flex-col gap-3 overflow-hidden rounded-none p-3 sm:h-[min(92vh,820px)] sm:max-w-lg sm:rounded-xl sm:p-4"
+        showCloseButton={false}
+      >
+        <DialogHeader className="shrink-0">
           <div className="flex items-start justify-between gap-3">
             <div>
               <DialogTitle>Receipt</DialogTitle>
@@ -227,26 +230,29 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
             Could not load this invoice for receipt.
           </p>
         ) : panel === "menu" ? (
-          <div className="space-y-4">
-            <pre className="max-h-48 overflow-auto rounded-lg border border-border bg-muted/30 p-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            <pre className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-muted/30 p-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap sm:text-xs">
               {buildReceiptText(ctx)}
             </pre>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid shrink-0 grid-cols-2 gap-2">
               <Button
                 type="button"
                 size="lg"
-                className="h-auto flex-col gap-1 py-4"
+                className="h-11 gap-2 sm:h-auto sm:flex-col sm:gap-1 sm:py-4"
                 disabled={busy}
                 onClick={() => void handlePrint()}
               >
-                <Printer className="size-5" />
-                <span>{busy ? "Printing…" : "Print receipt"}</span>
+                <Printer className="size-4 sm:size-5" />
+                <span className="sm:hidden">{busy ? "Printing…" : "Print"}</span>
+                <span className="hidden sm:inline">
+                  {busy ? "Printing…" : "Print receipt"}
+                </span>
               </Button>
               <Button
                 type="button"
                 size="lg"
                 variant="secondary"
-                className="h-auto flex-col gap-1 py-4"
+                className="h-11 gap-2 sm:h-auto sm:flex-col sm:gap-1 sm:py-4"
                 onClick={() => {
                   setPanel("send")
                   setError(null)
@@ -254,15 +260,16 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
                   setBusinessConfigured(isBusinessWhatsAppConfigured())
                 }}
               >
-                <Smartphone className="size-5" />
-                <span>Send to mobile</span>
+                <Smartphone className="size-4 sm:size-5" />
+                <span className="sm:hidden">Phone</span>
+                <span className="hidden sm:inline">Send to mobile</span>
               </Button>
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
             {businessConfigured ? (
-              <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              <p className="shrink-0 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
                 Sending as{" "}
                 <span className="font-medium text-foreground">
                   {getWhatsAppBusinessLabel()}
@@ -271,7 +278,7 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
                 on this POS.
               </p>
             ) : (
-              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+              <p className="shrink-0 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
                 Company WhatsApp is not configured yet. Add{" "}
                 <code className="text-[10px]">VITE_WHATSAPP_WEBHOOK_URL</code>{" "}
                 or set the webhook under Payment → merchant settings. Until then
@@ -279,12 +286,12 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
               </p>
             )}
 
-            <div className="flex gap-2">
+            <div className="flex shrink-0 gap-2">
               <button
                 type="button"
                 onClick={() => setSendMode("phone")}
                 className={cn(
-                  "flex flex-1 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium",
+                  "flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border px-2 text-xs font-medium",
                   sendMode === "phone"
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-border hover:bg-muted"
@@ -297,7 +304,7 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
                 type="button"
                 onClick={() => setSendMode("qr")}
                 className={cn(
-                  "flex flex-1 items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium",
+                  "flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border px-2 text-xs font-medium",
                   sendMode === "qr"
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-border hover:bg-muted"
@@ -309,7 +316,7 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
             </div>
 
             {sendMode === "phone" ? (
-              <div className="space-y-3">
+              <div className="flex min-h-0 flex-1 flex-col gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="receipt-mobile">Customer mobile</Label>
                   <Input
@@ -326,7 +333,8 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
                 {businessConfigured ? (
                   <Button
                     type="button"
-                    className="w-full"
+                    size="sm"
+                    className="h-9 w-full"
                     disabled={busy || mobile.replace(/\D/g, "").length < 10}
                     onClick={() => void handleSendBusinessWhatsApp()}
                   >
@@ -336,7 +344,8 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
                 ) : (
                   <Button
                     type="button"
-                    className="w-full"
+                    size="sm"
+                    className="h-9 w-full"
                     disabled={mobile.replace(/\D/g, "").length < 10}
                     onClick={handleOpenDeviceWhatsApp}
                   >
@@ -355,7 +364,7 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
                 ) : null}
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-3">
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
                 {busy && !qrDataUrl ? (
                   <p className="text-sm text-muted-foreground">
                     Generating QR…
@@ -367,7 +376,7 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
                     alt="WhatsApp receipt QR"
                     width={240}
                     height={240}
-                    className="rounded-xl border border-border bg-white p-2"
+                    className="max-h-[min(50dvh,280px)] w-auto rounded-xl border border-border bg-white p-2"
                   />
                 ) : null}
                 <p className="max-w-sm text-center text-xs text-muted-foreground">
@@ -378,12 +387,13 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
               </div>
             )}
 
-            <Separator />
+            <Separator className="shrink-0" />
 
             <Button
               type="button"
               variant="outline"
-              className="w-full"
+              size="sm"
+              className="h-8 w-full shrink-0"
               onClick={() => {
                 setPanel("menu")
                 setError(null)
@@ -396,15 +406,17 @@ export function ReceiptDialog({ invoiceId, onClose }: ReceiptDialogProps) {
         )}
 
         {status ? (
-          <p className="flex items-start gap-2 text-sm text-foreground">
+          <p className="flex shrink-0 items-start gap-2 text-sm text-foreground">
             <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-green-600" />
             {status}
           </p>
         ) : null}
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {error ? (
+          <p className="shrink-0 text-sm text-destructive">{error}</p>
+        ) : null}
 
-        <DialogFooter>
-          <Button type="button" variant="secondary" onClick={onClose}>
+        <DialogFooter className="shrink-0 sm:justify-end">
+          <Button type="button" size="sm" variant="secondary" onClick={onClose}>
             Done
           </Button>
         </DialogFooter>

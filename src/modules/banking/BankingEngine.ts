@@ -43,6 +43,9 @@ export class BankingEngine {
     this.subscriber.on(EventTypes.PAYMENT_REFUNDED, (event) => {
       this.onRefund(event)
     })
+    this.subscriber.on(EventTypes.SUPPLIER_PAYMENT_RECORDED, (event) => {
+      this.onSupplierPayment(event)
+    })
   }
 
   stop() {
@@ -87,6 +90,30 @@ export class BankingEngine {
     } catch (err) {
       if (import.meta.env.DEV) {
         console.warn("[BankingEngine] refund ledger failed", err)
+      }
+    }
+  }
+
+  private onSupplierPayment(event: DomainEvent) {
+    const payload = event.payload as PaymentReceivedPayload & {
+      id?: string
+    }
+    const paymentId = payload.paymentId || payload.id
+    if (!paymentId || typeof payload.amount !== "number") return
+    if (payload.status && payload.status !== "Paid") return
+
+    try {
+      BankingService.recordSupplierPayment({
+        paymentId,
+        amountRupees: payload.amount,
+        paymentMethod: payload.paymentMethod || "UPI",
+        invoiceNumber: payload.invoiceNumber,
+        storeId: payload.storeId ?? event.storeId,
+        paidAt: payload.paidAt,
+      })
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn("[BankingEngine] supplier payment ledger failed", err)
       }
     }
   }
