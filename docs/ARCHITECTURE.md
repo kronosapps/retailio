@@ -28,7 +28,7 @@ No layer may skip another layer.
 
 | Path | Responsibility |
 |------|----------------|
-| `src/app/` | `bootstrapApp` starts SyncManager, NotificationEngine, BankingEngine, InventoryEngine, AccountingEngine |
+| `src/app/` | `bootstrapApp` starts SyncManager, NotificationEngine, BankingEngine, InventoryEngine, AccountingEngine, SaleTransactionEngine |
 | `src/components/` | Shared UI primitives / shells |
 | `src/pages/` | Route-level screens (UI orchestration only) |
 | `src/modules/` | Business modules (Invoice, Payment, Inventory, …) |
@@ -51,7 +51,7 @@ No layer may skip another layer.
 
 ## Firestore collections
 
-`products` · `customers` · `suppliers` · `purchase_orders` · `goods_receipts` · `purchase_invoices` · `supplier_payments` · `inventory` · `inventory_movements` · `inventory_lots` · `stock_takes` · `cashier_shifts` · `business_days` · `sales_returns` · `credit_notes` · `crm_audit` · `categories` · `brands` · `units` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events`
+`products` · `customers` · `suppliers` · `purchase_orders` · `goods_receipts` · `purchase_invoices` · `supplier_payments` · `inventory` · `inventory_movements` · `inventory_lots` · `stock_takes` · `cashier_shifts` · `business_days` · `sales_returns` · `credit_notes` · `crm_audit` · `categories` · `brands` · `units` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events` · `ops_audit` · `sale_transactions`
 
 ### Purchasing (Phases 1–5)
 
@@ -82,6 +82,8 @@ Stock status: Out ≤ 0 · Low ≤ reorderLevel · else In Stock.
 
 POS paid sale → `PAYMENT_RECEIVED` → `InventoryEngine` → `InventoryService.deductForSale` (SALE + FEFO lot consume).  
 Refund with restock → `InventoryService.restockForRefund` (RETURN movements + lot).
+
+Sale integrity overlay: `SaleTransactionEngine` / `SaleTransactionService` records CheckoutStarted → … → Completed so unpaid never looks like stock moved, and paid-but-stuck rows are recoverable (Sync Center). See [`SALE_TRANSACTIONS.md`](./SALE_TRANSACTIONS.md). Stock still deducts **only** after payment.
 
 Admin UI: `/inventory/items|import|stock|opening|stock-take|lots|movements|categories` (admin/manager).
 
@@ -169,7 +171,7 @@ Supplier → PO → GRN → Inventory → Purchase Invoice → Supplier Payment
 | GRN | `GOODS_RECEIVED` + stock movements | Sync (stock via service call) |
 | Purchase invoice | `PURCHASE_INVOICE_POSTED` | AccountingEngine |
 | Supplier payment | `SUPPLIER_PAYMENT_RECORDED` | Banking + Accounting |
-| POS paid | `PAYMENT_RECEIVED` | Inventory + Banking + Accounting + Notification + Till |
+| POS paid | `PAYMENT_RECEIVED` | Inventory + Banking + Accounting + Notification + Till + SaleTransaction |
 | Stock adjust / take / opening | `INVENTORY_MOVEMENT_CREATED` / `STOCK_*` | AccountingEngine (non-sale/purchase types) |
 
 Reports remain pull-only. Integration test: `src/modules/integration/erpChain.test.ts`.

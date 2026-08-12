@@ -40,6 +40,10 @@ Pending → Syncing → Completed
 
 Redeploy the Apps Script with `upsert` / `batchUpsert` + `keyField`. Until then, retries may still append if the script is old.
 
+## Incomplete sales
+
+Sync Center also lists **sale transaction** rows that are not `Completed` / `Cancelled` (checkout boundaries). Resume payment, cancel unpaid, or retry stock — see [`SALE_TRANSACTIONS.md`](./SALE_TRANSACTIONS.md).
+
 ## Storage keys
 
 | Key | Role |

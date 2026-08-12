@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import { SoftAlertsBell } from "@/modules/notifications/components/SoftAlertsBell"
+import { PaymentDialog } from "@/modules/payment"
 import { navItemsForRole, roleLabel } from "@/modules/staff"
 import { useAuth } from "@/providers/AuthProvider"
 
@@ -194,6 +195,7 @@ export function AppLayout() {
         }}
       >
         <Outlet />
+        <PaymentDialog />
       </main>
     </div>
   )

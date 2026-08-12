@@ -19,6 +19,7 @@ import {
   type SyncCenterSnapshot,
 } from "@/services/sync/SyncService"
 import type { SyncQueueItem } from "@/services/sync/SyncQueue"
+import { IncompleteSalesPanel } from "@/modules/saleTransaction"
 
 function formatWhen(iso: string | null) {
   if (!iso) return "—"
@@ -123,6 +124,8 @@ export function SyncCenterPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Offline queue health — pending, failed, dead letter, retry, and
             errors. Payments use stable ids so network retries do not double-post.
+            Incomplete sales below track checkout boundaries when payment or
+            stock fan-out stops mid-way.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -194,6 +197,8 @@ export function SyncCenterPage() {
           </span>
         ) : null}
       </div>
+
+      <IncompleteSalesPanel onChanged={() => setTick((t) => t + 1)} />
 
       <div className="flex flex-wrap gap-2">
         {(

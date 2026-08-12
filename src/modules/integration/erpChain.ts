@@ -75,9 +75,11 @@ export const ERP_CHAIN: ErpChainStage[] = [
       "AccountingEngine",
       "TillEngine",
       "NotificationEngine",
+      "SaleTransactionEngine",
       "SyncManager",
     ],
-    notes: "Stock FEFO + banking + sales/COGS + till cash (if shift open) + receipt WhatsApp + large-discount alert.",
+    notes:
+      "Stock FEFO only after PAYMENT_RECEIVED. SaleTransactionEngine records Checkout→Completed boundaries for recovery; unpaid never deducts stock.",
   },
   {
     id: "cashier_shift",

@@ -275,7 +275,7 @@ export const UTILITY_TOOLS: UtilityTool[] = [
     id: "sync-center",
     group: "daily",
     title: "Sync Center",
-    description: "Pending, failed, dead letter, retry & sync errors",
+    description: "Pending, failed, dead letter, incomplete sales & retry",
     path: "/utilities/sync",
     roles: ["admin", "manager"],
   },

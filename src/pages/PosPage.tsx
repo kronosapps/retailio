@@ -45,6 +45,7 @@ import {
   PaymentDialog,
   subscribePaymentSession,
 } from "@/modules/payment"
+import { SaleTransactionService } from "@/modules/saleTransaction"
 import {
   clearPosSession,
   POS_SESSION_COUNT,
@@ -696,7 +697,19 @@ export function PosPage() {
       }
     }
 
+    let saleTxnId: string | null = null
     try {
+      const txn = await SaleTransactionService.begin({
+        posLaneId: sessionId,
+        storeId: profile?.storeId ?? null,
+        cashierId: userId,
+        cashierName: profile?.displayName || profile?.email || null,
+        customerName: customerName.trim() || "Walk-in",
+        amountPaisa: totals.total,
+      })
+      saleTxnId = txn.id
+      await SaleTransactionService.markInvoicePending(txn.id)
+
       const sale = await InvoiceService.create({
         cashierId: userId,
         cashierName: profile?.displayName || profile?.email || null,
@@ -761,6 +774,12 @@ export function PosPage() {
         },
       })
 
+      await SaleTransactionService.attachInvoice(
+        txn.id,
+        sale.invoiceId,
+        sale.totals.total
+      )
+
       updatePosSession(sessionId, { lastInvoiceId: sale.invoiceId })
       setInvoiceTick((tick) => tick + 1)
 
@@ -780,6 +799,13 @@ export function PosPage() {
     } catch (error) {
       if (import.meta.env.DEV) {
         console.error("[RetailOS] Charge failed", error)
+      }
+      if (saleTxnId) {
+        void SaleTransactionService.fail(
+          saleTxnId,
+          error instanceof Error ? error.message : "Charge failed",
+          false
+        )
       }
       updatePosSession(sessionId, {
         chargeError: "Could not start payment for this order. Try again.",
