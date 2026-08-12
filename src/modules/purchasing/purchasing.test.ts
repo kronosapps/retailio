@@ -125,3 +125,117 @@ describe("PurchaseReceivingService ad-hoc GRN", () => {
     ).rejects.toMatchObject({ code: "ALREADY_POSTED" })
   })
 })
+
+describe("PurchaseOrderService + GRN against PO", () => {
+  beforeEach(() => {
+    vi.resetModules()
+    // @ts-expect-error test polyfill
+    globalThis.localStorage = memoryStorage()
+  })
+
+  it("issues PO, receives against it, updates received qty and stock", async () => {
+    const { ProductService } = await import("@/modules/products/ProductService")
+    const { SupplierService } = await import("@/modules/supplier/SupplierService")
+    const { InventoryService } = await import(
+      "@/modules/inventory/InventoryService"
+    )
+    const { PurchaseOrderService } = await import(
+      "@/modules/purchasing/PurchaseOrderService"
+    )
+    const { PurchaseReceivingService } = await import(
+      "@/modules/purchasing/PurchaseReceivingService"
+    )
+    const { EventPublisher } = await import("@/events/EventPublisher")
+    const { EventTypes } = await import("@/events/EventTypes")
+
+    await ProductService.create({
+      name: "PO Item",
+      sku: "PO-SKU-1",
+      category: "Test",
+      sellingPrice: 100,
+      costPrice: 40,
+      storeId: "store-1",
+      actorId: "t",
+    })
+    const supplier = await SupplierService.create(
+      { name: "PO Vendor", storeId: "store-1" },
+      "t"
+    )
+
+    const po = await PurchaseOrderService.create({
+      supplierId: supplier.id,
+      lines: [{ sku: "PO-SKU-1", quantityOrdered: 10, unitCostRupees: 40 }],
+      storeId: "store-1",
+      actorId: "t",
+      issue: true,
+    })
+    expect(po.status).toBe("ISSUED")
+    expect(EventPublisher.publish).toHaveBeenCalledWith(
+      EventTypes.PURCHASE_ORDER_ISSUED,
+      expect.objectContaining({ id: po.id }),
+      "store-1"
+    )
+
+    const before = InventoryService.getCurrentStock("PO-SKU-1")
+    const grn = await PurchaseReceivingService.receiveAgainstPo({
+      purchaseOrderId: po.id,
+      lines: [{ sku: "PO-SKU-1", quantity: 4 }],
+      actorId: "t",
+      actorName: "Tester",
+    })
+
+    expect(grn.status).toBe("POSTED")
+    expect(grn.purchaseOrderId).toBe(po.id)
+    expect(InventoryService.getCurrentStock("PO-SKU-1")).toBe(before + 4)
+
+    const updated = PurchaseOrderService.getById(po.id)!
+    expect(updated.status).toBe("PARTIAL")
+    expect(updated.lines[0].quantityReceived).toBe(4)
+  })
+
+  it("blocks over-receipt against PO remaining", async () => {
+    const { ProductService } = await import("@/modules/products/ProductService")
+    const { SupplierService } = await import("@/modules/supplier/SupplierService")
+    const { PurchaseOrderService } = await import(
+      "@/modules/purchasing/PurchaseOrderService"
+    )
+    const {
+      PurchaseReceivingService,
+      PurchaseReceivingError,
+    } = await import("@/modules/purchasing/PurchaseReceivingService")
+
+    await ProductService.create({
+      name: "PO Item 2",
+      sku: "PO-SKU-2",
+      category: "Test",
+      sellingPrice: 10,
+      storeId: null,
+      actorId: "t",
+    })
+    const supplier = await SupplierService.create(
+      { name: "PO Vendor 2", storeId: null },
+      "t"
+    )
+    const po = await PurchaseOrderService.create({
+      supplierId: supplier.id,
+      lines: [{ sku: "PO-SKU-2", quantityOrdered: 3 }],
+      actorId: "t",
+      issue: true,
+    })
+
+    await expect(
+      PurchaseReceivingService.receiveAgainstPo({
+        purchaseOrderId: po.id,
+        lines: [{ sku: "PO-SKU-2", quantity: 5 }],
+        actorId: "t",
+      })
+    ).rejects.toBeInstanceOf(PurchaseReceivingError)
+
+    await PurchaseReceivingService.receiveAgainstPo({
+      purchaseOrderId: po.id,
+      lines: [{ sku: "PO-SKU-2", quantity: 3 }],
+      actorId: "t",
+    })
+    expect(PurchaseOrderService.getById(po.id)?.status).toBe("RECEIVED")
+  })
+})

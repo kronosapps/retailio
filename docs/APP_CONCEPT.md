@@ -202,7 +202,7 @@ Canonical docs: [`ARCHITECTURE.md`](./ARCHITECTURE.md), [`DEVELOPER_GUIDE.md`](.
 ### Expenses / Suppliers / Purchasing
 
 - Expenses: Utilities → Add Expense / Expense Reports.
-- **Purchasing:** `/purchasing/suppliers` + `/purchasing/goods-received` — supplier master; ad-hoc GRN posts stock via `PurchaseReceivingService` → `InventoryService.addStock`. Later: PO → Invoice → AP → Payment.
+- **Purchasing:** `/purchasing/suppliers` + `/purchasing/orders` + `/purchasing/goods-received` — supplier master; issue POs; GRN (ad-hoc or against PO) posts stock via `PurchaseReceivingService` → `InventoryService.addStock`. Later: Invoice → AP → Payment.
 
 ---
 
@@ -210,7 +210,7 @@ Canonical docs: [`ARCHITECTURE.md`](./ARCHITECTURE.md), [`DEVELOPER_GUIDE.md`](.
 
 ### Firestore collections (typical)
 
-`products`, `customers`, `suppliers`, `inventory`, `invoices`, `payments`, `expenses`, `users`, `settings`, `sync_events`  
+`products`, `customers`, `suppliers`, `purchase_orders`, `goods_receipts`, `inventory`, `invoices`, `payments`, `expenses`, `users`, `settings`, `sync_events`  
 (Refunds may use payments/refunds pattern via RefundRepository.)
 
 ### Cross-device sync design

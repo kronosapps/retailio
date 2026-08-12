@@ -33,4 +33,8 @@ export {
   goodsReceiptRepository,
   GoodsReceiptRepository,
 } from "./GoodsReceiptRepository"
+export {
+  purchaseOrderRepository,
+  PurchaseOrderRepository,
+} from "./PurchaseOrderRepository"
 export { expenseRepository, ExpenseRepository } from "./ExpenseRepository"

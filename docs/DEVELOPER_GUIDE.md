@@ -49,9 +49,10 @@
 ## Purchasing / Suppliers
 
 1. Supplier CRUD → `SupplierService` → `SupplierRepository` (never Firestore from UI).
-2. Ad-hoc GRN → `PurchaseReceivingService.receiveAdHoc` → `GoodsReceiptRepository` + `InventoryService.addStock` (`PURCHASE`, `referenceId = grn.id`).
-3. Routes: `/purchasing/suppliers`, `/purchasing/goods-received` (admin/manager).
-4. Do not increase stock when creating a supplier. Prefer GRN for supplier purchases; Inventory “Add stock” remains for quick/opening adjustments.
+2. PO draft/issue → `PurchaseOrderService` → `PurchaseOrderRepository` (no stock).
+3. GRN → `PurchaseReceivingService.receiveAdHoc` or `receiveAgainstPo` → `GoodsReceiptRepository` + `InventoryService.addStock` (`PURCHASE`, `referenceId = grn.id`). Against PO: block qty > remaining; then `PurchaseOrderService.applyReceipt`.
+4. Routes: `/purchasing/suppliers`, `/purchasing/orders`, `/purchasing/goods-received` (admin/manager).
+5. Do not increase stock when creating a supplier or PO. Prefer GRN for supplier purchases; Inventory “Add stock” remains for quick/opening adjustments.
 
 ## Utilities
 

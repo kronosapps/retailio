@@ -59,6 +59,30 @@ const ROUTES: Partial<Record<string, SheetRoute>> = {
     sheet: "Suppliers",
     sync: (p, data) => p.syncSupplier(data),
   },
+  [EventTypes.PURCHASE_ORDER_CREATED]: {
+    sheet: "PurchaseOrders",
+    sync: async (p, data) => {
+      if (typeof p.syncPurchaseOrder === "function") {
+        await p.syncPurchaseOrder(data)
+      }
+    },
+  },
+  [EventTypes.PURCHASE_ORDER_UPDATED]: {
+    sheet: "PurchaseOrders",
+    sync: async (p, data) => {
+      if (typeof p.syncPurchaseOrder === "function") {
+        await p.syncPurchaseOrder(data)
+      }
+    },
+  },
+  [EventTypes.PURCHASE_ORDER_ISSUED]: {
+    sheet: "PurchaseOrders",
+    sync: async (p, data) => {
+      if (typeof p.syncPurchaseOrder === "function") {
+        await p.syncPurchaseOrder(data)
+      }
+    },
+  },
   [EventTypes.GOODS_RECEIVED]: {
     sheet: "GoodsReceipts",
     sync: async (p, data) => {

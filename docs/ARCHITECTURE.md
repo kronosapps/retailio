@@ -51,15 +51,16 @@ No layer may skip another layer.
 
 ## Firestore collections
 
-`products` · `customers` · `suppliers` · `goods_receipts` · `inventory` · `inventory_movements` · `categories` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events`
+`products` · `customers` · `suppliers` · `purchase_orders` · `goods_receipts` · `inventory` · `inventory_movements` · `categories` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events`
 
-### Purchasing (Phases 1 + 3)
+### Purchasing (Phases 1–3)
 
-- Nav: `/purchasing` (admin/manager) — Suppliers, Goods Received (PO/AP later).
+- Nav: `/purchasing` (admin/manager) — Suppliers, Purchase Orders, Goods Received (AP later).
 - **Suppliers:** `SupplierService` → `SupplierRepository` → `suppliers` + `retailos.suppliers.v1`.
-- **Goods Received (ad-hoc GRN):** `PurchaseReceivingService` → `goods_receipts` → for each line `InventoryService.addStock({ type: "PURCHASE", referenceId: grnId })`.
-- Events: `SUPPLIER_CREATED` / `SUPPLIER_UPDATED`, `GOODS_RECEIVED` (live Sheets `GoodsReceipts`).
-- Stock must not appear from supplier create alone; purchase stock-in is explained by a posted GRN.
+- **Purchase Orders:** `PurchaseOrderService` → `PurchaseOrderRepository` → `purchase_orders` + `retailos.purchase_orders.v1`. Draft → Issue; does **not** change stock.
+- **Goods Received:** `PurchaseReceivingService.receiveAdHoc` or `receiveAgainstPo` → `goods_receipts` → for each line `InventoryService.addStock({ type: "PURCHASE", referenceId: grnId })`. Against PO: over-receipt blocked; updates PO `quantityReceived` / status (`PARTIAL` / `RECEIVED`).
+- Events: `SUPPLIER_*`, `PURCHASE_ORDER_*`, `GOODS_RECEIVED` (live Sheets).
+- Stock must not appear from supplier or PO create alone; purchase stock-in is explained by a posted GRN.
 
 Repositories own exactly one collection each (see `src/repositories/`).
 
@@ -160,6 +161,7 @@ Supported types (`src/events/EventTypes.ts`):
 - `CUSTOMER_CREATED` / `CUSTOMER_UPDATED`
 - `REFUND_CREATED` / `REFUND_UPDATED` / `PAYMENT_REFUNDED`
 - `SUPPLIER_CREATED` / `SUPPLIER_UPDATED`
+- `PURCHASE_ORDER_CREATED` / `PURCHASE_ORDER_UPDATED` / `PURCHASE_ORDER_ISSUED`
 - `GOODS_RECEIVED`
 - `EXPENSE_CREATED`
 

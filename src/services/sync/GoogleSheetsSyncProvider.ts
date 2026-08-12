@@ -100,6 +100,10 @@ export class GoogleSheetsSyncProvider implements SyncProvider {
     return this.send("Suppliers", data)
   }
 
+  syncPurchaseOrder(data: unknown) {
+    return this.send("PurchaseOrders", data)
+  }
+
   syncGoodsReceipt(data: unknown) {
     return this.send("GoodsReceipts", data)
   }

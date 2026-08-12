@@ -11,6 +11,11 @@ import {
 } from "@/repositories/GoodsReceiptRepository"
 import { inventoryMovementRepository } from "@/repositories/InventoryMovementRepository"
 
+import {
+  PurchaseOrderService,
+  remainingQty,
+} from "./PurchaseOrderService"
+
 export class PurchaseReceivingError extends Error {
   code: "VALIDATION" | "NOT_FOUND" | "ALREADY_POSTED" | "STOCK"
 
@@ -38,9 +43,24 @@ export type PostAdHocGrnInput = {
   draftOnly?: boolean
 }
 
+export type ReceiveAgainstPoInput = {
+  purchaseOrderId: string
+  receivedAt?: string
+  notes?: string | null
+  /** Quantities to receive now (must be on the PO and ≤ remaining). */
+  lines: Array<{
+    sku: string
+    quantity: number
+    unitCostRupees?: number | null
+    notes?: string | null
+  }>
+  actorId?: string | null
+  actorName?: string | null
+}
+
 /**
- * Purchasing receiving — ad-hoc GRN posts stock via InventoryService.addStock.
- * UI never calls InventoryService for purchase receipts; this service owns the flow.
+ * Purchasing receiving — GRN posts stock via InventoryService.addStock.
+ * Ad-hoc GRNs or GRNs linked to issued POs.
  */
 export class PurchaseReceivingService {
   static list(): GoodsReceiptRecord[] {
@@ -57,7 +77,6 @@ export class PurchaseReceivingService {
 
   /**
    * Create and optionally post an ad-hoc GRN (no purchase order).
-   * Posted GRNs apply PURCHASE movements with referenceId = grn.id.
    */
   static async receiveAdHoc(
     input: PostAdHocGrnInput
@@ -70,7 +89,7 @@ export class PurchaseReceivingService {
       )
     }
 
-    const normalizedLines = this.validateLines(input.lines)
+    const normalizedLines = this.validateProductLines(input.lines)
 
     const draftInput: CreateGoodsReceiptInput = {
       supplierId: supplier.id,
@@ -92,7 +111,76 @@ export class PurchaseReceivingService {
     })
   }
 
-  /** Post a draft GRN — applies stock once; idempotent if already posted. */
+  /**
+   * Receive against an issued/partial PO (over-receipt blocked).
+   * Posts GRN + stock, then updates PO received quantities.
+   */
+  static async receiveAgainstPo(
+    input: ReceiveAgainstPoInput
+  ): Promise<GoodsReceiptRecord> {
+    const po = PurchaseOrderService.getById(input.purchaseOrderId)
+    if (!po) {
+      throw new PurchaseReceivingError(
+        "NOT_FOUND",
+        "Purchase order not found."
+      )
+    }
+    if (po.status !== "ISSUED" && po.status !== "PARTIAL") {
+      throw new PurchaseReceivingError(
+        "VALIDATION",
+        `PO ${po.poNumber} is ${po.status} and cannot receive goods.`
+      )
+    }
+
+    if (!input.lines.length) {
+      throw new PurchaseReceivingError(
+        "VALIDATION",
+        "Add at least one product line."
+      )
+    }
+
+    const normalizedLines = this.validateProductLines(input.lines)
+
+    for (const line of normalizedLines) {
+      const poLine = po.lines.find((l) => l.sku === line.sku)
+      if (!poLine) {
+        throw new PurchaseReceivingError(
+          "VALIDATION",
+          `SKU ${line.sku} is not on PO ${po.poNumber}.`
+        )
+      }
+      const remaining = remainingQty(poLine)
+      if (line.quantity > remaining) {
+        throw new PurchaseReceivingError(
+          "VALIDATION",
+          `Over-receipt blocked for ${line.sku}: remaining ${remaining}, tried ${line.quantity}.`
+        )
+      }
+      // Default unit cost from PO when not provided
+      if (line.unitCostRupees == null && poLine.unitCostRupees != null) {
+        line.unitCostRupees = poLine.unitCostRupees
+      }
+    }
+
+    const draftInput: CreateGoodsReceiptInput = {
+      supplierId: po.supplierId,
+      supplierName: po.supplierName,
+      purchaseOrderId: po.id,
+      receivedAt: input.receivedAt,
+      notes: input.notes,
+      lines: normalizedLines,
+      storeId: po.storeId,
+      actorId: input.actorId,
+    }
+
+    const draft = await goodsReceiptRepository.saveDraft(draftInput)
+    return this.post(draft.id, {
+      actorId: input.actorId ?? null,
+      actorName: input.actorName ?? null,
+    })
+  }
+
+  /** Post a draft GRN — applies stock once; updates linked PO when present. */
   static async post(
     grnId: string,
     opts: { actorId?: string | null; actorName?: string | null } = {}
@@ -114,22 +202,51 @@ export class PurchaseReceivingService {
       )
     }
 
-    // Idempotency guard: if movements already exist for this GRN, mark posted.
+    // Re-validate PO remaining if linked (race / concurrent receipts)
+    if (existing.purchaseOrderId) {
+      const po = PurchaseOrderService.getById(existing.purchaseOrderId)
+      if (!po) {
+        throw new PurchaseReceivingError(
+          "NOT_FOUND",
+          "Linked purchase order not found."
+        )
+      }
+      for (const line of existing.lines) {
+        const poLine = po.lines.find((l) => l.sku === line.sku)
+        if (!poLine) {
+          throw new PurchaseReceivingError(
+            "VALIDATION",
+            `SKU ${line.sku} is not on PO ${po.poNumber}.`
+          )
+        }
+        const remaining = remainingQty(poLine)
+        if (line.quantity > remaining) {
+          throw new PurchaseReceivingError(
+            "VALIDATION",
+            `Over-receipt blocked for ${line.sku}: remaining ${remaining}.`
+          )
+        }
+      }
+    }
+
     const prior = inventoryMovementRepository.findByReference(
       existing.id,
       "PURCHASE"
     )
     if (prior) {
       const now = new Date().toISOString()
-      return goodsReceiptRepository.save({
+      const posted = await goodsReceiptRepository.save({
         ...existing,
         status: "POSTED",
         postedAt: existing.postedAt || now,
         updatedBy: opts.actorId ?? existing.updatedBy,
       })
+      // Stock already applied; update PO only if remaining still allows (idempotent).
+      await this.applyPoReceiptIfNeeded(posted, opts.actorId ?? null)
+      return posted
     }
 
-    this.validateLines(existing.lines)
+    this.validateProductLines(existing.lines)
 
     try {
       for (const line of existing.lines) {
@@ -142,6 +259,9 @@ export class PurchaseReceivingService {
           notes:
             [
               `Supplier: ${existing.supplierName}`,
+              existing.purchaseOrderId
+                ? `PO: ${PurchaseOrderService.getById(existing.purchaseOrderId)?.poNumber || existing.purchaseOrderId}`
+                : "Ad-hoc",
               line.unitCostRupees != null
                 ? `Unit cost ₹${line.unitCostRupees}`
                 : null,
@@ -163,17 +283,49 @@ export class PurchaseReceivingService {
     }
 
     const now = new Date().toISOString()
-    return goodsReceiptRepository.save({
+    const posted = await goodsReceiptRepository.save({
       ...existing,
       status: "POSTED",
       postedAt: now,
       updatedAt: now,
       updatedBy: opts.actorId ?? existing.updatedBy,
     })
+
+    await this.applyPoReceiptIfNeeded(posted, opts.actorId ?? null)
+
+    return posted
   }
 
-  private static validateLines(
-    lines: PostAdHocGrnInput["lines"] | GoodsReceiptRecord["lines"]
+  /** Apply PO received qty once — skip if remaining would be over-receipt (already applied). */
+  private static async applyPoReceiptIfNeeded(
+    posted: GoodsReceiptRecord,
+    actorId: string | null
+  ): Promise<void> {
+    if (!posted.purchaseOrderId) return
+    const po = PurchaseOrderService.getById(posted.purchaseOrderId)
+    if (!po || po.status === "CANCELLED" || po.status === "RECEIVED") return
+
+    const wouldOver = posted.lines.some((line) => {
+      const poLine = po.lines.find((l) => l.sku === line.sku)
+      return !poLine || line.quantity > remainingQty(poLine)
+    })
+    if (wouldOver) return
+
+    await PurchaseOrderService.applyReceipt(
+      posted.purchaseOrderId,
+      posted.lines.map((l) => ({ sku: l.sku, quantity: l.quantity })),
+      actorId
+    )
+  }
+
+  private static validateProductLines(
+    lines: Array<{
+      sku: string
+      quantity: number
+      unitCostRupees?: number | null
+      notes?: string | null
+      productName?: string
+    }>
   ) {
     if (!lines.length) {
       throw new PurchaseReceivingError(
@@ -183,7 +335,13 @@ export class PurchaseReceivingService {
     }
 
     const seen = new Set<string>()
-    const normalized = []
+    const normalized: Array<{
+      sku: string
+      productName: string
+      quantity: number
+      unitCostRupees: number | null
+      notes: string | null
+    }> = []
 
     for (const line of lines) {
       const sku = line.sku.trim().toUpperCase()
@@ -220,11 +378,9 @@ export class PurchaseReceivingService {
         )
       }
 
-      const rawCost =
-        "unitCostRupees" in line ? line.unitCostRupees : null
       let unitCostRupees: number | null = null
-      if (rawCost != null) {
-        const n = Number(rawCost)
+      if (line.unitCostRupees != null) {
+        const n = Number(line.unitCostRupees)
         if (!Number.isFinite(n) || n < 0) {
           throw new PurchaseReceivingError(
             "VALIDATION",
@@ -239,8 +395,7 @@ export class PurchaseReceivingService {
         productName: product.name,
         quantity: qty,
         unitCostRupees,
-        notes:
-          "notes" in line && line.notes ? String(line.notes).trim() : null,
+        notes: line.notes ? String(line.notes).trim() : null,
       })
     }
 

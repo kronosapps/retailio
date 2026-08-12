@@ -14,8 +14,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ProductService } from "@/modules/products"
 import {
+  PurchaseOrderService,
   PurchaseReceivingError,
   PurchaseReceivingService,
+  remainingQty,
   type GoodsReceiptRecord,
 } from "@/modules/purchasing"
 import { SupplierService } from "@/modules/supplier"
@@ -28,6 +30,8 @@ type DraftLine = {
   quantity: string
   unitCostRupees: string
   notes: string
+  /** When receiving against PO — max remaining. */
+  maxQty?: number
 }
 
 function newLine(): DraftLine {
@@ -41,13 +45,15 @@ function newLine(): DraftLine {
 }
 
 /**
- * Purchasing → Goods Received — ad-hoc GRN posts stock via PurchaseReceivingService.
+ * Purchasing → Goods Received — ad-hoc or against an issued PO.
  */
 export function GoodsReceivedView() {
   const { userId, profile } = useAuth()
   const [tick, setTick] = useState(0)
   const [open, setOpen] = useState(false)
+  const [mode, setMode] = useState<"adhoc" | "po">("adhoc")
   const [supplierId, setSupplierId] = useState("")
+  const [purchaseOrderId, setPurchaseOrderId] = useState("")
   const [notes, setNotes] = useState("")
   const [lines, setLines] = useState<DraftLine[]>([newLine()])
   const [error, setError] = useState<string | null>(null)
@@ -63,43 +69,95 @@ export function GoodsReceivedView() {
     return ProductService.list().filter((p) => p.active)
   }, [tick])
 
+  const openPos = useMemo(() => {
+    void tick
+    return PurchaseOrderService.listOpenForReceiving()
+  }, [tick])
+
   const receipts = useMemo(() => {
     void tick
     return PurchaseReceivingService.list()
   }, [tick])
+
+  const selectedPo = useMemo(() => {
+    if (!purchaseOrderId) return null
+    return PurchaseOrderService.getById(purchaseOrderId)
+  }, [purchaseOrderId, tick])
 
   function refresh() {
     setTick((t) => t + 1)
   }
 
   function openCreate() {
+    setMode(openPos.length > 0 ? "po" : "adhoc")
     setSupplierId(suppliers[0]?.id || "")
+    setPurchaseOrderId(openPos[0]?.id || "")
     setNotes("")
-    setLines([newLine()])
     setError(null)
+    if (openPos[0]) {
+      setLines(linesFromPo(openPos[0].id))
+      setMode("po")
+    } else {
+      setLines([newLine()])
+    }
     setOpen(true)
+  }
+
+  function linesFromPo(poId: string): DraftLine[] {
+    const po = PurchaseOrderService.getById(poId)
+    if (!po) return [newLine()]
+    const openLines = po.lines.filter((l) => remainingQty(l) > 0)
+    if (!openLines.length) return [newLine()]
+    return openLines.map((l) => ({
+      key: `${poId}-${l.sku}`,
+      sku: l.sku,
+      quantity: String(remainingQty(l)),
+      unitCostRupees:
+        l.unitCostRupees != null ? String(l.unitCostRupees) : "",
+      notes: "",
+      maxQty: remainingQty(l),
+    }))
+  }
+
+  function onSelectPo(poId: string) {
+    setPurchaseOrderId(poId)
+    const po = PurchaseOrderService.getById(poId)
+    if (po) setSupplierId(po.supplierId)
+    setLines(linesFromPo(poId))
   }
 
   async function onPost() {
     setError(null)
     setBusy(true)
     try {
-      await PurchaseReceivingService.receiveAdHoc({
-        supplierId,
-        notes: notes || null,
-        lines: lines.map((l) => ({
-          sku: l.sku,
-          quantity: Number(l.quantity),
-          unitCostRupees: l.unitCostRupees.trim()
-            ? Number(l.unitCostRupees)
-            : null,
-          notes: l.notes || null,
-        })),
-        storeId: profile?.storeId ?? null,
-        actorId: userId,
-        actorName: profile?.displayName ?? profile?.username ?? null,
-        draftOnly: false,
-      })
+      const mapped = lines.map((l) => ({
+        sku: l.sku,
+        quantity: Number(l.quantity),
+        unitCostRupees: l.unitCostRupees.trim()
+          ? Number(l.unitCostRupees)
+          : null,
+        notes: l.notes || null,
+      }))
+
+      if (mode === "po") {
+        await PurchaseReceivingService.receiveAgainstPo({
+          purchaseOrderId,
+          notes: notes || null,
+          lines: mapped,
+          actorId: userId,
+          actorName: profile?.displayName ?? profile?.username ?? null,
+        })
+      } else {
+        await PurchaseReceivingService.receiveAdHoc({
+          supplierId,
+          notes: notes || null,
+          lines: mapped,
+          storeId: profile?.storeId ?? null,
+          actorId: userId,
+          actorName: profile?.displayName ?? profile?.username ?? null,
+          draftOnly: false,
+        })
+      }
       setOpen(false)
       refresh()
     } catch (err) {
@@ -113,14 +171,19 @@ export function GoodsReceivedView() {
     }
   }
 
+  const canPost =
+    mode === "po"
+      ? Boolean(purchaseOrderId)
+      : Boolean(supplierId)
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-lg font-semibold">Goods Received</h2>
           <p className="text-sm text-muted-foreground">
-            Ad-hoc goods receipts increase stock through InventoryService
-            (PURCHASE movements). Purchase orders come in a later phase.
+            Post GRNs against an issued PO or ad-hoc. Stock increases through
+            InventoryService (PURCHASE movements). Over-receipt vs PO is blocked.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -167,7 +230,7 @@ export function GoodsReceivedView() {
                   colSpan={7}
                   className="px-3 py-10 text-center text-muted-foreground"
                 >
-                  No goods receipts yet. Receive against a supplier to stock in.
+                  No goods receipts yet. Receive against a PO or supplier.
                 </td>
               </tr>
             ) : null}
@@ -178,38 +241,102 @@ export function GoodsReceivedView() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Receive goods (ad-hoc GRN)</DialogTitle>
+            <DialogTitle>Receive goods</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-1">
-              <Label htmlFor="grn-supplier">Supplier</Label>
-              <select
-                id="grn-supplier"
-                className={cn(
-                  "h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm"
-                )}
-                value={supplierId}
-                onChange={(e) => setSupplierId(e.target.value)}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={mode === "po" ? "default" : "outline"}
+                disabled={openPos.length === 0}
+                onClick={() => {
+                  setMode("po")
+                  if (purchaseOrderId) {
+                    setLines(linesFromPo(purchaseOrderId))
+                  } else if (openPos[0]) {
+                    onSelectPo(openPos[0].id)
+                  }
+                }}
               >
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
+                Against PO
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={mode === "adhoc" ? "default" : "outline"}
+                onClick={() => {
+                  setMode("adhoc")
+                  setLines([newLine()])
+                }}
+              >
+                Ad-hoc
+              </Button>
             </div>
+
+            {mode === "po" ? (
+              <div className="space-y-1">
+                <Label htmlFor="grn-po">Purchase order</Label>
+                <select
+                  id="grn-po"
+                  className={cn(
+                    "h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm"
+                  )}
+                  value={purchaseOrderId}
+                  onChange={(e) => onSelectPo(e.target.value)}
+                >
+                  {openPos.map((po) => (
+                    <option key={po.id} value={po.id}>
+                      {po.poNumber} — {po.supplierName} ({po.status})
+                    </option>
+                  ))}
+                </select>
+                {openPos.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    No open POs.{" "}
+                    <Link
+                      to="/purchasing/orders"
+                      className="underline underline-offset-2"
+                    >
+                      Create & issue a PO
+                    </Link>{" "}
+                    or use ad-hoc.
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <Label htmlFor="grn-supplier">Supplier</Label>
+                <select
+                  id="grn-supplier"
+                  className={cn(
+                    "h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm"
+                  )}
+                  value={supplierId}
+                  onChange={(e) => setSupplierId(e.target.value)}
+                >
+                  {suppliers.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Lines</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setLines((prev) => [...prev, newLine()])}
-                >
-                  Add line
-                </Button>
+                {mode === "adhoc" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setLines((prev) => [...prev, newLine()])}
+                  >
+                    Add line
+                  </Button>
+                ) : null}
               </div>
               <div className="space-y-2">
                 {lines.map((line, idx) => (
@@ -217,26 +344,43 @@ export function GoodsReceivedView() {
                     key={line.key}
                     className="grid gap-2 rounded-md border p-2 sm:grid-cols-[1.4fr_0.7fr_0.7fr_1fr_auto]"
                   >
-                    <select
-                      className={cn(
-                        "h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm"
-                      )}
-                      value={line.sku}
-                      onChange={(e) =>
-                        setLines((prev) =>
-                          prev.map((l, i) =>
-                            i === idx ? { ...l, sku: e.target.value } : l
+                    {mode === "po" ? (
+                      <div className="flex h-9 items-center px-1 text-sm">
+                        <span className="font-mono text-xs">{line.sku}</span>
+                        <span className="ml-2 truncate text-muted-foreground">
+                          {selectedPo?.lines.find((l) => l.sku === line.sku)
+                            ?.productName ||
+                            products.find((p) => p.sku === line.sku)?.name ||
+                            ""}
+                        </span>
+                        {line.maxQty != null ? (
+                          <span className="ml-auto text-xs text-muted-foreground">
+                            max {line.maxQty}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <select
+                        className={cn(
+                          "h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm"
+                        )}
+                        value={line.sku}
+                        onChange={(e) =>
+                          setLines((prev) =>
+                            prev.map((l, i) =>
+                              i === idx ? { ...l, sku: e.target.value } : l
+                            )
                           )
-                        )
-                      }
-                    >
-                      <option value="">Select product…</option>
-                      {products.map((p) => (
-                        <option key={p.sku} value={p.sku}>
-                          {p.sku} — {p.name}
-                        </option>
-                      ))}
-                    </select>
+                        }
+                      >
+                        <option value="">Select product…</option>
+                        {products.map((p) => (
+                          <option key={p.sku} value={p.sku}>
+                            {p.sku} — {p.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     <Input
                       inputMode="decimal"
                       placeholder="Qty"
@@ -303,8 +447,11 @@ export function GoodsReceivedView() {
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
             <p className="text-xs text-muted-foreground">
-              Posting will create PURCHASE stock movements for each line
-              (reference = GRN id). This cannot be undone from this screen.
+              Posting creates PURCHASE stock movements (reference = GRN id)
+              {mode === "po"
+                ? " and updates the PO received quantities."
+                : "."}{" "}
+              This cannot be undone from this screen.
             </p>
           </div>
           <DialogFooter>
@@ -317,7 +464,7 @@ export function GoodsReceivedView() {
             </Button>
             <Button
               type="button"
-              disabled={busy || !supplierId}
+              disabled={busy || !canPost}
               onClick={() => void onPost()}
             >
               {busy ? "Posting…" : "Post & stock in"}
@@ -331,6 +478,10 @@ export function GoodsReceivedView() {
 
 function GrnRow({ receipt }: { receipt: GoodsReceiptRecord }) {
   const qty = receipt.lines.reduce((s, l) => s + l.quantity, 0)
+  const poLabel = receipt.purchaseOrderId
+    ? PurchaseOrderService.getById(receipt.purchaseOrderId)?.poNumber ||
+      receipt.purchaseOrderId
+    : "Ad-hoc"
   return (
     <tr className="border-b last:border-0">
       <td className="px-3 py-2 font-mono text-xs">{receipt.grnNumber}</td>
@@ -354,8 +505,8 @@ function GrnRow({ receipt }: { receipt: GoodsReceiptRecord }) {
           {receipt.status}
         </span>
       </td>
-      <td className="px-3 py-2 text-xs text-muted-foreground">
-        {receipt.purchaseOrderId || "Ad-hoc"}
+      <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
+        {poLabel}
       </td>
     </tr>
   )
