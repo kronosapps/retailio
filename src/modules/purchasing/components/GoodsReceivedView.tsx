@@ -2,6 +2,7 @@ import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { Plus, Trash2 } from "lucide-react"
 
+import { MobileListCard, ResponsiveList } from "@/components/ResponsiveList"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Dialog,
@@ -207,39 +208,52 @@ export function GoodsReceivedView() {
         <p className="text-sm text-destructive">{error}</p>
       ) : null}
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2">GRN</th>
-              <th className="px-3 py-2">Received</th>
-              <th className="px-3 py-2">Supplier</th>
-              <th className="px-3 py-2">Lines</th>
-              <th className="px-3 py-2">Qty</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">PO</th>
-            </tr>
-          </thead>
-          <tbody>
-            {receipts.map((r) => (
-              <GrnRow key={r.id} receipt={r} />
-            ))}
-            {receipts.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={7}
-                  className="px-3 py-10 text-center text-muted-foreground"
-                >
-                  No goods receipts yet. Receive against a PO or supplier.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
+      <ResponsiveList
+        cards={
+          receipts.length === 0 ? (
+            <p className="rounded-lg border border-dashed px-3 py-10 text-center text-sm text-muted-foreground">
+              No goods receipts yet. Receive against a PO or supplier.
+            </p>
+          ) : (
+            receipts.map((r) => <GrnCard key={r.id} receipt={r} />)
+          )
+        }
+        table={
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2">GRN</th>
+                  <th className="px-3 py-2">Received</th>
+                  <th className="px-3 py-2">Supplier</th>
+                  <th className="px-3 py-2">Lines</th>
+                  <th className="px-3 py-2">Qty</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">PO</th>
+                </tr>
+              </thead>
+              <tbody>
+                {receipts.map((r) => (
+                  <GrnRow key={r.id} receipt={r} />
+                ))}
+                {receipts.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-3 py-10 text-center text-muted-foreground"
+                    >
+                      No goods receipts yet. Receive against a PO or supplier.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        }
+      />
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="h-[100dvh] max-h-[100dvh] w-full max-w-full overflow-y-auto rounded-none p-4 sm:max-w-full md:h-auto md:max-h-[90vh] md:max-w-2xl md:rounded-xl">
           <DialogHeader>
             <DialogTitle>Receive goods</DialogTitle>
           </DialogHeader>
@@ -476,12 +490,46 @@ export function GoodsReceivedView() {
   )
 }
 
-function GrnRow({ receipt }: { receipt: GoodsReceiptRecord }) {
+function grnSummary(receipt: GoodsReceiptRecord) {
   const qty = receipt.lines.reduce((s, l) => s + l.quantity, 0)
   const poLabel = receipt.purchaseOrderId
     ? PurchaseOrderService.getById(receipt.purchaseOrderId)?.poNumber ||
       receipt.purchaseOrderId
     : "Ad-hoc"
+  const statusClass = cn(
+    "rounded px-1.5 py-0.5 text-xs font-medium",
+    receipt.status === "POSTED"
+      ? "bg-emerald-100 text-emerald-900"
+      : receipt.status === "CANCELLED"
+        ? "bg-muted text-muted-foreground"
+        : "bg-amber-100 text-amber-900"
+  )
+  return { qty, poLabel, statusClass }
+}
+
+function GrnCard({ receipt }: { receipt: GoodsReceiptRecord }) {
+  const { qty, poLabel, statusClass } = grnSummary(receipt)
+  return (
+    <MobileListCard
+      title={receipt.grnNumber}
+      meta={
+        <>
+          <div>
+            {receipt.supplierName} · {poLabel}
+          </div>
+          <div>
+            {new Date(receipt.receivedAt).toLocaleString()} ·{" "}
+            {receipt.lines.length} lines · Qty {qty}
+          </div>
+        </>
+      }
+      badge={<span className={statusClass}>{receipt.status}</span>}
+    />
+  )
+}
+
+function GrnRow({ receipt }: { receipt: GoodsReceiptRecord }) {
+  const { qty, poLabel, statusClass } = grnSummary(receipt)
   return (
     <tr className="border-b last:border-0">
       <td className="px-3 py-2 font-mono text-xs">{receipt.grnNumber}</td>
@@ -492,18 +540,7 @@ function GrnRow({ receipt }: { receipt: GoodsReceiptRecord }) {
       <td className="px-3 py-2 tabular-nums">{receipt.lines.length}</td>
       <td className="px-3 py-2 tabular-nums">{qty}</td>
       <td className="px-3 py-2">
-        <span
-          className={cn(
-            "rounded px-1.5 py-0.5 text-xs font-medium",
-            receipt.status === "POSTED"
-              ? "bg-emerald-100 text-emerald-900"
-              : receipt.status === "CANCELLED"
-                ? "bg-muted text-muted-foreground"
-                : "bg-amber-100 text-amber-900"
-          )}
-        >
-          {receipt.status}
-        </span>
+        <span className={statusClass}>{receipt.status}</span>
       </td>
       <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
         {poLabel}

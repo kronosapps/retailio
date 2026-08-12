@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from "react"
 import { Pencil, Plus, Search } from "lucide-react"
 
+import { MobileListCard, ResponsiveList } from "@/components/ResponsiveList"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -214,31 +215,30 @@ export function SuppliersView() {
         <p className="text-sm text-destructive">{error}</p>
       ) : null}
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2">Name</th>
-              <th className="px-3 py-2">Phone</th>
-              <th className="px-3 py-2">GSTIN</th>
-              <th className="px-3 py-2">Terms</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((s) => (
-              <tr key={s.id} className="border-b last:border-0">
-                <td className="px-3 py-2">
-                  <div className="font-medium">{s.name}</div>
-                  {s.email ? (
-                    <div className="text-xs text-muted-foreground">{s.email}</div>
-                  ) : null}
-                </td>
-                <td className="px-3 py-2 tabular-nums">{s.phone || "—"}</td>
-                <td className="px-3 py-2 font-mono text-xs">{s.gstin || "—"}</td>
-                <td className="px-3 py-2">{s.paymentTerms || "—"}</td>
-                <td className="px-3 py-2">
+      <ResponsiveList
+        cards={
+          filtered.length === 0 ? (
+            <p className="rounded-lg border border-dashed px-3 py-10 text-center text-sm text-muted-foreground">
+              No suppliers yet. Add a supplier to start purchasing.
+            </p>
+          ) : (
+            filtered.map((s) => (
+              <MobileListCard
+                key={s.id}
+                title={s.name}
+                meta={
+                  <>
+                    <div>
+                      {s.phone || "—"}
+                      {s.email ? ` · ${s.email}` : ""}
+                    </div>
+                    <div>
+                      {s.gstin || "—"}
+                      {s.paymentTerms ? ` · ${s.paymentTerms}` : ""}
+                    </div>
+                  </>
+                }
+                badge={
                   <span
                     className={cn(
                       "rounded px-1.5 py-0.5 text-xs font-medium",
@@ -249,13 +249,14 @@ export function SuppliersView() {
                   >
                     {s.active ? "Active" : "Inactive"}
                   </span>
-                </td>
-                <td className="px-3 py-2">
-                  <div className="flex flex-wrap gap-1">
+                }
+                actions={
+                  <>
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
+                      className="min-h-10"
                       onClick={() => openEdit(s)}
                     >
                       <Pencil className="size-3.5" />
@@ -265,30 +266,99 @@ export function SuppliersView() {
                       type="button"
                       variant="outline"
                       size="sm"
+                      className="min-h-10"
                       onClick={() => void toggleActive(s)}
                     >
                       {s.active ? "Deactivate" : "Activate"}
                     </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="px-3 py-10 text-center text-muted-foreground"
-                >
-                  No suppliers yet. Add a supplier to start purchasing.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
+                  </>
+                }
+              />
+            ))
+          )
+        }
+        table={
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2">Name</th>
+                  <th className="px-3 py-2">Phone</th>
+                  <th className="px-3 py-2">GSTIN</th>
+                  <th className="px-3 py-2">Terms</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((s) => (
+                  <tr key={s.id} className="border-b last:border-0">
+                    <td className="px-3 py-2">
+                      <div className="font-medium">{s.name}</div>
+                      {s.email ? (
+                        <div className="text-xs text-muted-foreground">
+                          {s.email}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="px-3 py-2 tabular-nums">{s.phone || "—"}</td>
+                    <td className="px-3 py-2 font-mono text-xs">
+                      {s.gstin || "—"}
+                    </td>
+                    <td className="px-3 py-2">{s.paymentTerms || "—"}</td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={cn(
+                          "rounded px-1.5 py-0.5 text-xs font-medium",
+                          s.active
+                            ? "bg-emerald-100 text-emerald-900"
+                            : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {s.active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-wrap gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEdit(s)}
+                        >
+                          <Pencil className="size-3.5" />
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void toggleActive(s)}
+                        >
+                          {s.active ? "Deactivate" : "Activate"}
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-3 py-10 text-center text-muted-foreground"
+                    >
+                      No suppliers yet. Add a supplier to start purchasing.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        }
+      />
 
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogContent className="h-[100dvh] max-h-[100dvh] w-full max-w-full overflow-y-auto rounded-none p-4 sm:max-w-full md:h-auto md:max-h-[90vh] md:max-w-lg md:rounded-xl">
           <DialogHeader>
             <DialogTitle>
               {editing ? "Edit supplier" : "Add supplier"}

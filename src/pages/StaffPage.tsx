@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { MobileListCard, ResponsiveList } from "@/components/ResponsiveList"
 import { AppFirebaseError, getFirebaseErrorMessage } from "@/core/firebase"
 import {
   MIN_PASSCODE_LENGTH,
@@ -216,29 +217,52 @@ function StaffTable({ rows }: { rows: StaffListItem[] }) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-border">
-      <table className="w-full min-w-[28rem] text-left text-sm">
-        <thead className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
-          <tr>
-            <th className="px-3 py-2 font-medium">Username</th>
-            <th className="px-3 py-2 font-medium">Name</th>
-            <th className="px-3 py-2 font-medium">Role</th>
-            <th className="px-3 py-2 font-medium">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id} className="border-b border-border/70 last:border-0">
-              <td className="px-3 py-2 font-medium">@{row.username}</td>
-              <td className="px-3 py-2">{row.displayName}</td>
-              <td className="px-3 py-2">{roleLabel(row.role)}</td>
-              <td className="px-3 py-2 text-muted-foreground">
-                {row.active ? "Active" : "Inactive"}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <ResponsiveList
+      cards={rows.map((row) => (
+        <MobileListCard
+          key={row.id}
+          title={`@${row.username}`}
+          meta={
+            <>
+              {row.displayName} · {roleLabel(row.role)}
+            </>
+          }
+          badge={
+            <span className="text-xs text-muted-foreground">
+              {row.active ? "Active" : "Inactive"}
+            </span>
+          }
+        />
+      ))}
+      table={
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[28rem] text-left text-sm">
+            <thead className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2 font-medium">Username</th>
+                <th className="px-3 py-2 font-medium">Name</th>
+                <th className="px-3 py-2 font-medium">Role</th>
+                <th className="px-3 py-2 font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr
+                  key={row.id}
+                  className="border-b border-border/70 last:border-0"
+                >
+                  <td className="px-3 py-2 font-medium">@{row.username}</td>
+                  <td className="px-3 py-2">{row.displayName}</td>
+                  <td className="px-3 py-2">{roleLabel(row.role)}</td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {row.active ? "Active" : "Inactive"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      }
+    />
   )
 }

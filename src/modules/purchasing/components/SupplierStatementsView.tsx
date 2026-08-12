@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import { Download } from "lucide-react"
 
+import { MobileListCard, ResponsiveList } from "@/components/ResponsiveList"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { formatMoney } from "@/lib/money"
@@ -201,48 +202,88 @@ export function SupplierStatementsView() {
         </span>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2">Date</th>
-              <th className="px-3 py-2">Type</th>
-              <th className="px-3 py-2">Reference</th>
-              <th className="px-3 py-2">Debit</th>
-              <th className="px-3 py-2">Credit</th>
-              <th className="px-3 py-2">Balance</th>
-            </tr>
-          </thead>
-          <tbody>
-            {statement.rows.map((r, i) => (
-              <tr key={`${r.reference}-${i}`} className="border-b last:border-0">
-                <td className="px-3 py-2 text-xs">{r.date}</td>
-                <td className="px-3 py-2">{r.type}</td>
-                <td className="px-3 py-2 font-mono text-xs">{r.reference}</td>
-                <td className="px-3 py-2 tabular-nums">
-                  {r.debitPaisa ? formatMoney(r.debitPaisa) : "—"}
-                </td>
-                <td className="px-3 py-2 tabular-nums">
-                  {r.creditPaisa ? formatMoney(r.creditPaisa) : "—"}
-                </td>
-                <td className="px-3 py-2 tabular-nums">
-                  {formatMoney(r.balancePaisa)}
-                </td>
-              </tr>
-            ))}
-            {statement.rows.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="px-3 py-10 text-center text-muted-foreground"
-                >
-                  No posted invoices or payments for this supplier.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
+      <ResponsiveList
+        cards={
+          statement.rows.length === 0 ? (
+            <p className="rounded-lg border border-dashed px-3 py-10 text-center text-sm text-muted-foreground">
+              No posted invoices or payments for this supplier.
+            </p>
+          ) : (
+            statement.rows.map((r, i) => (
+              <MobileListCard
+                key={`${r.reference}-${i}`}
+                title={r.reference}
+                meta={
+                  <>
+                    <div>
+                      {r.date} · {r.type}
+                    </div>
+                    <div>
+                      Debit {r.debitPaisa ? formatMoney(r.debitPaisa) : "—"} ·
+                      Credit {r.creditPaisa ? formatMoney(r.creditPaisa) : "—"} ·
+                      Bal {formatMoney(r.balancePaisa)}
+                    </div>
+                  </>
+                }
+                badge={
+                  <span className="rounded px-1.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
+                    {r.type}
+                  </span>
+                }
+              />
+            ))
+          )
+        }
+        table={
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2">Date</th>
+                  <th className="px-3 py-2">Type</th>
+                  <th className="px-3 py-2">Reference</th>
+                  <th className="px-3 py-2">Debit</th>
+                  <th className="px-3 py-2">Credit</th>
+                  <th className="px-3 py-2">Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {statement.rows.map((r, i) => (
+                  <tr
+                    key={`${r.reference}-${i}`}
+                    className="border-b last:border-0"
+                  >
+                    <td className="px-3 py-2 text-xs">{r.date}</td>
+                    <td className="px-3 py-2">{r.type}</td>
+                    <td className="px-3 py-2 font-mono text-xs">
+                      {r.reference}
+                    </td>
+                    <td className="px-3 py-2 tabular-nums">
+                      {r.debitPaisa ? formatMoney(r.debitPaisa) : "—"}
+                    </td>
+                    <td className="px-3 py-2 tabular-nums">
+                      {r.creditPaisa ? formatMoney(r.creditPaisa) : "—"}
+                    </td>
+                    <td className="px-3 py-2 tabular-nums">
+                      {formatMoney(r.balancePaisa)}
+                    </td>
+                  </tr>
+                ))}
+                {statement.rows.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-3 py-10 text-center text-muted-foreground"
+                    >
+                      No posted invoices or payments for this supplier.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        }
+      />
     </div>
   )
 }

@@ -12,7 +12,7 @@ export function UtilitiesLayout() {
   const fy = FinancialYearService.getActive()
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4 md:p-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 md:gap-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Utilities</h1>

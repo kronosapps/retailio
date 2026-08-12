@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { MobileListCard, ResponsiveList } from "@/components/ResponsiveList"
 import { formatMoney } from "@/lib/money"
 import { cn } from "@/lib/utils"
 import {
@@ -347,68 +348,107 @@ export function BankingPage() {
             ? ` · set ${new Date(snapshot.opening.updatedAt).toLocaleString("en-IN")}`
             : " · from env defaults"}
         </p>
-        <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="w-full min-w-[40rem] text-left text-sm">
-            <thead className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 font-medium">When</th>
-                <th className="px-3 py-2 font-medium">Channel</th>
-                <th className="px-3 py-2 font-medium">Dir</th>
-                <th className="px-3 py-2 font-medium">Amount</th>
-                <th className="px-3 py-2 font-medium">Source</th>
-                <th className="px-3 py-2 font-medium">Note</th>
-              </tr>
-            </thead>
-            <tbody>
-              {snapshot.entries.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-3 py-8 text-center text-muted-foreground"
-                  >
-                    No movements yet.
-                  </td>
-                </tr>
-              ) : (
-                snapshot.entries.map((entry) => (
-                  <tr
-                    key={entry.id}
-                    className="border-b border-border/70 last:border-0"
-                  >
-                    <td className="whitespace-nowrap px-3 py-2 text-xs">
-                      {new Date(entry.createdAt).toLocaleString("en-IN")}
-                    </td>
-                    <td className="px-3 py-2 capitalize">{entry.channel}</td>
-                    <td
-                      className={cn(
-                        "px-3 py-2 font-medium uppercase",
-                        entry.direction === "in"
-                          ? "text-emerald-700"
-                          : "text-destructive"
-                      )}
-                    >
-                      {entry.direction}
-                    </td>
-                    <td className="px-3 py-2 tabular-nums">
-                      {formatMoney(entry.amountPaisa)}
-                    </td>
-                    <td className="px-3 py-2 text-xs capitalize">
-                      {entry.source}
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">
-                      {entry.note}
-                      {entry.reference ? (
-                        <span className="ml-1 font-mono text-[10px]">
-                          ({entry.reference})
-                        </span>
-                      ) : null}
-                    </td>
+        <ResponsiveList
+          cards={
+            snapshot.entries.length === 0 ? (
+              <p className="rounded-lg border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">
+                No movements yet.
+              </p>
+            ) : (
+              snapshot.entries.map((entry) => (
+                <MobileListCard
+                  key={entry.id}
+                  title={
+                    <span className="tabular-nums">
+                      {formatMoney(entry.amountPaisa)}{" "}
+                      <span
+                        className={
+                          entry.direction === "in"
+                            ? "text-emerald-700"
+                            : "text-destructive"
+                        }
+                      >
+                        {entry.direction.toUpperCase()}
+                      </span>
+                    </span>
+                  }
+                  meta={
+                    <>
+                      {new Date(entry.createdAt).toLocaleString("en-IN")} ·{" "}
+                      <span className="capitalize">{entry.channel}</span> ·{" "}
+                      <span className="capitalize">{entry.source}</span>
+                      {entry.note ? ` · ${entry.note}` : ""}
+                    </>
+                  }
+                />
+              ))
+            )
+          }
+          table={
+            <div className="overflow-x-auto rounded-xl border border-border">
+              <table className="w-full min-w-[40rem] text-left text-sm">
+                <thead className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">When</th>
+                    <th className="px-3 py-2 font-medium">Channel</th>
+                    <th className="px-3 py-2 font-medium">Dir</th>
+                    <th className="px-3 py-2 font-medium">Amount</th>
+                    <th className="px-3 py-2 font-medium">Source</th>
+                    <th className="px-3 py-2 font-medium">Note</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody>
+                  {snapshot.entries.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-3 py-8 text-center text-muted-foreground"
+                      >
+                        No movements yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    snapshot.entries.map((entry) => (
+                      <tr
+                        key={entry.id}
+                        className="border-b border-border/70 last:border-0"
+                      >
+                        <td className="whitespace-nowrap px-3 py-2 text-xs">
+                          {new Date(entry.createdAt).toLocaleString("en-IN")}
+                        </td>
+                        <td className="px-3 py-2 capitalize">{entry.channel}</td>
+                        <td
+                          className={cn(
+                            "px-3 py-2 font-medium uppercase",
+                            entry.direction === "in"
+                              ? "text-emerald-700"
+                              : "text-destructive"
+                          )}
+                        >
+                          {entry.direction}
+                        </td>
+                        <td className="px-3 py-2 tabular-nums">
+                          {formatMoney(entry.amountPaisa)}
+                        </td>
+                        <td className="px-3 py-2 text-xs capitalize">
+                          {entry.source}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {entry.note}
+                          {entry.reference ? (
+                            <span className="ml-1 font-mono text-[10px]">
+                              ({entry.reference})
+                            </span>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          }
+        />
       </section>
     </div>
   )

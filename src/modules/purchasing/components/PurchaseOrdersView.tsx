@@ -2,6 +2,7 @@ import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { Plus, Trash2 } from "lucide-react"
 
+import { MobileListCard, ResponsiveList } from "@/components/ResponsiveList"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Dialog,
@@ -184,46 +185,68 @@ export function PurchaseOrdersView() {
         <p className="text-sm text-destructive">{error}</p>
       ) : null}
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full min-w-[800px] text-left text-sm">
-          <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2">PO</th>
-              <th className="px-3 py-2">Supplier</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Ordered</th>
-              <th className="px-3 py-2">Received</th>
-              <th className="px-3 py-2">Remaining</th>
-              <th className="px-3 py-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.map((po) => (
-              <PoRow
+      <ResponsiveList
+        cards={
+          orders.length === 0 ? (
+            <p className="rounded-lg border border-dashed px-3 py-10 text-center text-sm text-muted-foreground">
+              No purchase orders yet. Create and issue one, then receive goods
+              against it.
+            </p>
+          ) : (
+            orders.map((po) => (
+              <PoCard
                 key={po.id}
                 po={po}
                 busy={actionId === po.id}
                 onIssue={() => void onIssue(po.id)}
                 onCancel={() => void onCancel(po.id)}
               />
-            ))}
-            {orders.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={7}
-                  className="px-3 py-10 text-center text-muted-foreground"
-                >
-                  No purchase orders yet. Create and issue one, then receive
-                  goods against it.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
+            ))
+          )
+        }
+        table={
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[800px] text-left text-sm">
+              <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2">PO</th>
+                  <th className="px-3 py-2">Supplier</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">Ordered</th>
+                  <th className="px-3 py-2">Received</th>
+                  <th className="px-3 py-2">Remaining</th>
+                  <th className="px-3 py-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((po) => (
+                  <PoRow
+                    key={po.id}
+                    po={po}
+                    busy={actionId === po.id}
+                    onIssue={() => void onIssue(po.id)}
+                    onCancel={() => void onCancel(po.id)}
+                  />
+                ))}
+                {orders.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-3 py-10 text-center text-muted-foreground"
+                    >
+                      No purchase orders yet. Create and issue one, then receive
+                      goods against it.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        }
+      />
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="h-[100dvh] max-h-[100dvh] w-full max-w-full overflow-y-auto rounded-none p-4 sm:max-w-full md:h-auto md:max-h-[90vh] md:max-w-2xl md:rounded-xl">
           <DialogHeader>
             <DialogTitle>New purchase order</DialogTitle>
           </DialogHeader>
@@ -401,6 +424,97 @@ export function PurchaseOrdersView() {
   )
 }
 
+function poTotals(po: PurchaseOrderRecord) {
+  const ordered = po.lines.reduce((s, l) => s + l.quantityOrdered, 0)
+  const received = po.lines.reduce((s, l) => s + l.quantityReceived, 0)
+  const remaining = po.lines.reduce((s, l) => s + remainingQty(l), 0)
+  const canIssue = po.status === "DRAFT"
+  const canCancel =
+    po.status === "DRAFT" || po.status === "ISSUED" || po.status === "PARTIAL"
+  return { ordered, received, remaining, canIssue, canCancel }
+}
+
+function statusBadgeClass(status: PurchaseOrderRecord["status"]) {
+  return cn(
+    "rounded px-1.5 py-0.5 text-xs font-medium",
+    status === "RECEIVED"
+      ? "bg-emerald-100 text-emerald-900"
+      : status === "PARTIAL" || status === "ISSUED"
+        ? "bg-sky-100 text-sky-900"
+        : status === "CANCELLED"
+          ? "bg-muted text-muted-foreground"
+          : "bg-amber-100 text-amber-900"
+  )
+}
+
+function PoCard({
+  po,
+  busy,
+  onIssue,
+  onCancel,
+}: {
+  po: PurchaseOrderRecord
+  busy: boolean
+  onIssue: () => void
+  onCancel: () => void
+}) {
+  const { ordered, received, remaining, canIssue, canCancel } = poTotals(po)
+  return (
+    <MobileListCard
+      title={po.poNumber}
+      meta={
+        <>
+          <div>{po.supplierName}</div>
+          <div>
+            Ordered {ordered} · Received {received} · Remaining {remaining}
+          </div>
+        </>
+      }
+      badge={<span className={statusBadgeClass(po.status)}>{po.status}</span>}
+      actions={
+        <>
+          {canIssue ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="min-h-10"
+              disabled={busy}
+              onClick={onIssue}
+            >
+              Issue
+            </Button>
+          ) : null}
+          {canCancel ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="min-h-10"
+              disabled={busy}
+              onClick={onCancel}
+            >
+              Cancel
+            </Button>
+          ) : null}
+          {(po.status === "ISSUED" || po.status === "PARTIAL") &&
+          remaining > 0 ? (
+            <Link
+              to="/purchasing/goods-received"
+              className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "min-h-10"
+              )}
+            >
+              Receive
+            </Link>
+          ) : null}
+        </>
+      }
+    />
+  )
+}
+
 function PoRow({
   po,
   busy,
@@ -412,32 +526,14 @@ function PoRow({
   onIssue: () => void
   onCancel: () => void
 }) {
-  const ordered = po.lines.reduce((s, l) => s + l.quantityOrdered, 0)
-  const received = po.lines.reduce((s, l) => s + l.quantityReceived, 0)
-  const remaining = po.lines.reduce((s, l) => s + remainingQty(l), 0)
-  const canIssue = po.status === "DRAFT"
-  const canCancel =
-    po.status === "DRAFT" || po.status === "ISSUED" || po.status === "PARTIAL"
+  const { ordered, received, remaining, canIssue, canCancel } = poTotals(po)
 
   return (
     <tr className="border-b last:border-0">
       <td className="px-3 py-2 font-mono text-xs">{po.poNumber}</td>
       <td className="px-3 py-2">{po.supplierName}</td>
       <td className="px-3 py-2">
-        <span
-          className={cn(
-            "rounded px-1.5 py-0.5 text-xs font-medium",
-            po.status === "RECEIVED"
-              ? "bg-emerald-100 text-emerald-900"
-              : po.status === "PARTIAL" || po.status === "ISSUED"
-                ? "bg-sky-100 text-sky-900"
-                : po.status === "CANCELLED"
-                  ? "bg-muted text-muted-foreground"
-                  : "bg-amber-100 text-amber-900"
-          )}
-        >
-          {po.status}
-        </span>
+        <span className={statusBadgeClass(po.status)}>{po.status}</span>
       </td>
       <td className="px-3 py-2 tabular-nums">{ordered}</td>
       <td className="px-3 py-2 tabular-nums">{received}</td>

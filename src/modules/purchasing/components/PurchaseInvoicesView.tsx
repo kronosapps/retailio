@@ -2,6 +2,7 @@ import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { Plus } from "lucide-react"
 
+import { MobileListCard, ResponsiveList } from "@/components/ResponsiveList"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -184,51 +185,43 @@ export function PurchaseInvoicesView() {
         <p className="text-sm text-destructive">{error}</p>
       ) : null}
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full min-w-[880px] text-left text-sm">
-          <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2">Invoice</th>
-              <th className="px-3 py-2">Supplier</th>
-              <th className="px-3 py-2">Bill date</th>
-              <th className="px-3 py-2">Total</th>
-              <th className="px-3 py-2">Paid</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {invoices.map((inv) => {
+      <ResponsiveList
+        cards={
+          invoices.length === 0 ? (
+            <p className="rounded-lg border border-dashed px-3 py-10 text-center text-sm text-muted-foreground">
+              No purchase invoices yet.
+            </p>
+          ) : (
+            invoices.map((inv) => {
               const remaining =
                 SupplierInvoiceService.remainingPayablePaisa(inv)
               return (
-                <tr key={inv.id} className="border-b last:border-0">
-                  <td className="px-3 py-2">
-                    <div className="font-mono text-xs">{inv.invoiceNumber}</div>
-                    {inv.supplierBillNumber ? (
-                      <div className="text-xs text-muted-foreground">
-                        Vendor: {inv.supplierBillNumber}
+                <MobileListCard
+                  key={inv.id}
+                  title={inv.invoiceNumber}
+                  meta={
+                    <>
+                      <div>
+                        {inv.supplierName}
+                        {inv.supplierBillNumber
+                          ? ` · Vendor ${inv.supplierBillNumber}`
+                          : ""}
                       </div>
-                    ) : null}
-                  </td>
-                  <td className="px-3 py-2">{inv.supplierName}</td>
-                  <td className="px-3 py-2 text-xs">{inv.billDate}</td>
-                  <td className="px-3 py-2 tabular-nums">
-                    {formatMoney(inv.totalPaisa)}
-                  </td>
-                  <td className="px-3 py-2 tabular-nums">
-                    {formatMoney(inv.amountPaidPaisa)}
-                  </td>
-                  <td className="px-3 py-2">
-                    <StatusBadge status={inv.status} />
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-1">
+                      <div>
+                        {inv.billDate} · Total {formatMoney(inv.totalPaisa)} ·
+                        Paid {formatMoney(inv.amountPaidPaisa)}
+                      </div>
+                    </>
+                  }
+                  badge={<StatusBadge status={inv.status} />}
+                  actions={
+                    <>
                       {inv.status === "DRAFT" ? (
                         <Button
                           type="button"
                           size="sm"
                           variant="outline"
+                          className="min-h-10"
                           disabled={busy}
                           onClick={() => void onPost(inv.id)}
                         >
@@ -240,33 +233,109 @@ export function PurchaseInvoicesView() {
                         <Button
                           type="button"
                           size="sm"
+                          className="min-h-10"
                           disabled={busy}
                           onClick={() => openPay(inv)}
                         >
                           Pay
                         </Button>
                       ) : null}
-                    </div>
-                  </td>
-                </tr>
+                    </>
+                  }
+                />
               )
-            })}
-            {invoices.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={7}
-                  className="px-3 py-10 text-center text-muted-foreground"
-                >
-                  No purchase invoices yet.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
+            })
+          )
+        }
+        table={
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[880px] text-left text-sm">
+              <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2">Invoice</th>
+                  <th className="px-3 py-2">Supplier</th>
+                  <th className="px-3 py-2">Bill date</th>
+                  <th className="px-3 py-2">Total</th>
+                  <th className="px-3 py-2">Paid</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoices.map((inv) => {
+                  const remaining =
+                    SupplierInvoiceService.remainingPayablePaisa(inv)
+                  return (
+                    <tr key={inv.id} className="border-b last:border-0">
+                      <td className="px-3 py-2">
+                        <div className="font-mono text-xs">
+                          {inv.invoiceNumber}
+                        </div>
+                        {inv.supplierBillNumber ? (
+                          <div className="text-xs text-muted-foreground">
+                            Vendor: {inv.supplierBillNumber}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2">{inv.supplierName}</td>
+                      <td className="px-3 py-2 text-xs">{inv.billDate}</td>
+                      <td className="px-3 py-2 tabular-nums">
+                        {formatMoney(inv.totalPaisa)}
+                      </td>
+                      <td className="px-3 py-2 tabular-nums">
+                        {formatMoney(inv.amountPaidPaisa)}
+                      </td>
+                      <td className="px-3 py-2">
+                        <StatusBadge status={inv.status} />
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap gap-1">
+                          {inv.status === "DRAFT" ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={busy}
+                              onClick={() => void onPost(inv.id)}
+                            >
+                              Post
+                            </Button>
+                          ) : null}
+                          {(inv.status === "POSTED" ||
+                            inv.status === "PARTIAL") &&
+                          remaining > 0 ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={busy}
+                              onClick={() => openPay(inv)}
+                            >
+                              Pay
+                            </Button>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+                {invoices.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-3 py-10 text-center text-muted-foreground"
+                    >
+                      No purchase invoices yet.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        }
+      />
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogContent className="h-[100dvh] max-h-[100dvh] w-full max-w-full overflow-y-auto rounded-none p-4 sm:max-w-full md:h-auto md:max-h-[90vh] md:max-w-lg md:rounded-xl">
           <DialogHeader>
             <DialogTitle>New purchase invoice</DialogTitle>
           </DialogHeader>
@@ -354,7 +423,7 @@ export function PurchaseInvoicesView() {
       </Dialog>
 
       <Dialog open={payOpen} onOpenChange={setPayOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="h-[100dvh] max-h-[100dvh] w-full max-w-full overflow-y-auto rounded-none p-4 sm:max-w-full md:h-auto md:max-h-[90vh] md:max-w-md md:rounded-xl">
           <DialogHeader>
             <DialogTitle>
               Pay {paying?.invoiceNumber}
