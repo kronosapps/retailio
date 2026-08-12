@@ -16,12 +16,11 @@ import type {
   NotificationRecord,
   NotificationStatus,
 } from "@/modules/notifications/types/notification"
-import { isStaffAlertType } from "@/modules/notifications/types/notification"
 import { createId } from "@/utils/id"
 
 import { COLLECTIONS } from "@/core/firebase/collections"
 
-import { listDocuments, upsertDocument } from "./firestoreHelpers"
+import { listDocuments, subscribeQueryDocuments, upsertDocument } from "./firestoreHelpers"
 
 const COLLECTION = COLLECTIONS.NOTIFICATIONS
 
@@ -98,10 +97,8 @@ export class NotificationRepository {
         : createId("ntf")
     const messageType = input.messageType ?? "receipt"
     const channel = input.channel ?? "whatsapp"
-    const isInApp =
-      channel === "in_app" ||
-      input.audience === "staff" ||
-      isStaffAlertType(messageType)
+    // Only true in-app soft alerts are local-delivered. Telegram/push stay Queued for CF.
+    const isInApp = channel === "in_app"
 
     const record: NotificationRecord = {
       notificationId,
@@ -111,7 +108,7 @@ export class NotificationRepository {
       customerName: input.customerName.trim() || "Walk-in",
       customerPhone: input.customerPhone,
       storeId: input.storeId ?? null,
-      channel: isInApp ? "in_app" : channel,
+      channel,
       // In-app staff alerts are delivered locally — CF no-ops this channel.
       status: isInApp ? "Delivered" : "Queued",
       messageType,
@@ -131,7 +128,11 @@ export class NotificationRepository {
       retryCount: 0,
       nextRetryAt: null,
       error: null,
-      audience: input.audience ?? (isInApp ? "staff" : "customer"),
+      audience:
+        input.audience ??
+        (isInApp || channel === "telegram" || channel === "push"
+          ? "staff"
+          : "customer"),
       priority: input.priority ?? (isInApp ? "medium" : undefined),
       title: input.title ?? null,
       dedupeKey: input.dedupeKey ?? null,
@@ -227,6 +228,38 @@ export class NotificationRepository {
   async mirrorFromRemote(record: NotificationRecord): Promise<NotificationRecord> {
     upsertLocalNotification(record)
     return record
+  }
+
+  /**
+   * Live multi-device mirror for in-app staff alerts (readAt / status).
+   * Returns unsubscribe. No-op when Firebase is unset.
+   */
+  subscribeStaffAlerts(
+    onChange: (items: NotificationRecord[]) => void
+  ): () => void {
+    return subscribeQueryDocuments<NotificationRecord>(
+      COLLECTION,
+      [{ field: "channel", op: "==", value: "in_app" }],
+      (rows) => {
+        for (const row of rows) {
+          const id = row.notificationId || (row as { id?: string }).id
+          if (!id) continue
+          const local = getLocalNotification(id)
+          const remoteUpdated = row.updatedAt || row.createdAt || ""
+          const localUpdated = local?.updatedAt || ""
+          // Prefer newer updatedAt so local offline writes aren't clobbered blindly.
+          if (!local || remoteUpdated >= localUpdated) {
+            upsertLocalNotification({
+              ...row,
+              notificationId: id,
+            })
+          }
+        }
+        onChange(
+          listLocalNotifications().filter((n) => n.channel === "in_app")
+        )
+      }
+    )
   }
 
   /** Pull remote notification queue when Firestore is source of truth. */

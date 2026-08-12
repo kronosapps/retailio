@@ -1,6 +1,7 @@
 /**
  * Staff operational alerts — queues `in_app` notifications via NotificationRepository.
  * Does not talk to WhatsApp / Meta. Dedupes by dedupeKey within threshold window.
+ * Critical alerts optionally queue a Telegram sibling (CF delivers).
  */
 
 import { getRecordedSale } from "@/data/invoices"
@@ -12,8 +13,13 @@ import {
   SupplierInvoiceService,
 } from "@/modules/purchasing"
 import { notificationRepository } from "@/repositories/NotificationRepository"
+import type { UserRole } from "@/types/user"
 import { createId } from "@/utils/id"
-import { getAlertThresholds } from "../alertThresholds"
+import { buildAlertHref } from "../alertDeepLinks"
+import {
+  getAlertThresholds,
+  isAlertMutedForRole,
+} from "../alertThresholds"
 import type {
   NotificationMessageType,
   NotificationPriority,
@@ -43,7 +49,9 @@ function formatRupees(paisa: number): string {
   })}`
 }
 
-function totalDiscountPaisa(sale: NonNullable<ReturnType<typeof getRecordedSale>>): number {
+function totalDiscountPaisa(
+  sale: NonNullable<ReturnType<typeof getRecordedSale>>
+): number {
   const t = sale.totals
   return (
     (t.friendsFamilyDiscount || 0) +
@@ -54,30 +62,50 @@ function totalDiscountPaisa(sale: NonNullable<ReturnType<typeof getRecordedSale>
   )
 }
 
+function dayKey(d = new Date()): string {
+  return d.toISOString().slice(0, 10)
+}
+
 /**
  * Business triggers for soft staff alerts.
  */
 export class AlertService {
-  static listStaffAlerts(storeId?: string | null): NotificationRecord[] {
+  static listStaffAlerts(
+    storeId?: string | null,
+    role?: UserRole | null
+  ): NotificationRecord[] {
     return notificationRepository
       .list()
       .filter(
         (n) =>
-          (n.audience === "staff" || n.channel === "in_app" || isStaffAlertType(n.messageType)) &&
-          (!storeId || !n.storeId || n.storeId === storeId)
+          (n.audience === "staff" ||
+            n.channel === "in_app" ||
+            isStaffAlertType(n.messageType)) &&
+          n.channel !== "telegram" &&
+          n.channel !== "push" &&
+          (!storeId || !n.storeId || n.storeId === storeId) &&
+          !isAlertMutedForRole(n.messageType, role)
       )
   }
 
-  static unreadCount(storeId?: string | null): number {
-    return this.listStaffAlerts(storeId).filter((n) => !n.readAt).length
+  static unreadCount(
+    storeId?: string | null,
+    role?: UserRole | null
+  ): number {
+    return this.listStaffAlerts(storeId, role).filter((n) => !n.readAt).length
   }
 
-  static async markRead(notificationId: string): Promise<NotificationRecord | null> {
+  static async markRead(
+    notificationId: string
+  ): Promise<NotificationRecord | null> {
     return notificationRepository.markRead(notificationId)
   }
 
-  static async markAllRead(storeId?: string | null): Promise<number> {
-    const unread = this.listStaffAlerts(storeId).filter((n) => !n.readAt)
+  static async markAllRead(
+    storeId?: string | null,
+    role?: UserRole | null
+  ): Promise<number> {
+    const unread = this.listStaffAlerts(storeId, role).filter((n) => !n.readAt)
     for (const n of unread) {
       await notificationRepository.markRead(n.notificationId)
     }
@@ -98,13 +126,29 @@ export class AlertService {
       .list()
       .find(
         (n) =>
+          n.channel === "in_app" &&
           n.dedupeKey === input.dedupeKey &&
           now - new Date(n.createdAt).getTime() < thresholds.dedupeWindowMs
       )
     if (existing) return existing
 
+    const href =
+      input.href ||
+      buildAlertHref({
+        messageType: input.messageType,
+        invoiceId: input.invoiceId,
+        customerId: input.customerId,
+        meta: input.meta,
+      })
+    const priority = input.priority ?? "medium"
+    const meta = {
+      ...(input.meta || {}),
+      href,
+      alertKind: input.messageType,
+    }
+
     try {
-      return await notificationRepository.queue({
+      const record = await notificationRepository.queue({
         invoiceId: input.invoiceId || `alert:${input.dedupeKey}`,
         paymentId: null,
         customerId: input.customerId ?? null,
@@ -117,20 +161,66 @@ export class AlertService {
         body: input.body,
         title: input.title,
         audience: "staff",
-        priority: input.priority ?? "medium",
+        priority,
         dedupeKey: input.dedupeKey,
         forceNew: true,
-        meta: {
-          ...(input.meta || {}),
-          href: input.href ?? null,
-          alertKind: input.messageType,
-        },
+        meta,
       })
+
+      if (
+        priority === "critical" &&
+        thresholds.telegramCriticalEnabled &&
+        thresholds.telegramChatId.trim()
+      ) {
+        void this.queueTelegramSibling(record, thresholds.telegramChatId.trim())
+      }
+
+      return record
     } catch (err) {
       if (import.meta.env.DEV) {
         console.warn("[AlertService] raise failed", err)
       }
       return null
+    }
+  }
+
+  /** Critical night-phone path — CF TelegramProvider sends; UI ignores channel. */
+  private static async queueTelegramSibling(
+    inApp: NotificationRecord,
+    chatId: string
+  ): Promise<void> {
+    const body =
+      typeof inApp.meta?.body === "string"
+        ? inApp.meta.body
+        : inApp.title || alertLabel(inApp.messageType)
+    try {
+      await notificationRepository.queue({
+        invoiceId: inApp.invoiceId,
+        paymentId: null,
+        customerId: inApp.customerId,
+        customerName: inApp.customerName,
+        customerPhone: null,
+        storeId: inApp.storeId,
+        messageType: inApp.messageType,
+        channel: "telegram",
+        templateName: "staff_critical_alert",
+        body,
+        title: inApp.title,
+        audience: "staff",
+        priority: inApp.priority ?? "critical",
+        dedupeKey: `telegram:${inApp.dedupeKey || inApp.notificationId}`,
+        forceNew: true,
+        meta: {
+          ...(inApp.meta || {}),
+          telegramChatId: chatId,
+          inAppNotificationId: inApp.notificationId,
+          body,
+        },
+      })
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn("[AlertService] telegram queue failed", err)
+      }
     }
   }
 
@@ -153,7 +243,8 @@ export class AlertService {
     if (!sale) return
 
     const discount = totalDiscountPaisa(sale)
-    const gross = sale.totals.grossSubtotal || sale.totals.taxableAmount + discount
+    const gross =
+      sale.totals.grossSubtotal || sale.totals.taxableAmount + discount
     const thresholds = getAlertThresholds()
     const ratio = gross > 0 ? discount / gross : 0
     if (
@@ -169,8 +260,7 @@ export class AlertService {
         storeId: payload.storeId ?? event.storeId,
         invoiceId,
         customerName: sale.customerName || "Walk-in",
-        href: "/transactions",
-        meta: { discountPaisa: discount, ratio, grossPaisa: gross },
+        meta: { discountPaisa: discount, ratio, grossPaisa: gross, invoiceId },
       })
     }
   }
@@ -197,13 +287,13 @@ export class AlertService {
       title: alertLabel("large_refund"),
       body: `${payload.customerName || "Customer"} · ${formatRupees(amountPaisa)}${payload.invoiceId ? ` on ${payload.invoiceId}` : ""}`,
       dedupeKey: `large_refund:${key}`,
-      priority: amountPaisa >= thresholds.largeRefundMinPaisa * 3 ? "high" : "medium",
+      priority:
+        amountPaisa >= thresholds.largeRefundMinPaisa * 3 ? "high" : "medium",
       storeId: event.storeId,
       invoiceId: payload.invoiceId ?? null,
       customerId: payload.customerId ?? null,
       customerName: payload.customerName || "Walk-in",
-      href: "/transactions",
-      meta: { amountPaisa },
+      meta: { amountPaisa, invoiceId: payload.invoiceId },
     })
   }
 
@@ -217,17 +307,17 @@ export class AlertService {
       paymentMethod?: string
     }
     const paymentId = payload.paymentId || createId("pay")
+    const invoiceId = payload.invoiceId || payload.invoiceNumber || null
     await this.raise({
       messageType: "failed_payment",
       title: alertLabel("failed_payment"),
-      body: `${payload.customerName || "Payment"} · ${payload.invoiceNumber || payload.invoiceId || paymentId}${payload.paymentMethod ? ` (${payload.paymentMethod})` : ""}`,
+      body: `${payload.customerName || "Payment"} · ${invoiceId || paymentId}${payload.paymentMethod ? ` (${payload.paymentMethod})` : ""}`,
       dedupeKey: `failed_payment:${paymentId}`,
       priority: "high",
       storeId: event.storeId,
-      invoiceId: payload.invoiceId || payload.invoiceNumber || null,
+      invoiceId,
       customerName: payload.customerName || "Walk-in",
-      href: "/transactions",
-      meta: { paymentId, amount: payload.amount },
+      meta: { paymentId, amount: payload.amount, invoiceId },
     })
   }
 
@@ -240,7 +330,10 @@ export class AlertService {
     }
     const thresholds = getAlertThresholds()
     const variance = payload.variancePaisa
-    if (typeof variance !== "number" || Math.abs(variance) < thresholds.cashVarianceMinPaisa) {
+    if (
+      typeof variance !== "number" ||
+      Math.abs(variance) < thresholds.cashVarianceMinPaisa
+    ) {
       return
     }
     const shiftKey = payload.id || String(payload.shiftNumber || "shift")
@@ -249,9 +342,11 @@ export class AlertService {
       title: alertLabel("cash_variance"),
       body: `${payload.cashierName || "Cashier"} · variance ${variance >= 0 ? "+" : "−"}${formatRupees(variance)}`,
       dedupeKey: `cash_variance:${shiftKey}`,
-      priority: Math.abs(variance) >= thresholds.cashVarianceMinPaisa * 5 ? "critical" : "high",
+      priority:
+        Math.abs(variance) >= thresholds.cashVarianceMinPaisa * 5
+          ? "critical"
+          : "high",
       storeId: event.storeId,
-      href: "/day-ops",
       meta: { variancePaisa: variance, shiftId: payload.id },
     })
   }
@@ -271,7 +366,6 @@ export class AlertService {
       dedupeKey: `failed_sync:${key}`,
       priority: "high",
       storeId: event.storeId,
-      href: "/options",
       meta: { ...payload },
     })
   }
@@ -300,22 +394,67 @@ export class AlertService {
     storeId: string | null = null,
     skuFilter?: string
   ): Promise<void> {
+    const thresholds = getAlertThresholds()
     const suggestions = StockAnalyticsService.getReorderSuggestions()
     const filtered = skuFilter
-      ? suggestions.filter((s) => s.sku.toUpperCase() === skuFilter.toUpperCase())
+      ? suggestions.filter(
+          (s) => s.sku.toUpperCase() === skuFilter.toUpperCase()
+        )
       : suggestions
 
-    for (const row of filtered) {
-      const type: NotificationMessageType =
-        row.status === "out_of_stock" ? "out_of_stock" : "low_stock"
+    const out = filtered.filter((s) => s.status === "out_of_stock")
+    const low = filtered.filter((s) => s.status === "low_stock")
+
+    for (const row of out) {
       await this.raise({
-        messageType: type,
-        title: alertLabel(type),
+        messageType: "out_of_stock",
+        title: alertLabel("out_of_stock"),
         body: `${row.name} (${row.sku}) · on hand ${row.onHand} / reorder ${row.reorderLevel}`,
-        dedupeKey: `${type}:${row.sku.toUpperCase()}`,
-        priority: type === "out_of_stock" ? "critical" : "high",
+        dedupeKey: `out_of_stock:${row.sku.toUpperCase()}`,
+        priority: "critical",
         storeId,
-        href: "/inventory",
+        meta: {
+          sku: row.sku,
+          onHand: row.onHand,
+          reorderLevel: row.reorderLevel,
+        },
+      })
+    }
+
+    if (thresholds.lowStockDigest) {
+      // Per-SKU inventory ticks: skip individual low alerts; full scan builds digest.
+      if (skuFilter) return
+      if (low.length === 0) return
+      const top = low.slice(0, 8)
+      const more = low.length - top.length
+      const lines = top.map(
+        (r) => `${r.name} (${r.sku}) · ${r.onHand}/${r.reorderLevel}`
+      )
+      await this.raise({
+        messageType: "low_stock",
+        title: `Low stock · ${low.length} SKU${low.length === 1 ? "" : "s"}`,
+        body:
+          lines.join(" · ") + (more > 0 ? ` · +${more} more` : ""),
+        dedupeKey: `low_stock_digest:${dayKey()}`,
+        priority: "high",
+        storeId,
+        meta: {
+          digest: true,
+          skus: low.map((r) => r.sku),
+          count: low.length,
+        },
+      })
+      return
+    }
+
+    for (const row of low) {
+      await this.raise({
+        messageType: "low_stock",
+        title: alertLabel("low_stock"),
+        body: `${row.name} (${row.sku}) · on hand ${row.onHand} / reorder ${row.reorderLevel}`,
+        dedupeKey: `low_stock:${row.sku.toUpperCase()}`,
+        priority: "high",
+        storeId,
         meta: {
           sku: row.sku,
           onHand: row.onHand,
@@ -339,7 +478,6 @@ export class AlertService {
         dedupeKey: `expired:${lot.id}`,
         priority: "critical",
         storeId,
-        href: "/inventory",
         meta: { lotId: lot.id, sku: lot.sku, expiryDate: lot.expiryDate },
       })
     }
@@ -351,13 +489,14 @@ export class AlertService {
         dedupeKey: `expiring:${lot.id}`,
         priority: "high",
         storeId,
-        href: "/inventory",
         meta: { lotId: lot.id, sku: lot.sku, expiryDate: lot.expiryDate },
       })
     }
   }
 
-  static async scanPendingPurchases(storeId: string | null = null): Promise<void> {
+  static async scanPendingPurchases(
+    storeId: string | null = null
+  ): Promise<void> {
     for (const po of PurchaseOrderService.listOpenForReceiving()) {
       await this.raise({
         messageType: "pending_purchase",
@@ -366,7 +505,6 @@ export class AlertService {
         dedupeKey: `pending_purchase:${po.id}`,
         priority: "medium",
         storeId: storeId ?? po.storeId,
-        href: "/purchasing",
         meta: { purchaseOrderId: po.id, status: po.status },
       })
     }
@@ -400,9 +538,11 @@ export class AlertService {
         title: alertLabel("outstanding_supplier"),
         body: `${row.name} · ${formatRupees(row.remaining)} payable`,
         dedupeKey: `outstanding_supplier:${supplierId}`,
-        priority: row.remaining >= thresholds.supplierOutstandingMinPaisa * 5 ? "high" : "medium",
+        priority:
+          row.remaining >= thresholds.supplierOutstandingMinPaisa * 5
+            ? "high"
+            : "medium",
         storeId: storeId ?? row.storeId,
-        href: "/purchasing",
         meta: { supplierId, remainingPaisa: row.remaining },
       })
     }
@@ -427,8 +567,7 @@ export class AlertService {
         storeId: storeId ?? customer.storeId,
         customerId: customer.id,
         customerName: customer.name,
-        href: "/customers",
-        meta: { outstandingPaisa: outstanding },
+        meta: { outstandingPaisa: outstanding, customerId: customer.id },
       })
     }
   }

@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator"
 import {
   StoreSettingsService,
   type StoreSettingsRecord,
+  AlertSettingsCard,
 } from "@/modules/notifications"
 import {
   EndOfDayService,
@@ -218,6 +219,8 @@ export function OptionsPage() {
           ) : null}
         </CardContent>
       </Card>
+
+      <AlertSettingsCard />
 
       <Card>
         <CardHeader>

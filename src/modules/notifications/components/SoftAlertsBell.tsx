@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import { useStaffAlerts } from "../hooks/useStaffAlerts"
+import { buildAlertHref } from "../alertDeepLinks"
 import type {
   AlertTone,
   NotificationPriority,
@@ -168,8 +169,12 @@ export function SoftAlertsBell({
 
   const onOpenAlert = async (alert: NotificationRecord) => {
     if (!alert.readAt) await markRead(alert.notificationId)
-    const href =
-      typeof alert.meta?.href === "string" ? alert.meta.href : null
+    const href = buildAlertHref({
+      messageType: alert.messageType,
+      invoiceId: alert.invoiceId,
+      customerId: alert.customerId,
+      meta: alert.meta,
+    })
     setOpen(false)
     if (href) navigate(href)
   }

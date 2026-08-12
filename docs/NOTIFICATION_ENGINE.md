@@ -66,6 +66,18 @@ Frontend only queues Firestore documents. Providers with secrets live in `backen
 
 Aging scans run on engine start and every 15 minutes. Duplicates share a `dedupeKey` within a configurable window (default 6h).
 
+**Admin Options → Staff alerts** edits thresholds, low-stock digest, role mutes, and Telegram chat id.
+
+**Low-stock digest** (default on): one daily `low_stock` card; `out_of_stock` stays per-SKU + critical.
+
+**Role mutes**: raised for audit, hidden in that role’s bell (cashier defaults mute AR/AP/low-stock noise).
+
+**Telegram critical**: when enabled + chat id set, critical `in_app` raises also queue `channel=telegram` for CF (`TELEGRAM_BOT_TOKEN` secret; optional `TELEGRAM_CHAT_ID` default).
+
+**Deep-links**: bell opens SKU / PO / supplier / customer / invoice focused routes via `buildAlertHref`.
+
+**Multi-device read**: `subscribeQueryDocuments` on `channel == in_app` mirrors `readAt` across devices.
+
 Bell UI lives in `AppLayout` + `PosLayout`. Soft cards are tone-coded: rose (critical stock/sync/payment), amber (low stock / expiry / cash), violet (discount/refund), sky (pending PO), slate (AR/AP).
 
 ---
@@ -76,12 +88,16 @@ Set as Firebase Functions secrets / env (never `VITE_*`):
 
 ```bash
 firebase functions:secrets:set WHATSAPP_ACCESS_TOKEN
+# optional night-phone:
+# firebase functions:secrets:set TELEGRAM_BOT_TOKEN
 # or .env for emulator:
 
 WHATSAPP_PHONE_NUMBER_ID=...
 WHATSAPP_ACCESS_TOKEN=...
 WHATSAPP_API_VERSION=v21.0
 WHATSAPP_VERIFY_TOKEN=retailos-verify
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_CHAT_ID=...   # optional default when alert meta omits chat id
 ```
 
 Frontend has **no** WhatsApp credentials.

@@ -5,6 +5,7 @@ vi.mock("@/repositories/firestoreHelpers", () => ({
   removeDocument: vi.fn(async () => undefined),
   getDocument: vi.fn(async () => null),
   listDocuments: vi.fn(async () => null),
+  subscribeQueryDocuments: vi.fn(() => () => undefined),
 }))
 
 vi.mock("@/events/EventPublisher", () => ({
@@ -121,5 +122,109 @@ describe("AlertService", () => {
     expect(alertToneFor("low_stock")).toBe("amber")
     expect(alertToneFor("large_discount")).toBe("violet")
     expect(alertToneFor("pending_purchase")).toBe("sky")
+  })
+
+  it("builds deep-links from alert meta", async () => {
+    const { buildAlertHref } = await import(
+      "@/modules/notifications/alertDeepLinks"
+    )
+    expect(
+      buildAlertHref({
+        messageType: "out_of_stock",
+        meta: { sku: "SKU-1" },
+      })
+    ).toBe("/inventory/stock?sku=SKU-1")
+    expect(
+      buildAlertHref({
+        messageType: "pending_purchase",
+        meta: { purchaseOrderId: "po_9" },
+      })
+    ).toBe("/purchasing/orders?poId=po_9")
+    expect(
+      buildAlertHref({
+        messageType: "outstanding_customer",
+        customerId: "cust_1",
+      })
+    ).toBe("/customers/cust_1")
+    expect(
+      buildAlertHref({
+        messageType: "failed_payment",
+        invoiceId: "INV-9",
+      })
+    ).toBe("/invoices/INV-9")
+  })
+
+  it("hides muted types for cashier role", async () => {
+    const { saveAlertThresholds } = await import(
+      "@/modules/notifications/alertThresholds"
+    )
+    const { AlertService } = await import(
+      "@/modules/notifications/services/AlertService"
+    )
+
+    saveAlertThresholds({
+      roleMutes: {
+        cashier: ["failed_sync"],
+        manager: [],
+        admin: [],
+      },
+    })
+
+    await AlertService.raise({
+      messageType: "failed_sync",
+      title: "Failed sync",
+      body: "Sheets dead letter",
+      dedupeKey: "failed_sync:x1",
+      priority: "high",
+      storeId: "store-1",
+    })
+
+    expect(
+      AlertService.listStaffAlerts("store-1", "cashier").some(
+        (a) => a.messageType === "failed_sync"
+      )
+    ).toBe(false)
+    expect(
+      AlertService.listStaffAlerts("store-1", "admin").some(
+        (a) => a.messageType === "failed_sync"
+      )
+    ).toBe(true)
+  })
+
+  it("queues telegram sibling for critical alerts when enabled", async () => {
+    const { saveAlertThresholds } = await import(
+      "@/modules/notifications/alertThresholds"
+    )
+    const { AlertService } = await import(
+      "@/modules/notifications/services/AlertService"
+    )
+    const { notificationRepository } = await import(
+      "@/repositories/NotificationRepository"
+    )
+
+    saveAlertThresholds({
+      telegramCriticalEnabled: true,
+      telegramChatId: "-100123",
+    })
+
+    await AlertService.raise({
+      messageType: "out_of_stock",
+      title: "Out of stock",
+      body: "SKU-1 empty",
+      dedupeKey: "out_of_stock:SKU-1",
+      priority: "critical",
+      storeId: "store-1",
+      meta: { sku: "SKU-1" },
+    })
+
+    // allow sibling queue
+    await new Promise((r) => setTimeout(r, 20))
+
+    const telegram = notificationRepository
+      .list()
+      .find((n) => n.channel === "telegram")
+    expect(telegram).toBeTruthy()
+    expect(telegram?.status).toBe("Queued")
+    expect(telegram?.meta?.telegramChatId).toBe("-100123")
   })
 })

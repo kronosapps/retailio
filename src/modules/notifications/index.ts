@@ -29,8 +29,12 @@ export {
 export {
   getAlertThresholds,
   saveAlertThresholds,
+  defaultAlertThresholds,
+  isAlertMutedForRole,
   type AlertThresholds,
+  type AlertRoleMutes,
 } from "./alertThresholds"
+export { buildAlertHref } from "./alertDeepLinks"
 
 export { useNotification } from "./hooks/useNotification"
 export { useNotificationAnalytics } from "./hooks/useNotificationAnalytics"
@@ -39,3 +43,4 @@ export { useStaffAlerts } from "./hooks/useStaffAlerts"
 export { NotificationStatusPanel } from "./components/NotificationStatusPanel"
 export { NotificationAnalyticsCards } from "./components/NotificationAnalyticsCards"
 export { SoftAlertsBell } from "./components/SoftAlertsBell"
+export { AlertSettingsCard } from "./components/AlertSettingsCard"

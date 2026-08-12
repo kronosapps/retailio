@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Search } from "lucide-react"
+import { useSearchParams } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,13 +15,21 @@ import { cn } from "@/lib/utils"
 import { StockActionDialogs } from "./StockActionDialogs"
 
 export function InventoryStockView() {
+  const [searchParams] = useSearchParams()
+  const skuParam = (searchParams.get("sku") || "").trim().toUpperCase()
   const [tick, setTick] = useState(0)
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useState(skuParam)
   const [action, setAction] = useState<{
     sku: string
     mode: "add" | "adjust"
   } | null>(null)
-  const [historySku, setHistorySku] = useState<string | null>(null)
+  const [historySku, setHistorySku] = useState<string | null>(skuParam || null)
+
+  useEffect(() => {
+    if (!skuParam) return
+    setSearch(skuParam)
+    setHistorySku(skuParam)
+  }, [skuParam])
 
   const summary = useMemo(() => {
     void tick

@@ -2,6 +2,8 @@ import * as admin from "firebase-admin"
 import { logger } from "firebase-functions"
 
 import { whatsAppProvider } from "../whatsapp/WhatsAppProvider"
+import { telegramProvider } from "../telegram/TelegramProvider"
+import { telegramConfig } from "../utils/config"
 import { generateAndUploadReceiptPdf } from "../utils/receiptPdf"
 import { MAX_RETRIES, nextRetryAt, shouldRetry } from "./retry"
 
@@ -18,10 +20,13 @@ type NotificationDoc = {
   status?: string
   messageType?: string
   templateName?: string | null
+  title?: string | null
   receiptUrl?: string | null
   messageId?: string | null
   retryCount?: number
   error?: string | null
+  meta?: Record<string, unknown>
+  priority?: string
 }
 
 type InvoiceDoc = {
@@ -100,11 +105,19 @@ export async function processNotification(notificationId: string): Promise<void>
     return
   }
 
-  // Staff soft alerts — client-delivered; never send via WhatsApp.
-  if (
-    notification.channel === "in_app" ||
-    notification.audience === "staff"
-  ) {
+  // Soft inbox — client-delivered.
+  if (notification.channel === "in_app") {
+    return
+  }
+
+  // Staff critical night-phone via Telegram (audience may be staff).
+  if (notification.channel === "telegram") {
+    await processTelegramAlert(ref, notification)
+    return
+  }
+
+  // Staff WhatsApp not supported — ignore accidental queues.
+  if (notification.audience === "staff") {
     return
   }
 
@@ -306,3 +319,79 @@ export async function ensureReceiptNotification(payment: {
   await appendLog(notificationId, "created", "Auto-queued from payment Paid.")
   return notificationId
 }
+
+async function processTelegramAlert(
+  ref: FirebaseFirestore.DocumentReference,
+  notification: NotificationDoc
+): Promise<void> {
+  const notificationId = notification.notificationId
+  await ref.set(
+    {
+      status: "Sending",
+      updatedAt: new Date().toISOString(),
+    },
+    { merge: true }
+  )
+  await appendLog(notificationId, "sending", "Telegram critical alert send started.")
+
+  const meta = notification.meta || {}
+  const chatId =
+    (typeof meta.telegramChatId === "string" && meta.telegramChatId) ||
+    telegramConfig().defaultChatId ||
+    ""
+  const body =
+    (typeof meta.body === "string" && meta.body) ||
+    notification.title ||
+    notification.messageType ||
+    "RetailOS alert"
+  const title = notification.title || "RetailOS alert"
+  const text = `🚨 ${title}\n${body}`
+
+  const result = await telegramProvider.send({ chatId, text })
+  if (result.ok) {
+    await ref.set(
+      {
+        status: "Sent",
+        messageId: result.messageId || null,
+        sentAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        error: null,
+      },
+      { merge: true }
+    )
+    await appendLog(notificationId, "sent", "Telegram alert delivered.")
+    return
+  }
+
+  const retryCount = notification.retryCount || 0
+  if (shouldRetry(retryCount)) {
+    const next = nextRetryAt(retryCount)
+    await ref.set(
+      {
+        status: "Queued",
+        retryCount: retryCount + 1,
+        nextRetryAt: next,
+        error: result.error || "Telegram send failed",
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    )
+    await appendLog(
+      notificationId,
+      "retry",
+      `Telegram failed; retry ${retryCount + 1}/${MAX_RETRIES} at ${next}`
+    )
+    return
+  }
+
+  await ref.set(
+    {
+      status: "Failed",
+      error: result.error || "Telegram send failed",
+      updatedAt: new Date().toISOString(),
+    },
+    { merge: true }
+  )
+  await appendLog(notificationId, "failed", result.error || "Telegram failed")
+}
+

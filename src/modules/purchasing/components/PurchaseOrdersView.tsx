@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
+import { useSearchParams } from "react-router-dom"
 import { Plus, Trash2 } from "lucide-react"
 
 import { MobileListCard, ResponsiveList } from "@/components/ResponsiveList"
@@ -47,6 +48,8 @@ function newLine(): DraftLine {
  */
 export function PurchaseOrdersView() {
   const { userId, profile } = useAuth()
+  const [searchParams] = useSearchParams()
+  const poIdParam = (searchParams.get("poId") || "").trim()
   const [tick, setTick] = useState(0)
   const [open, setOpen] = useState(false)
   const [supplierId, setSupplierId] = useState("")
@@ -57,6 +60,11 @@ export function PurchaseOrdersView() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [actionId, setActionId] = useState<string | null>(null)
+  const [focusPoId, setFocusPoId] = useState<string | null>(poIdParam || null)
+
+  useEffect(() => {
+    if (poIdParam) setFocusPoId(poIdParam)
+  }, [poIdParam])
 
   const suppliers = useMemo(() => {
     void tick
@@ -70,8 +78,14 @@ export function PurchaseOrdersView() {
 
   const orders = useMemo(() => {
     void tick
-    return PurchaseOrderService.list()
-  }, [tick])
+    const list = PurchaseOrderService.list()
+    if (!focusPoId) return list
+    return [...list].sort((a, b) => {
+      if (a.id === focusPoId) return -1
+      if (b.id === focusPoId) return 1
+      return 0
+    })
+  }, [tick, focusPoId])
 
   function refresh() {
     setTick((t) => t + 1)
@@ -197,6 +211,7 @@ export function PurchaseOrdersView() {
               <PoCard
                 key={po.id}
                 po={po}
+                highlighted={po.id === focusPoId}
                 busy={actionId === po.id}
                 onIssue={() => void onIssue(po.id)}
                 onCancel={() => void onCancel(po.id)}
@@ -223,6 +238,7 @@ export function PurchaseOrdersView() {
                   <PoRow
                     key={po.id}
                     po={po}
+                    highlighted={po.id === focusPoId}
                     busy={actionId === po.id}
                     onIssue={() => void onIssue(po.id)}
                     onCancel={() => void onCancel(po.id)}
@@ -450,16 +466,23 @@ function statusBadgeClass(status: PurchaseOrderRecord["status"]) {
 function PoCard({
   po,
   busy,
+  highlighted,
   onIssue,
   onCancel,
 }: {
   po: PurchaseOrderRecord
   busy: boolean
+  highlighted?: boolean
   onIssue: () => void
   onCancel: () => void
 }) {
   const { ordered, received, remaining, canIssue, canCancel } = poTotals(po)
   return (
+    <div
+      className={cn(
+        highlighted && "rounded-xl ring-2 ring-sky-400/70 ring-offset-2"
+      )}
+    >
     <MobileListCard
       title={po.poNumber}
       meta={
@@ -512,24 +535,32 @@ function PoCard({
         </>
       }
     />
+    </div>
   )
 }
 
 function PoRow({
   po,
   busy,
+  highlighted,
   onIssue,
   onCancel,
 }: {
   po: PurchaseOrderRecord
   busy: boolean
+  highlighted?: boolean
   onIssue: () => void
   onCancel: () => void
 }) {
   const { ordered, received, remaining, canIssue, canCancel } = poTotals(po)
 
   return (
-    <tr className="border-b last:border-0">
+    <tr
+      className={cn(
+        "border-b last:border-0",
+        highlighted && "bg-sky-50 dark:bg-sky-950/30"
+      )}
+    >
       <td className="px-3 py-2 font-mono text-xs">{po.poNumber}</td>
       <td className="px-3 py-2">{po.supplierName}</td>
       <td className="px-3 py-2">
