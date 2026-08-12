@@ -1,4 +1,5 @@
 import { rupeesToPaisa } from "@/lib/money"
+import { taxConfig } from "@/data/tax"
 import {
   deriveInvoicePaymentStatus,
   remainingPayablePaisa,
@@ -10,6 +11,8 @@ import {
 } from "@/repositories/SupplierInvoiceRepository"
 import { goodsReceiptRepository } from "@/repositories/GoodsReceiptRepository"
 import type { GoodsReceiptRecord } from "@/data/goodsReceipts"
+import { productRepository } from "@/repositories/ProductRepository"
+import { SupplierService } from "@/modules/supplier"
 
 export class SupplierInvoiceError extends Error {
   code: "VALIDATION" | "NOT_FOUND" | "INVALID_STATUS"
@@ -27,14 +30,52 @@ export type CreateFromGrnsInput = {
   dueAt?: string | null
   notes?: string | null
   billDate?: string
+  /** Override product GST % for all lines (exclusive). */
+  defaultGstRate?: number | null
   storeId?: string | null
   actorId?: string | null
   /** If true, create as POSTED immediately (AP journal via event). */
   issueAndPost?: boolean
 }
 
+export type CreateBillOnlyInput = {
+  supplierId: string
+  supplierBillNumber?: string | null
+  dueAt?: string | null
+  notes?: string | null
+  billDate?: string
+  lines: Array<{
+    sku: string
+    productName?: string
+    quantity: number
+    unitCostRupees: number
+    gstRate?: number | null
+  }>
+  storeId?: string | null
+  actorId?: string | null
+  issueAndPost?: boolean
+}
+
+function resolveGstRate(
+  sku: string,
+  override?: number | null,
+  defaultGstRate?: number | null
+): number {
+  if (override != null && Number.isFinite(override)) {
+    return Math.max(0, Number(override))
+  }
+  if (defaultGstRate != null && Number.isFinite(defaultGstRate)) {
+    return Math.max(0, Number(defaultGstRate))
+  }
+  const product = productRepository.getById(sku.trim().toUpperCase())
+  if (product && Number.isFinite(product.gstRate)) {
+    return Math.max(0, product.gstRate)
+  }
+  return Math.max(0, taxConfig.gst.percent || 0)
+}
+
 /**
- * Purchase invoices / AP — commercial bill after GRN. Does not change stock.
+ * Purchase invoices / AP — commercial bill after GRN or bill-only. Does not change stock.
  */
 export class SupplierInvoiceService {
   static list(): PurchaseInvoiceRecord[] {
@@ -137,6 +178,7 @@ export class SupplierInvoiceService {
           productName: line.productName,
           quantity: line.quantity,
           unitCostPaisa,
+          gstRate: resolveGstRate(line.sku, null, input.defaultGstRate),
           goodsReceiptId: grn.id,
         })
       }
@@ -164,6 +206,69 @@ export class SupplierInvoiceService {
       notes: input.notes,
       lines,
       storeId: input.storeId ?? grns[0].storeId,
+      actorId: input.actorId,
+    })
+
+    if (input.issueAndPost) {
+      return this.post(draft.id, input.actorId ?? null)
+    }
+    return draft
+  }
+
+  /** Bill-only AP invoice — no GRN / no stock movement. */
+  static async createBillOnly(
+    input: CreateBillOnlyInput
+  ): Promise<PurchaseInvoiceRecord> {
+    const supplier = SupplierService.getById(input.supplierId)
+    if (!supplier) {
+      throw new SupplierInvoiceError("NOT_FOUND", "Supplier not found.")
+    }
+    if (!input.lines.length) {
+      throw new SupplierInvoiceError(
+        "VALIDATION",
+        "Add at least one bill line."
+      )
+    }
+
+    const lines: CreatePurchaseInvoiceInput["lines"] = []
+    for (const line of input.lines) {
+      const sku = line.sku.trim().toUpperCase()
+      const qty = Number(line.quantity)
+      const unitCostPaisa = rupeesToPaisa(Number(line.unitCostRupees))
+      if (!sku || !Number.isFinite(qty) || qty <= 0) {
+        throw new SupplierInvoiceError(
+          "VALIDATION",
+          "Each bill line needs a SKU and positive quantity."
+        )
+      }
+      if (!Number.isFinite(unitCostPaisa) || unitCostPaisa < 0) {
+        throw new SupplierInvoiceError(
+          "VALIDATION",
+          `Invalid unit cost for ${sku}.`
+        )
+      }
+      const product = productRepository.getById(sku)
+      lines.push({
+        sku,
+        productName: line.productName || product?.name || sku,
+        quantity: qty,
+        unitCostPaisa,
+        gstRate: resolveGstRate(sku, line.gstRate, null),
+        goodsReceiptId: "",
+      })
+    }
+
+    const draft = await supplierInvoiceRepository.createDraft({
+      supplierId: supplier.id,
+      supplierName: supplier.name,
+      goodsReceiptIds: [],
+      purchaseOrderId: null,
+      supplierBillNumber: input.supplierBillNumber,
+      billDate: input.billDate,
+      dueAt: input.dueAt,
+      notes: input.notes,
+      lines,
+      storeId: input.storeId ?? supplier.storeId,
       actorId: input.actorId,
     })
 
@@ -229,10 +334,7 @@ export class SupplierInvoiceService {
         "Invoices with payments cannot be cancelled."
       )
     }
-    if (
-      existing.status !== "DRAFT" &&
-      existing.status !== "POSTED"
-    ) {
+    if (existing.status !== "DRAFT" && existing.status !== "POSTED") {
       throw new SupplierInvoiceError(
         "INVALID_STATUS",
         "Only draft or unpaid posted invoices can be cancelled."
@@ -269,15 +371,12 @@ export class SupplierInvoiceService {
         "Credits can only be applied to posted invoices."
       )
     }
-    const remaining = remainingPayablePaisa(existing)
     if (amountPaisa <= 0) {
       throw new SupplierInvoiceError(
         "VALIDATION",
         "Credit amount must be positive."
       )
     }
-    // Debit notes may exceed remaining payable (creates supplier credit / negative AP).
-    void remaining
 
     const amountCreditedPaisa =
       (existing.amountCreditedPaisa || 0) + amountPaisa
@@ -308,10 +407,7 @@ export class SupplierInvoiceService {
     if (!existing) {
       throw new SupplierInvoiceError("NOT_FOUND", "Purchase invoice not found.")
     }
-    if (
-      existing.status !== "POSTED" &&
-      existing.status !== "PARTIAL"
-    ) {
+    if (existing.status !== "POSTED" && existing.status !== "PARTIAL") {
       throw new SupplierInvoiceError(
         "INVALID_STATUS",
         "Payments can only be applied to posted or partially paid invoices."

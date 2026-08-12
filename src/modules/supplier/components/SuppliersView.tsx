@@ -1,5 +1,5 @@
-import { useMemo, useState, type FormEvent } from "react"
-import { Pencil, Plus, Search } from "lucide-react"
+import { useMemo, useRef, useState, type FormEvent } from "react"
+import { Download, Pencil, Plus, Search, Upload } from "lucide-react"
 
 import { MobileListCard, ResponsiveList } from "@/components/ResponsiveList"
 import { Button } from "@/components/ui/button"
@@ -14,7 +14,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   SupplierError,
+  SupplierImportService,
   SupplierService,
+  type SupplierImportPreview,
+  type SupplierImportResult,
   type SupplierRecord,
 } from "@/modules/supplier"
 import { useAuth } from "@/providers/AuthProvider"
@@ -69,12 +72,18 @@ function fromRecord(s: SupplierRecord): FormState {
  */
 export function SuppliersView() {
   const { userId, profile } = useAuth()
+  const importFileRef = useRef<HTMLInputElement>(null)
   const [tick, setTick] = useState(0)
   const [query, setQuery] = useState("")
   const [showInactive, setShowInactive] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [editing, setEditing] = useState<SupplierRecord | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
+  const [importPreview, setImportPreview] =
+    useState<SupplierImportPreview | null>(null)
+  const [importResult, setImportResult] =
+    useState<SupplierImportResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -183,6 +192,50 @@ export function SuppliersView() {
     }
   }
 
+  function openImport() {
+    setImportPreview(null)
+    setImportResult(null)
+    setError(null)
+    if (importFileRef.current) importFileRef.current.value = ""
+    setImportOpen(true)
+  }
+
+  async function onImportFile(file: File | null) {
+    setError(null)
+    setImportResult(null)
+    setImportPreview(null)
+    if (!file) return
+    setBusy(true)
+    try {
+      const preview = await SupplierImportService.parseAndValidate(file)
+      setImportPreview(preview)
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not parse the Excel file."
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onImportPush() {
+    if (!importPreview) return
+    setBusy(true)
+    setError(null)
+    try {
+      const result = await SupplierImportService.push(importPreview, {
+        storeId: profile?.storeId ?? null,
+        actorId: userId,
+      })
+      setImportResult(result)
+      refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Import failed.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -204,6 +257,10 @@ export function SuppliersView() {
             />
             Show inactive
           </label>
+          <Button type="button" variant="outline" onClick={openImport}>
+            <Upload className="size-4" />
+            Import
+          </Button>
           <Button type="button" onClick={openCreate}>
             <Plus className="size-4" />
             Add supplier
@@ -211,7 +268,7 @@ export function SuppliersView() {
         </div>
       </div>
 
-      {error && !editorOpen ? (
+      {error && !editorOpen && !importOpen ? (
         <p className="text-sm text-destructive">{error}</p>
       ) : null}
 
@@ -356,6 +413,122 @@ export function SuppliersView() {
           </div>
         }
       />
+
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="h-[100dvh] max-h-[100dvh] w-full max-w-full overflow-y-auto rounded-none p-4 sm:max-w-full md:h-auto md:max-h-[90vh] md:max-w-2xl md:rounded-xl">
+          <DialogHeader>
+            <DialogTitle>Import suppliers</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy}
+                onClick={() => void SupplierImportService.downloadTemplate()}
+              >
+                <Download className="size-4" />
+                Download template
+              </Button>
+              <input
+                ref={importFileRef}
+                type="file"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                className="max-w-xs text-sm file:mr-2 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1.5"
+                onChange={(e) =>
+                  void onImportFile(e.target.files?.[0] ?? null)
+                }
+              />
+            </div>
+
+            {importPreview ? (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  {importPreview.totalRows} rows · {importPreview.newRows} new ·{" "}
+                  {importPreview.duplicateRows} duplicate ·{" "}
+                  {importPreview.invalidRows} invalid
+                </p>
+                <div className="max-h-64 overflow-auto rounded-md border">
+                  <table className="w-full min-w-[560px] text-left text-sm">
+                    <thead className="sticky top-0 border-b bg-muted/40 text-xs uppercase text-muted-foreground">
+                      <tr>
+                        <th className="px-2 py-1.5">Row</th>
+                        <th className="px-2 py-1.5">Name</th>
+                        <th className="px-2 py-1.5">Phone</th>
+                        <th className="px-2 py-1.5">Status</th>
+                        <th className="px-2 py-1.5">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importPreview.rows.map((row) => (
+                        <tr key={row.rowNumber} className="border-b last:border-0">
+                          <td className="px-2 py-1.5 tabular-nums">
+                            {row.rowNumber}
+                          </td>
+                          <td className="px-2 py-1.5">{row.name || "—"}</td>
+                          <td className="px-2 py-1.5">{row.phone || "—"}</td>
+                          <td className="px-2 py-1.5">
+                            <span
+                              className={cn(
+                                "rounded px-1.5 py-0.5 text-xs font-medium",
+                                row.status === "NEW"
+                                  ? "bg-emerald-100 text-emerald-900"
+                                  : row.status === "DUPLICATE"
+                                    ? "bg-amber-100 text-amber-900"
+                                    : "bg-destructive/15 text-destructive"
+                              )}
+                            >
+                              {row.status}
+                            </span>
+                          </td>
+                          <td className="px-2 py-1.5 text-xs text-muted-foreground">
+                            {row.messages.join(" ") || "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+
+            {importResult ? (
+              <p className="text-sm">
+                Imported {importResult.imported}, skipped {importResult.skipped}
+                , failed {importResult.failed}.
+                {importResult.errors.length > 0
+                  ? ` ${importResult.errors
+                      .map((e) => `Row ${e.rowNumber}: ${e.message}`)
+                      .join("; ")}`
+                  : ""}
+              </p>
+            ) : null}
+
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setImportOpen(false)}
+            >
+              Close
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                busy ||
+                !importPreview ||
+                importPreview.newRows === 0 ||
+                Boolean(importResult)
+              }
+              onClick={() => void onImportPush()}
+            >
+              {busy ? "Importing…" : "Push"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
         <DialogContent className="h-[100dvh] max-h-[100dvh] w-full max-w-full overflow-y-auto rounded-none p-4 sm:max-w-full md:h-auto md:max-h-[90vh] md:max-w-lg md:rounded-xl">

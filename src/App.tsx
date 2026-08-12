@@ -17,6 +17,7 @@ import {
   PurchasingMatchPage,
   PurchasingOrdersPage,
   PurchasingPaymentsPage,
+  PurchasingQuickPage,
   PurchasingReturnsPage,
   PurchasingStatementsPage,
   PurchasingSuppliersPage,
@@ -172,6 +173,7 @@ export default function App() {
             <Route path="/purchasing" element={<PurchasingPage />}>
               <Route index element={<PurchasingIndexRedirect />} />
               <Route path="suppliers" element={<PurchasingSuppliersPage />} />
+              <Route path="quick" element={<PurchasingQuickPage />} />
               <Route path="orders" element={<PurchasingOrdersPage />} />
               <Route
                 path="goods-received"

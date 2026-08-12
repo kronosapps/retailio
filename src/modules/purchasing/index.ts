@@ -16,12 +16,14 @@ export {
   SupplierInvoiceService,
   SupplierInvoiceError,
   type CreateFromGrnsInput,
+  type CreateBillOnlyInput,
   type PurchaseInvoiceRecord,
 } from "./SupplierInvoiceService"
 export {
   SupplierPaymentService,
   SupplierPaymentError,
   type PayInvoiceInput,
+  type PayInvoicesInput,
   type SupplierPaymentRecord,
 } from "./SupplierPaymentService"
 export {
@@ -30,3 +32,9 @@ export {
   type CreatePurchaseReturnFromSourceInput,
   type PurchaseReturnRecord,
 } from "./PurchaseReturnService"
+export {
+  QuickPurchaseService,
+  QuickPurchaseError,
+  type QuickPurchaseInput,
+  type QuickPurchaseResult,
+} from "./QuickPurchaseService"

@@ -1,8 +1,15 @@
 /**
  * Supplier payments against purchase invoices — local offline-first store.
+ * One payment may allocate across multiple invoices of the same supplier.
  */
 
 export type SupplierPaymentMethod = "Cash" | "UPI"
+
+export type SupplierPaymentAllocation = {
+  purchaseInvoiceId: string
+  invoiceNumber: string
+  amountPaisa: number
+}
 
 export type SupplierPaymentRecord = {
   id: string
@@ -10,9 +17,11 @@ export type SupplierPaymentRecord = {
   paymentNumber: string
   supplierId: string
   supplierName: string
+  /** Primary invoice (first allocation) — kept for sheets / statements. */
   purchaseInvoiceId: string
   invoiceNumber: string
   amountPaisa: number
+  allocations: SupplierPaymentAllocation[]
   method: SupplierPaymentMethod
   status: "Paid"
   paidAt: string
@@ -26,9 +35,7 @@ export type SupplierPaymentRecord = {
 export type CreateSupplierPaymentInput = {
   supplierId: string
   supplierName: string
-  purchaseInvoiceId: string
-  invoiceNumber: string
-  amountPaisa: number
+  allocations: SupplierPaymentAllocation[]
   method: SupplierPaymentMethod
   paidAt?: string
   notes?: string | null
@@ -85,14 +92,45 @@ export function normalizeSupplierPayment(
   raw: SupplierPaymentRecord | (Partial<SupplierPaymentRecord> & { id: string })
 ): SupplierPaymentRecord {
   const now = new Date().toISOString()
+  let allocations: SupplierPaymentAllocation[] = Array.isArray(raw.allocations)
+    ? raw.allocations
+        .map((a) => ({
+          purchaseInvoiceId: a.purchaseInvoiceId || "",
+          invoiceNumber: a.invoiceNumber || "",
+          amountPaisa: Math.max(0, Math.round(Number(a.amountPaisa) || 0)),
+        }))
+        .filter((a) => a.purchaseInvoiceId && a.amountPaisa > 0)
+    : []
+  if (
+    !allocations.length &&
+    raw.purchaseInvoiceId &&
+    Number(raw.amountPaisa) > 0
+  ) {
+    allocations = [
+      {
+        purchaseInvoiceId: raw.purchaseInvoiceId,
+        invoiceNumber: raw.invoiceNumber || "",
+        amountPaisa: Math.max(0, Math.round(Number(raw.amountPaisa) || 0)),
+      },
+    ]
+  }
+  const amountPaisa = allocations.reduce((s, a) => s + a.amountPaisa, 0)
+  const primary = allocations[0]
   return {
     id: raw.id,
     paymentNumber: raw.paymentNumber || raw.id,
     supplierId: raw.supplierId || "",
     supplierName: (raw.supplierName || "").trim() || "Supplier",
-    purchaseInvoiceId: raw.purchaseInvoiceId || "",
-    invoiceNumber: raw.invoiceNumber || "",
-    amountPaisa: Math.max(0, Math.round(Number(raw.amountPaisa) || 0)),
+    purchaseInvoiceId: primary?.purchaseInvoiceId || raw.purchaseInvoiceId || "",
+    invoiceNumber:
+      allocations.length > 1
+        ? allocations.map((a) => a.invoiceNumber).filter(Boolean).join(", ")
+        : primary?.invoiceNumber || raw.invoiceNumber || "",
+    amountPaisa:
+      amountPaisa > 0
+        ? amountPaisa
+        : Math.max(0, Math.round(Number(raw.amountPaisa) || 0)),
+    allocations,
     method: raw.method === "Cash" ? "Cash" : "UPI",
     status: "Paid",
     paidAt: raw.paidAt || raw.createdAt || now,

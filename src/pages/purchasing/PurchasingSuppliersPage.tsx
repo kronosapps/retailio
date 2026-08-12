@@ -5,6 +5,7 @@ import { PurchaseInvoicesView } from "@/modules/purchasing/components/PurchaseIn
 import { PurchaseOrdersView } from "@/modules/purchasing/components/PurchaseOrdersView"
 import { PurchaseReturnsView } from "@/modules/purchasing/components/PurchaseReturnsView"
 import { PurchasingMatchView } from "@/modules/purchasing/components/PurchasingMatchView"
+import { QuickPurchaseView } from "@/modules/purchasing/components/QuickPurchaseView"
 import { SupplierPaymentsView } from "@/modules/purchasing/components/SupplierPaymentsView"
 import { SupplierStatementsView } from "@/modules/purchasing/components/SupplierStatementsView"
 import { SuppliersView } from "@/modules/supplier/components/SuppliersView"
@@ -15,6 +16,10 @@ export function PurchasingIndexRedirect() {
 
 export function PurchasingSuppliersPage() {
   return <SuppliersView />
+}
+
+export function PurchasingQuickPage() {
+  return <QuickPurchaseView />
 }
 
 export function PurchasingOrdersPage() {

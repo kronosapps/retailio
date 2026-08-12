@@ -221,6 +221,13 @@ export class AccountingEngine {
           purchaseInvoiceId: payload.purchaseInvoiceId || "",
           invoiceNumber: payload.invoiceNumber || "",
           amountPaisa,
+          allocations: [
+            {
+              purchaseInvoiceId: payload.purchaseInvoiceId || "",
+              invoiceNumber: payload.invoiceNumber || "",
+              amountPaisa,
+            },
+          ],
           method: payload.paymentMethod === "Cash" || payload.method === "Cash"
             ? "Cash"
             : "UPI",

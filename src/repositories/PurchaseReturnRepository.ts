@@ -9,6 +9,7 @@ import {
 import { COLLECTIONS } from "@/core/firebase/collections"
 import { EventPublisher } from "@/events/EventPublisher"
 import { EventTypes } from "@/events/EventTypes"
+import { percentOfPaisa } from "@/lib/money"
 import { createId } from "@/utils/id"
 
 import { listDocuments, upsertDocument } from "./firestoreHelpers"
@@ -48,15 +49,21 @@ export class PurchaseReturnRepository {
     const lines = input.lines.map((l) => {
       const qty = Number(l.quantity)
       const unit = Math.round(Number(l.unitCostPaisa))
+      const lineTotalPaisa = Math.round(qty * unit)
+      const gstRate = Math.max(0, Number(l.gstRate) || 0)
+      const gstPaisa = percentOfPaisa(lineTotalPaisa, gstRate)
       return {
         sku: l.sku.trim().toUpperCase(),
         productName: (l.productName || l.sku).trim(),
         quantity: qty,
         unitCostPaisa: unit,
-        lineTotalPaisa: Math.round(qty * unit),
+        lineTotalPaisa,
+        gstRate,
+        gstPaisa,
       }
     })
-    const total = lines.reduce((s, l) => s + l.lineTotalPaisa, 0)
+    const subtotal = lines.reduce((s, l) => s + l.lineTotalPaisa, 0)
+    const gstPaisa = lines.reduce((s, l) => s + l.gstPaisa, 0)
     const record: PurchaseReturnRecord = {
       id: createId("prn"),
       returnNumber: nextPurchaseReturnNumber(),
@@ -71,8 +78,9 @@ export class PurchaseReturnRepository {
       reason: input.reason?.trim() || null,
       notes: input.notes?.trim() || null,
       lines,
-      subtotalPaisa: total,
-      totalPaisa: total,
+      subtotalPaisa: subtotal,
+      gstPaisa,
+      totalPaisa: subtotal + gstPaisa,
       storeId: input.storeId ?? null,
       createdAt: now,
       updatedAt: now,

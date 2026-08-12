@@ -133,16 +133,32 @@ export class AccountingRules {
     }
   }
 
-  /** Posted purchase invoice → Dr Inventory / Cr Accounts Payable. */
+  /** Posted purchase invoice → Dr Inventory (+ GST Input) / Cr Accounts Payable. */
   static fromPurchaseInvoice(
     invoice: PurchaseInvoiceRecord,
     opts?: { eventId?: string | null; source?: JournalEntry["source"] }
   ): JournalEntry {
+    const taxable = Math.max(
+      0,
+      Math.round(invoice.subtotalPaisa ?? invoice.totalPaisa)
+    )
+    const gst = Math.max(0, Math.round(invoice.gstPaisa || 0))
     const amount = Math.max(0, Math.round(invoice.totalPaisa))
     const date = (invoice.postedAt || invoice.billDate || invoice.createdAt).slice(
       0,
       10
     )
+    const lines =
+      gst > 0
+        ? [
+            journalLine(ACCOUNT_CODES.INVENTORY, taxable, 0),
+            journalLine(ACCOUNT_CODES.GST_INPUT, gst, 0),
+            journalLine(ACCOUNT_CODES.AP, 0, amount),
+          ]
+        : [
+            journalLine(ACCOUNT_CODES.INVENTORY, amount, 0),
+            journalLine(ACCOUNT_CODES.AP, 0, amount),
+          ]
     return {
       id: `je_pin_${invoice.id}`,
       date,
@@ -153,10 +169,7 @@ export class AccountingRules {
       operatorId: invoice.updatedBy ?? invoice.createdBy,
       operatorName: null,
       paymentMethod: null,
-      lines: [
-        journalLine(ACCOUNT_CODES.INVENTORY, amount, 0),
-        journalLine(ACCOUNT_CODES.AP, 0, amount),
-      ],
+      lines,
       source: opts?.source ?? "posted",
       eventId: opts?.eventId ?? null,
       storeId: invoice.storeId,
@@ -190,7 +203,7 @@ export class AccountingRules {
     }
   }
 
-  /** Posted purchase return → Dr Accounts Payable / Cr Inventory (debit note). */
+  /** Posted purchase return → Dr AP / Cr Inventory (+ GST Input when billed with tax). */
   static fromPurchaseReturn(
     ret: PurchaseReturnRecord,
     opts?: { eventId?: string | null; source?: JournalEntry["source"] }
@@ -198,7 +211,20 @@ export class AccountingRules {
     // Unbilled GRN-only returns have no AP to reverse.
     if (!ret.purchaseInvoiceId || ret.totalPaisa <= 0) return null
     const amount = Math.max(0, Math.round(ret.totalPaisa))
+    const gst = Math.max(0, Math.round(ret.gstPaisa || 0))
+    const taxable = Math.max(0, amount - gst)
     const date = (ret.postedAt || ret.returnedAt || ret.createdAt).slice(0, 10)
+    const lines =
+      gst > 0
+        ? [
+            journalLine(ACCOUNT_CODES.AP, amount, 0),
+            journalLine(ACCOUNT_CODES.INVENTORY, 0, taxable),
+            journalLine(ACCOUNT_CODES.GST_INPUT, 0, gst),
+          ]
+        : [
+            journalLine(ACCOUNT_CODES.AP, amount, 0),
+            journalLine(ACCOUNT_CODES.INVENTORY, 0, amount),
+          ]
     return {
       id: `je_prn_${ret.id}`,
       date,
@@ -209,10 +235,7 @@ export class AccountingRules {
       operatorId: ret.updatedBy ?? ret.createdBy,
       operatorName: null,
       paymentMethod: null,
-      lines: [
-        journalLine(ACCOUNT_CODES.AP, amount, 0),
-        journalLine(ACCOUNT_CODES.INVENTORY, 0, amount),
-      ],
+      lines,
       source: opts?.source ?? "posted",
       eventId: opts?.eventId ?? null,
       storeId: ret.storeId,

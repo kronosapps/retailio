@@ -296,10 +296,11 @@ describe("SupplierInvoice + SupplierPayment (AP)", () => {
       goodsReceiptIds: [grn.id],
       actorId: "t",
       issueAndPost: true,
+      defaultGstRate: 0,
     })
 
     expect(inv.status).toBe("POSTED")
-    expect(inv.totalPaisa).toBe(10000) // 2 * ₹50
+    expect(inv.totalPaisa).toBe(10000) // 2 * ₹50, GST 0
     expect(InventoryService.getCurrentStock("AP-SKU-1")).toBe(stockBefore)
     expect(EventPublisher.publish).toHaveBeenCalledWith(
       EventTypes.PURCHASE_INVOICE_POSTED,
@@ -350,14 +351,87 @@ describe("SupplierInvoice + SupplierPayment (AP)", () => {
       goodsReceiptIds: [grn.id],
       actorId: "t",
       issueAndPost: true,
+      defaultGstRate: 0,
     })
 
     await expect(
       SupplierInvoiceService.createFromGrns({
         goodsReceiptIds: [grn.id],
         actorId: "t",
+        defaultGstRate: 0,
       })
     ).rejects.toBeInstanceOf(SupplierInvoiceError)
+  })
+
+  it("applies input GST on purchase invoice and supports bill-only + multi-pay", async () => {
+    const { ProductService } = await import("@/modules/products/ProductService")
+    const { SupplierService } = await import("@/modules/supplier/SupplierService")
+    const { SupplierInvoiceService } = await import(
+      "@/modules/purchasing/SupplierInvoiceService"
+    )
+    const { SupplierPaymentService } = await import(
+      "@/modules/purchasing/SupplierPaymentService"
+    )
+    const { AccountingRules, isBalanced } = await import(
+      "@/modules/accounting/rules/AccountingRules"
+    )
+
+    await ProductService.create({
+      name: "GST Item",
+      sku: "GST-SKU-1",
+      category: "Test",
+      sellingPrice: 100,
+      costPrice: 50,
+      gstRate: 5,
+      storeId: "store-1",
+      actorId: "t",
+    })
+    const supplier = await SupplierService.create(
+      { name: "GST Vendor", storeId: "store-1" },
+      "t"
+    )
+
+    const bill = await SupplierInvoiceService.createBillOnly({
+      supplierId: supplier.id,
+      lines: [
+        { sku: "GST-SKU-1", quantity: 2, unitCostRupees: 50, gstRate: 5 },
+      ],
+      storeId: "store-1",
+      actorId: "t",
+      issueAndPost: true,
+    })
+    expect(bill.subtotalPaisa).toBe(10000)
+    expect(bill.gstPaisa).toBe(500)
+    expect(bill.totalPaisa).toBe(10500)
+    expect(bill.goodsReceiptIds).toEqual([])
+
+    const je = AccountingRules.fromPurchaseInvoice(bill)
+    expect(isBalanced(je)).toBe(true)
+    expect(je.lines.some((l) => l.accountCode === "1300")).toBe(true)
+
+    const bill2 = await SupplierInvoiceService.createBillOnly({
+      supplierId: supplier.id,
+      lines: [
+        { sku: "GST-SKU-1", quantity: 1, unitCostRupees: 40, gstRate: 0 },
+      ],
+      storeId: "store-1",
+      actorId: "t",
+      issueAndPost: true,
+    })
+
+    const pay = await SupplierPaymentService.payInvoices({
+      supplierId: supplier.id,
+      method: "Cash",
+      allocations: [
+        { purchaseInvoiceId: bill.id, amountRupees: 50 },
+        { purchaseInvoiceId: bill2.id, amountRupees: 40 },
+      ],
+      actorId: "t",
+    })
+    expect(pay.allocations).toHaveLength(2)
+    expect(pay.amountPaisa).toBe(9000)
+    expect(SupplierInvoiceService.getById(bill.id)?.status).toBe("PARTIAL")
+    expect(SupplierInvoiceService.getById(bill2.id)?.status).toBe("PAID")
   })
 
   it("posts purchase return: stock out, AP credit, blocks over-return", async () => {
@@ -379,6 +453,7 @@ describe("SupplierInvoice + SupplierPayment (AP)", () => {
       goodsReceiptIds: [grn.id],
       actorId: "t",
       issueAndPost: true,
+      defaultGstRate: 0,
     })
 
     const stockBefore = InventoryService.getCurrentStock("AP-SKU-1")

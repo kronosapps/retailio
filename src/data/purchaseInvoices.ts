@@ -1,14 +1,22 @@
 /**
  * Purchase invoices (supplier bills / AP) — local offline-first store.
  * Stock is never applied from an invoice; only posted GRNs increase inventory.
+ * Unit costs are GST-exclusive; gstPaisa is input tax on the taxable subtotal.
  */
+
+import { percentOfPaisa, roundPaisa } from "@/lib/money"
 
 export type PurchaseInvoiceLine = {
   sku: string
   productName: string
   quantity: number
   unitCostPaisa: number
+  /** Taxable line value (qty × unit cost). */
   lineTotalPaisa: number
+  /** GST % applied to this line (exclusive). */
+  gstRate: number
+  gstPaisa: number
+  /** Empty string for bill-only (no GRN) lines. */
   goodsReceiptId: string
 }
 
@@ -32,7 +40,12 @@ export type PurchaseInvoiceRecord = {
   dueAt: string | null
   notes: string | null
   lines: PurchaseInvoiceLine[]
+  /** Sum of taxable line totals. */
   subtotalPaisa: number
+  gstPaisa: number
+  cgstPaisa: number
+  sgstPaisa: number
+  /** subtotal + gst (AP amount). */
   totalPaisa: number
   amountPaidPaisa: number
   /** Debit notes / purchase returns applied against this invoice. */
@@ -60,7 +73,8 @@ export type CreatePurchaseInvoiceInput = {
     productName?: string
     quantity: number
     unitCostPaisa: number
-    goodsReceiptId: string
+    gstRate?: number
+    goodsReceiptId?: string
   }>
   storeId?: string | null
   actorId?: string | null
@@ -111,6 +125,29 @@ function writeStore(store: PurchaseInvoiceStore) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
 }
 
+/** Build taxable + GST amounts for one exclusive-GST line. */
+export function buildPurchaseLineAmounts(input: {
+  quantity: number
+  unitCostPaisa: number
+  gstRate?: number
+}): { lineTotalPaisa: number; gstRate: number; gstPaisa: number } {
+  const qty = Math.max(0, Number(input.quantity) || 0)
+  const unit = Math.max(0, Math.round(Number(input.unitCostPaisa) || 0))
+  const gstRate = Math.max(0, Number(input.gstRate) || 0)
+  const lineTotalPaisa = Math.round(qty * unit)
+  const gstPaisa = percentOfPaisa(lineTotalPaisa, gstRate)
+  return { lineTotalPaisa, gstRate, gstPaisa }
+}
+
+export function splitPurchaseGst(gstPaisa: number): {
+  cgstPaisa: number
+  sgstPaisa: number
+} {
+  const gst = Math.max(0, roundPaisa(gstPaisa))
+  const cgstPaisa = Math.floor(gst / 2)
+  return { cgstPaisa, sgstPaisa: gst - cgstPaisa }
+}
+
 export function normalizePurchaseInvoice(
   raw: PurchaseInvoiceRecord | (Partial<PurchaseInvoiceRecord> & { id: string })
 ): PurchaseInvoiceRecord {
@@ -119,20 +156,45 @@ export function normalizePurchaseInvoice(
     ? raw.lines.map((l) => {
         const qty = Math.max(0, Number(l.quantity) || 0)
         const unit = Math.max(0, Math.round(Number(l.unitCostPaisa) || 0))
+        const built = buildPurchaseLineAmounts({
+          quantity: qty,
+          unitCostPaisa: unit,
+          gstRate: l.gstRate,
+        })
+        const lineTotalPaisa =
+          l.lineTotalPaisa != null
+            ? Math.max(0, Math.round(Number(l.lineTotalPaisa) || 0))
+            : built.lineTotalPaisa
+        const gstRate = Math.max(0, Number(l.gstRate) || 0)
+        const gstPaisa =
+          l.gstPaisa != null
+            ? Math.max(0, Math.round(Number(l.gstPaisa) || 0))
+            : percentOfPaisa(lineTotalPaisa, gstRate)
         return {
           sku: (l.sku || "").trim().toUpperCase(),
           productName: (l.productName || l.sku || "").trim(),
           quantity: qty,
           unitCostPaisa: unit,
-          lineTotalPaisa:
-            l.lineTotalPaisa != null
-              ? Math.max(0, Math.round(Number(l.lineTotalPaisa) || 0))
-              : Math.round(qty * unit),
+          lineTotalPaisa,
+          gstRate,
+          gstPaisa,
           goodsReceiptId: l.goodsReceiptId || "",
         }
       })
     : []
   const subtotal = lines.reduce((s, l) => s + l.lineTotalPaisa, 0)
+  const gstFromLines = lines.reduce((s, l) => s + l.gstPaisa, 0)
+  const gstPaisa =
+    raw.gstPaisa != null ? Math.max(0, Number(raw.gstPaisa) || 0) : gstFromLines
+  const split =
+    raw.cgstPaisa != null && raw.sgstPaisa != null
+      ? {
+          cgstPaisa: Math.max(0, Number(raw.cgstPaisa) || 0),
+          sgstPaisa: Math.max(0, Number(raw.sgstPaisa) || 0),
+        }
+      : splitPurchaseGst(gstPaisa)
+  const subtotalPaisa =
+    raw.subtotalPaisa != null ? Number(raw.subtotalPaisa) : subtotal
   return {
     id: raw.id,
     invoiceNumber: raw.invoiceNumber || raw.id,
@@ -147,8 +209,14 @@ export function normalizePurchaseInvoice(
     dueAt: raw.dueAt ?? null,
     notes: raw.notes?.trim() || null,
     lines,
-    subtotalPaisa: raw.subtotalPaisa != null ? Number(raw.subtotalPaisa) : subtotal,
-    totalPaisa: raw.totalPaisa != null ? Number(raw.totalPaisa) : subtotal,
+    subtotalPaisa,
+    gstPaisa,
+    cgstPaisa: split.cgstPaisa,
+    sgstPaisa: split.sgstPaisa,
+    totalPaisa:
+      raw.totalPaisa != null
+        ? Number(raw.totalPaisa)
+        : subtotalPaisa + gstPaisa,
     amountPaidPaisa: Math.max(0, Number(raw.amountPaidPaisa) || 0),
     amountCreditedPaisa: Math.max(0, Number(raw.amountCreditedPaisa) || 0),
     status: raw.status || "DRAFT",

@@ -2,6 +2,8 @@ import {
   getLocalPurchaseInvoice,
   listLocalPurchaseInvoices,
   nextPurchaseInvoiceNumber,
+  buildPurchaseLineAmounts,
+  splitPurchaseGst,
   upsertLocalPurchaseInvoice,
   type CreatePurchaseInvoiceInput,
   type PurchaseInvoiceRecord,
@@ -48,16 +50,25 @@ export class SupplierInvoiceRepository {
     const lines = input.lines.map((l) => {
       const qty = Number(l.quantity)
       const unit = Math.round(Number(l.unitCostPaisa))
+      const built = buildPurchaseLineAmounts({
+        quantity: qty,
+        unitCostPaisa: unit,
+        gstRate: l.gstRate,
+      })
       return {
         sku: l.sku.trim().toUpperCase(),
         productName: (l.productName || l.sku).trim(),
         quantity: qty,
         unitCostPaisa: unit,
-        lineTotalPaisa: Math.round(qty * unit),
-        goodsReceiptId: l.goodsReceiptId,
+        lineTotalPaisa: built.lineTotalPaisa,
+        gstRate: built.gstRate,
+        gstPaisa: built.gstPaisa,
+        goodsReceiptId: l.goodsReceiptId || "",
       }
     })
-    const total = lines.reduce((s, l) => s + l.lineTotalPaisa, 0)
+    const subtotal = lines.reduce((s, l) => s + l.lineTotalPaisa, 0)
+    const gstPaisa = lines.reduce((s, l) => s + l.gstPaisa, 0)
+    const split = splitPurchaseGst(gstPaisa)
     const record: PurchaseInvoiceRecord = {
       id: createId("pin"),
       invoiceNumber: nextPurchaseInvoiceNumber(),
@@ -70,8 +81,11 @@ export class SupplierInvoiceRepository {
       dueAt: input.dueAt ?? null,
       notes: input.notes?.trim() || null,
       lines,
-      subtotalPaisa: total,
-      totalPaisa: total,
+      subtotalPaisa: subtotal,
+      gstPaisa,
+      cgstPaisa: split.cgstPaisa,
+      sgstPaisa: split.sgstPaisa,
+      totalPaisa: subtotal + gstPaisa,
       amountPaidPaisa: 0,
       amountCreditedPaisa: 0,
       status: "DRAFT",
@@ -123,6 +137,8 @@ function toSheetsPayload(record: PurchaseInvoiceRecord) {
     goodsReceiptIds: record.goodsReceiptIds.join(","),
     status: record.status,
     billDate: record.billDate,
+    subtotalPaisa: record.subtotalPaisa,
+    gstPaisa: record.gstPaisa,
     totalPaisa: record.totalPaisa,
     amountPaidPaisa: record.amountPaidPaisa,
     storeId: record.storeId,

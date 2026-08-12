@@ -121,6 +121,7 @@ export class PurchaseReturnService {
     returnedQty: number
     remainingQty: number
     unitCostPaisa: number
+    gstRate: number
     goodsReceiptId: string
   }> {
     const returned = this.returnedQtyBySkuForInvoice(inv.id)
@@ -132,6 +133,7 @@ export class PurchaseReturnService {
         productName: string
         billedQty: number
         unitCostPaisa: number
+        gstRate: number
         goodsReceiptId: string
       }
     >()
@@ -145,6 +147,7 @@ export class PurchaseReturnService {
           productName: l.productName,
           billedQty: l.quantity,
           unitCostPaisa: l.unitCostPaisa,
+          gstRate: l.gstRate || 0,
           goodsReceiptId: l.goodsReceiptId,
         })
       }
@@ -229,6 +232,7 @@ export class PurchaseReturnService {
       remainingQty: number
       unitCostPaisa: number
       productName: string
+      gstRate: number
     }> = []
 
     if (purchaseInvoiceId) {
@@ -262,6 +266,7 @@ export class PurchaseReturnService {
         remainingQty: r.remainingQty,
         unitCostPaisa: r.unitCostPaisa,
         productName: r.productName,
+        gstRate: r.gstRate,
       }))
     } else if (goodsReceiptId) {
       const grn = goodsReceiptRepository.getById(goodsReceiptId)
@@ -294,6 +299,7 @@ export class PurchaseReturnService {
           remainingQty: r.remainingQty,
           unitCostPaisa: r.unitCostPaisa,
           productName: r.productName,
+          gstRate: r.gstRate,
         }))
       } else {
         returnable = this.remainingReturnableForGrn(grn).map((r) => ({
@@ -302,6 +308,7 @@ export class PurchaseReturnService {
           unitCostPaisa:
             r.unitCostRupees != null ? rupeesToPaisa(r.unitCostRupees) : 0,
           productName: r.productName,
+          gstRate: 0,
         }))
       }
     }
@@ -353,6 +360,7 @@ export class PurchaseReturnService {
         productName: cap.productName,
         quantity: qty,
         unitCostPaisa,
+        gstRate: cap.gstRate,
       })
     }
 

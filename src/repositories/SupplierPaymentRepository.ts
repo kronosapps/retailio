@@ -45,14 +45,25 @@ export class SupplierPaymentRepository {
     input: CreateSupplierPaymentInput
   ): Promise<SupplierPaymentRecord> {
     const now = new Date().toISOString()
+    const allocations = input.allocations.map((a) => ({
+      purchaseInvoiceId: a.purchaseInvoiceId,
+      invoiceNumber: a.invoiceNumber,
+      amountPaisa: Math.round(a.amountPaisa),
+    }))
+    const amountPaisa = allocations.reduce((s, a) => s + a.amountPaisa, 0)
+    const primary = allocations[0]
     const record: SupplierPaymentRecord = {
       id: createId("spay"),
       paymentNumber: nextSupplierPaymentNumber(),
       supplierId: input.supplierId,
       supplierName: input.supplierName.trim(),
-      purchaseInvoiceId: input.purchaseInvoiceId,
-      invoiceNumber: input.invoiceNumber,
-      amountPaisa: Math.round(input.amountPaisa),
+      purchaseInvoiceId: primary?.purchaseInvoiceId || "",
+      invoiceNumber:
+        allocations.length > 1
+          ? allocations.map((a) => a.invoiceNumber).join(", ")
+          : primary?.invoiceNumber || "",
+      amountPaisa,
+      allocations,
       method: input.method,
       status: "Paid",
       paidAt: input.paidAt || now,
@@ -88,6 +99,7 @@ function toEventPayload(record: SupplierPaymentRecord) {
     supplierName: record.supplierName,
     purchaseInvoiceId: record.purchaseInvoiceId,
     invoiceNumber: record.invoiceNumber,
+    allocations: record.allocations,
     amountPaisa: record.amountPaisa,
     /** Rupees — banking engine parity with sale payments. */
     amount: paisaToRupees(record.amountPaisa),

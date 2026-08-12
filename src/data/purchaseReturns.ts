@@ -1,3 +1,5 @@
+import { percentOfPaisa } from "@/lib/money"
+
 /**
  * Purchase returns (RTV / debit notes) — local offline-first store.
  * Stock is removed and AP credited only when a return is posted.
@@ -9,6 +11,8 @@ export type PurchaseReturnLine = {
   quantity: number
   unitCostPaisa: number
   lineTotalPaisa: number
+  gstRate: number
+  gstPaisa: number
 }
 
 export type PurchaseReturnStatus = "DRAFT" | "POSTED" | "CANCELLED"
@@ -31,6 +35,7 @@ export type PurchaseReturnRecord = {
   notes: string | null
   lines: PurchaseReturnLine[]
   subtotalPaisa: number
+  gstPaisa: number
   totalPaisa: number
   storeId: string | null
   createdAt: string
@@ -55,6 +60,7 @@ export type CreatePurchaseReturnInput = {
     productName?: string
     quantity: number
     unitCostPaisa: number
+    gstRate?: number
   }>
   storeId?: string | null
   actorId?: string | null
@@ -113,19 +119,30 @@ export function normalizePurchaseReturn(
     ? raw.lines.map((l) => {
         const qty = Math.max(0, Number(l.quantity) || 0)
         const unit = Math.max(0, Math.round(Number(l.unitCostPaisa) || 0))
+        const lineTotalPaisa =
+          l.lineTotalPaisa != null
+            ? Math.max(0, Math.round(Number(l.lineTotalPaisa) || 0))
+            : Math.round(qty * unit)
+        const gstRate = Math.max(0, Number(l.gstRate) || 0)
+        const gstPaisa =
+          l.gstPaisa != null
+            ? Math.max(0, Math.round(Number(l.gstPaisa) || 0))
+            : percentOfPaisa(lineTotalPaisa, gstRate)
         return {
           sku: (l.sku || "").trim().toUpperCase(),
           productName: (l.productName || l.sku || "").trim(),
           quantity: qty,
           unitCostPaisa: unit,
-          lineTotalPaisa:
-            l.lineTotalPaisa != null
-              ? Math.max(0, Math.round(Number(l.lineTotalPaisa) || 0))
-              : Math.round(qty * unit),
+          lineTotalPaisa,
+          gstRate,
+          gstPaisa,
         }
       })
     : []
   const subtotal = lines.reduce((s, l) => s + l.lineTotalPaisa, 0)
+  const gstFromLines = lines.reduce((s, l) => s + l.gstPaisa, 0)
+  const gstPaisa =
+    raw.gstPaisa != null ? Number(raw.gstPaisa) : gstFromLines
   return {
     id: raw.id,
     returnNumber: raw.returnNumber || raw.id,
@@ -141,7 +158,11 @@ export function normalizePurchaseReturn(
     notes: raw.notes?.trim() || null,
     lines,
     subtotalPaisa: raw.subtotalPaisa != null ? Number(raw.subtotalPaisa) : subtotal,
-    totalPaisa: raw.totalPaisa != null ? Number(raw.totalPaisa) : subtotal,
+    gstPaisa,
+    totalPaisa:
+      raw.totalPaisa != null
+        ? Number(raw.totalPaisa)
+        : subtotal + gstPaisa,
     storeId: raw.storeId ?? null,
     createdAt: raw.createdAt || now,
     updatedAt: raw.updatedAt || raw.createdAt || now,
