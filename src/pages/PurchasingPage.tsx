@@ -4,6 +4,8 @@ import { useEffect } from "react"
 import {
   PurchaseOrderService,
   PurchaseReceivingService,
+  SupplierInvoiceService,
+  SupplierPaymentService,
 } from "@/modules/purchasing"
 import { SupplierService } from "@/modules/supplier"
 import { cn } from "@/lib/utils"
@@ -12,17 +14,21 @@ const TABS = [
   { to: "/purchasing/suppliers", label: "Suppliers" },
   { to: "/purchasing/orders", label: "Purchase Orders" },
   { to: "/purchasing/goods-received", label: "Goods Received" },
+  { to: "/purchasing/invoices", label: "Purchase Invoices" },
+  { to: "/purchasing/payments", label: "Supplier Payments" },
+  { to: "/purchasing/statements", label: "Statements" },
 ] as const
 
 /**
- * Purchasing shell — Suppliers, POs, Goods Received.
- * Later: Invoices, Returns, Payments, Statements.
+ * Purchasing shell — Suppliers through AP / payments / statements.
  */
 export function PurchasingPage() {
   useEffect(() => {
     void SupplierService.hydrate()
     void PurchaseOrderService.hydrate()
     void PurchaseReceivingService.hydrate()
+    void SupplierInvoiceService.hydrate()
+    void SupplierPaymentService.hydrate()
   }, [])
 
   return (
@@ -30,8 +36,8 @@ export function PurchasingPage() {
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Purchasing</h1>
         <p className="text-sm text-muted-foreground">
-          Suppliers, purchase orders, and goods received. Posted GRNs are the
-          purchase path into inventory — not expenses.
+          Suppliers, orders, goods received, invoices, and payments. Posted GRNs
+          stock inventory; posted invoices create AP — not expenses.
         </p>
       </header>
 

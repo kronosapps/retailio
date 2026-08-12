@@ -8,6 +8,8 @@ export const COLLECTIONS = {
   SUPPLIERS: "suppliers",
   PURCHASE_ORDERS: "purchase_orders",
   GOODS_RECEIPTS: "goods_receipts",
+  PURCHASE_INVOICES: "purchase_invoices",
+  SUPPLIER_PAYMENTS: "supplier_payments",
   INVOICES: "invoices",
   PAYMENTS: "payments",
   REFUNDS: "refunds",

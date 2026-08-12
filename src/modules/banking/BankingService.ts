@@ -200,4 +200,27 @@ export class BankingService {
       createdAt: input.createdAt || undefined,
     })
   }
+
+  /** Called by BankingEngine on SUPPLIER_PAYMENT_RECORDED (no passcode). */
+  static recordSupplierPayment(input: {
+    paymentId: string
+    amountRupees: number
+    paymentMethod: string
+    invoiceNumber?: string | null
+    storeId?: string | null
+    paidAt?: string | null
+  }) {
+    const channel =
+      input.paymentMethod === "Cash" ? "cash" : ("upi" as const)
+    return appendLedgerEntry({
+      channel,
+      direction: "out",
+      amountPaisa: rupeesToPaisa(input.amountRupees),
+      source: "supplier_payment",
+      reference: input.paymentId,
+      note: `Supplier pay ${input.invoiceNumber || ""}`.trim(),
+      storeId: input.storeId ?? env.storeId,
+      createdAt: input.paidAt || undefined,
+    })
+  }
 }

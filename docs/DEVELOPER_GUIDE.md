@@ -51,8 +51,10 @@
 1. Supplier CRUD → `SupplierService` → `SupplierRepository` (never Firestore from UI).
 2. PO draft/issue → `PurchaseOrderService` → `PurchaseOrderRepository` (no stock).
 3. GRN → `PurchaseReceivingService.receiveAdHoc` or `receiveAgainstPo` → `GoodsReceiptRepository` + `InventoryService.addStock` (`PURCHASE`, `referenceId = grn.id`). Against PO: block qty > remaining; then `PurchaseOrderService.applyReceipt`.
-4. Routes: `/purchasing/suppliers`, `/purchasing/orders`, `/purchasing/goods-received` (admin/manager).
-5. Do not increase stock when creating a supplier or PO. Prefer GRN for supplier purchases; Inventory “Add stock” remains for quick/opening adjustments.
+4. Purchase invoice → `SupplierInvoiceService.createFromGrns` / `post` (from posted unbilled GRNs with unit costs). Emits `PURCHASE_INVOICE_POSTED` → AccountingEngine (Dr Inventory / Cr AP). No stock.
+5. Supplier payment → `SupplierPaymentService.payInvoice` (Cash/UPI, ≤ remaining). Emits `SUPPLIER_PAYMENT_RECORDED` → AccountingEngine + BankingEngine.
+6. Routes: `/purchasing/suppliers`, `/orders`, `/goods-received`, `/invoices`, `/payments`, `/statements` (admin/manager).
+7. Do not increase stock on supplier/PO/invoice create. Expenses stay OpEx (Utilities), not inventory buys.
 
 ## Utilities
 

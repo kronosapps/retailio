@@ -1,7 +1,10 @@
 import { Navigate } from "react-router-dom"
 
 import { GoodsReceivedView } from "@/modules/purchasing/components/GoodsReceivedView"
+import { PurchaseInvoicesView } from "@/modules/purchasing/components/PurchaseInvoicesView"
 import { PurchaseOrdersView } from "@/modules/purchasing/components/PurchaseOrdersView"
+import { SupplierPaymentsView } from "@/modules/purchasing/components/SupplierPaymentsView"
+import { SupplierStatementsView } from "@/modules/purchasing/components/SupplierStatementsView"
 import { SuppliersView } from "@/modules/supplier/components/SuppliersView"
 
 export function PurchasingIndexRedirect() {
@@ -18,4 +21,16 @@ export function PurchasingOrdersPage() {
 
 export function PurchasingGoodsReceivedPage() {
   return <GoodsReceivedView />
+}
+
+export function PurchasingInvoicesPage() {
+  return <PurchaseInvoicesView />
+}
+
+export function PurchasingPaymentsPage() {
+  return <SupplierPaymentsView />
+}
+
+export function PurchasingStatementsPage() {
+  return <SupplierStatementsView />
 }

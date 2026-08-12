@@ -239,3 +239,124 @@ describe("PurchaseOrderService + GRN against PO", () => {
     expect(PurchaseOrderService.getById(po.id)?.status).toBe("RECEIVED")
   })
 })
+
+describe("SupplierInvoice + SupplierPayment (AP)", () => {
+  beforeEach(() => {
+    vi.resetModules()
+    // @ts-expect-error test polyfill
+    globalThis.localStorage = memoryStorage()
+  })
+
+  async function seedPostedGrn() {
+    const { ProductService } = await import("@/modules/products/ProductService")
+    const { SupplierService } = await import("@/modules/supplier/SupplierService")
+    const { PurchaseReceivingService } = await import(
+      "@/modules/purchasing/PurchaseReceivingService"
+    )
+
+    await ProductService.create({
+      name: "AP Item",
+      sku: "AP-SKU-1",
+      category: "Test",
+      sellingPrice: 100,
+      costPrice: 50,
+      storeId: "store-1",
+      actorId: "t",
+    })
+    const supplier = await SupplierService.create(
+      { name: "AP Vendor", storeId: "store-1" },
+      "t"
+    )
+    const grn = await PurchaseReceivingService.receiveAdHoc({
+      supplierId: supplier.id,
+      lines: [{ sku: "AP-SKU-1", quantity: 2, unitCostRupees: 50 }],
+      storeId: "store-1",
+      actorId: "t",
+    })
+    return { supplier, grn }
+  }
+
+  it("posts invoice from GRN without changing stock; blocks overpay; partial then paid", async () => {
+    const { InventoryService } = await import(
+      "@/modules/inventory/InventoryService"
+    )
+    const { SupplierInvoiceService } = await import(
+      "@/modules/purchasing/SupplierInvoiceService"
+    )
+    const { SupplierPaymentService, SupplierPaymentError } = await import(
+      "@/modules/purchasing/SupplierPaymentService"
+    )
+    const { EventPublisher } = await import("@/events/EventPublisher")
+    const { EventTypes } = await import("@/events/EventTypes")
+
+    const { grn } = await seedPostedGrn()
+    const stockBefore = InventoryService.getCurrentStock("AP-SKU-1")
+
+    const inv = await SupplierInvoiceService.createFromGrns({
+      goodsReceiptIds: [grn.id],
+      actorId: "t",
+      issueAndPost: true,
+    })
+
+    expect(inv.status).toBe("POSTED")
+    expect(inv.totalPaisa).toBe(10000) // 2 * ₹50
+    expect(InventoryService.getCurrentStock("AP-SKU-1")).toBe(stockBefore)
+    expect(EventPublisher.publish).toHaveBeenCalledWith(
+      EventTypes.PURCHASE_INVOICE_POSTED,
+      expect.objectContaining({ id: inv.id, status: "POSTED" }),
+      "store-1"
+    )
+
+    await expect(
+      SupplierPaymentService.payInvoice({
+        purchaseInvoiceId: inv.id,
+        amountRupees: 200,
+        method: "Cash",
+        actorId: "t",
+      })
+    ).rejects.toBeInstanceOf(SupplierPaymentError)
+
+    await SupplierPaymentService.payInvoice({
+      purchaseInvoiceId: inv.id,
+      amountRupees: 40,
+      method: "Cash",
+      actorId: "t",
+    })
+    expect(SupplierInvoiceService.getById(inv.id)?.status).toBe("PARTIAL")
+
+    await SupplierPaymentService.payInvoice({
+      purchaseInvoiceId: inv.id,
+      amountRupees: 60,
+      method: "UPI",
+      actorId: "t",
+    })
+    const paid = SupplierInvoiceService.getById(inv.id)!
+    expect(paid.status).toBe("PAID")
+    expect(paid.amountPaidPaisa).toBe(10000)
+    expect(EventPublisher.publish).toHaveBeenCalledWith(
+      EventTypes.SUPPLIER_PAYMENT_RECORDED,
+      expect.objectContaining({ purchaseInvoiceId: inv.id, status: "Paid" }),
+      "store-1"
+    )
+  })
+
+  it("rejects double-billing the same GRN", async () => {
+    const { SupplierInvoiceService, SupplierInvoiceError } = await import(
+      "@/modules/purchasing/SupplierInvoiceService"
+    )
+    const { grn } = await seedPostedGrn()
+
+    await SupplierInvoiceService.createFromGrns({
+      goodsReceiptIds: [grn.id],
+      actorId: "t",
+      issueAndPost: true,
+    })
+
+    await expect(
+      SupplierInvoiceService.createFromGrns({
+        goodsReceiptIds: [grn.id],
+        actorId: "t",
+      })
+    ).rejects.toBeInstanceOf(SupplierInvoiceError)
+  })
+})

@@ -1,4 +1,6 @@
 import type { RecordedSale } from "@/data/invoices"
+import type { PurchaseInvoiceRecord } from "@/data/purchaseInvoices"
+import type { SupplierPaymentRecord } from "@/data/supplierPayments"
 import { rupeesToPaisa } from "@/lib/money"
 import type { ExpenseRecord } from "@/repositories/ExpenseRepository"
 
@@ -127,6 +129,63 @@ export class AccountingRules {
       source: opts?.source ?? "posted",
       eventId: opts?.eventId ?? null,
       storeId: expense.storeId,
+    }
+  }
+
+  /** Posted purchase invoice → Dr Inventory / Cr Accounts Payable. */
+  static fromPurchaseInvoice(
+    invoice: PurchaseInvoiceRecord,
+    opts?: { eventId?: string | null; source?: JournalEntry["source"] }
+  ): JournalEntry {
+    const amount = Math.max(0, Math.round(invoice.totalPaisa))
+    const date = (invoice.postedAt || invoice.billDate || invoice.createdAt).slice(
+      0,
+      10
+    )
+    return {
+      id: `je_pin_${invoice.id}`,
+      date,
+      createdAt: invoice.postedAt || invoice.createdAt,
+      description: `Purchase invoice ${invoice.invoiceNumber}`,
+      referenceType: "purchase_invoice",
+      referenceId: invoice.id,
+      operatorId: invoice.updatedBy ?? invoice.createdBy,
+      operatorName: null,
+      paymentMethod: null,
+      lines: [
+        journalLine(ACCOUNT_CODES.INVENTORY, amount, 0),
+        journalLine(ACCOUNT_CODES.AP, 0, amount),
+      ],
+      source: opts?.source ?? "posted",
+      eventId: opts?.eventId ?? null,
+      storeId: invoice.storeId,
+    }
+  }
+
+  /** Supplier payment → Dr Accounts Payable / Cr Cash|UPI. */
+  static fromSupplierPayment(
+    payment: SupplierPaymentRecord,
+    opts?: { eventId?: string | null; source?: JournalEntry["source"] }
+  ): JournalEntry {
+    const amount = Math.max(0, Math.round(payment.amountPaisa))
+    const tender = tenderAccount(payment.method)
+    return {
+      id: `je_spay_${payment.id}`,
+      date: payment.paidAt.slice(0, 10),
+      createdAt: payment.paidAt,
+      description: `Supplier payment ${payment.paymentNumber} (${payment.invoiceNumber})`,
+      referenceType: "supplier_payment",
+      referenceId: payment.id,
+      operatorId: payment.createdBy,
+      operatorName: null,
+      paymentMethod: payment.method,
+      lines: [
+        journalLine(ACCOUNT_CODES.AP, amount, 0),
+        journalLine(tender, 0, amount),
+      ],
+      source: opts?.source ?? "posted",
+      eventId: opts?.eventId ?? null,
+      storeId: payment.storeId,
     }
   }
 

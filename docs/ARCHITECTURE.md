@@ -51,16 +51,18 @@ No layer may skip another layer.
 
 ## Firestore collections
 
-`products` · `customers` · `suppliers` · `purchase_orders` · `goods_receipts` · `inventory` · `inventory_movements` · `categories` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events`
+`products` · `customers` · `suppliers` · `purchase_orders` · `goods_receipts` · `purchase_invoices` · `supplier_payments` · `inventory` · `inventory_movements` · `categories` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events`
 
-### Purchasing (Phases 1–3)
+### Purchasing (Phases 1–5)
 
-- Nav: `/purchasing` (admin/manager) — Suppliers, Purchase Orders, Goods Received (AP later).
+- Nav: `/purchasing` (admin/manager) — Suppliers, POs, Goods Received, Purchase Invoices, Supplier Payments, Statements (returns later).
 - **Suppliers:** `SupplierService` → `SupplierRepository` → `suppliers` + `retailos.suppliers.v1`.
-- **Purchase Orders:** `PurchaseOrderService` → `PurchaseOrderRepository` → `purchase_orders` + `retailos.purchase_orders.v1`. Draft → Issue; does **not** change stock.
-- **Goods Received:** `PurchaseReceivingService.receiveAdHoc` or `receiveAgainstPo` → `goods_receipts` → for each line `InventoryService.addStock({ type: "PURCHASE", referenceId: grnId })`. Against PO: over-receipt blocked; updates PO `quantityReceived` / status (`PARTIAL` / `RECEIVED`).
-- Events: `SUPPLIER_*`, `PURCHASE_ORDER_*`, `GOODS_RECEIVED` (live Sheets).
-- Stock must not appear from supplier or PO create alone; purchase stock-in is explained by a posted GRN.
+- **Purchase Orders:** `PurchaseOrderService` → `PurchaseOrderRepository` → `purchase_orders`. Draft → Issue; does **not** change stock.
+- **Goods Received:** `PurchaseReceivingService` → `goods_receipts` → `InventoryService.addStock({ type: "PURCHASE", referenceId: grnId })`.
+- **Purchase Invoices (AP):** `SupplierInvoiceService.createFromGrns` / `post` → `purchase_invoices`. Dr Inventory / Cr AP via `PURCHASE_INVOICE_POSTED` → `AccountingEngine`. No stock change.
+- **Supplier Payments:** `SupplierPaymentService.payInvoice` → `supplier_payments`. Dr AP / Cr Cash|UPI; banking ledger out via `SUPPLIER_PAYMENT_RECORDED`.
+- Events: `SUPPLIER_*`, `PURCHASE_ORDER_*`, `GOODS_RECEIVED`, `PURCHASE_INVOICE_*`, `SUPPLIER_PAYMENT_RECORDED` (live Sheets).
+- Stock only from posted GRN; AP only from posted purchase invoice; expenses remain OpEx.
 
 Repositories own exactly one collection each (see `src/repositories/`).
 
@@ -163,6 +165,8 @@ Supported types (`src/events/EventTypes.ts`):
 - `SUPPLIER_CREATED` / `SUPPLIER_UPDATED`
 - `PURCHASE_ORDER_CREATED` / `PURCHASE_ORDER_UPDATED` / `PURCHASE_ORDER_ISSUED`
 - `GOODS_RECEIVED`
+- `PURCHASE_INVOICE_CREATED` / `PURCHASE_INVOICE_POSTED` / `PURCHASE_INVOICE_UPDATED`
+- `SUPPLIER_PAYMENT_RECORDED`
 - `EXPENSE_CREATED`
 
 Flow: repository write → `EventPublisher.publish` → `EventBus` → `SyncManager` enqueues → provider.

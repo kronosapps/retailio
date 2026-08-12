@@ -91,6 +91,38 @@ const ROUTES: Partial<Record<string, SheetRoute>> = {
       }
     },
   },
+  [EventTypes.PURCHASE_INVOICE_CREATED]: {
+    sheet: "PurchaseInvoices",
+    sync: async (p, data) => {
+      if (typeof p.syncPurchaseInvoice === "function") {
+        await p.syncPurchaseInvoice(data)
+      }
+    },
+  },
+  [EventTypes.PURCHASE_INVOICE_POSTED]: {
+    sheet: "PurchaseInvoices",
+    sync: async (p, data) => {
+      if (typeof p.syncPurchaseInvoice === "function") {
+        await p.syncPurchaseInvoice(data)
+      }
+    },
+  },
+  [EventTypes.PURCHASE_INVOICE_UPDATED]: {
+    sheet: "PurchaseInvoices",
+    sync: async (p, data) => {
+      if (typeof p.syncPurchaseInvoice === "function") {
+        await p.syncPurchaseInvoice(data)
+      }
+    },
+  },
+  [EventTypes.SUPPLIER_PAYMENT_RECORDED]: {
+    sheet: "SupplierPayments",
+    sync: async (p, data) => {
+      if (typeof p.syncSupplierPayment === "function") {
+        await p.syncSupplierPayment(data)
+      }
+    },
+  },
   [EventTypes.EXPENSE_CREATED]: {
     sheet: "Expenses",
     sync: (p, data) => p.syncExpense(data),

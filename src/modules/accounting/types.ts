@@ -36,6 +36,8 @@ export type JournalEntry = {
     | "banking"
     | "opening"
     | "inventory"
+    | "purchase_invoice"
+    | "supplier_payment"
   referenceId: string
   operatorId: string | null
   operatorName: string | null

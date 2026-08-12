@@ -17,6 +17,8 @@ export interface SyncProvider {
   syncSupplier(data: unknown): Promise<void>
   syncPurchaseOrder?(data: unknown): Promise<void>
   syncGoodsReceipt?(data: unknown): Promise<void>
+  syncPurchaseInvoice?(data: unknown): Promise<void>
+  syncSupplierPayment?(data: unknown): Promise<void>
   syncExpense(data: unknown): Promise<void>
   /** End-of-day batch: many rows for one sheet in a single request when supported. */
   syncBatch?(sheet: string, rows: unknown[]): Promise<void>

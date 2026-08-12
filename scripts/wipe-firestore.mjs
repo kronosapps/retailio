@@ -22,6 +22,8 @@ const COLLECTIONS_TO_WIPE = [
   "suppliers",
   "purchase_orders",
   "goods_receipts",
+  "purchase_invoices",
+  "supplier_payments",
   "invoices",
   "payments",
   "refunds",
