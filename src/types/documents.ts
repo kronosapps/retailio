@@ -95,6 +95,14 @@ export interface Supplier extends BaseDocument {
   name: string
   phone?: string
   email?: string
+  gstin?: string
+  address?: string
+  city?: string
+  state?: string
+  pin?: string
+  paymentTerms?: string
+  notes?: string
+  active?: boolean
   storeId: string | null
 }
 

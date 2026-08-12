@@ -51,7 +51,14 @@ No layer may skip another layer.
 
 ## Firestore collections
 
-`products` · `customers` · `suppliers` · `inventory` · `inventory_movements` · `categories` · `invoices` · `payments` · `refunds` · `expenses` · `users` · `settings` · `sync_events`
+`products` · `customers` · `suppliers` · `inventory` · `inventory_movements` · `categories` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events`
+
+### Purchasing (Phase 1)
+
+- Nav: `/purchasing` (admin/manager) — shell for future PO/GRN/AP.
+- **Suppliers:** `SupplierService` → `SupplierRepository` → `suppliers` + `retailos.suppliers.v1`.
+- Events: `SUPPLIER_CREATED` / `SUPPLIER_UPDATED` (live Sheets).
+- Stock still must not appear from supplier create; GRN (later phase) will call `InventoryService.addStock`.
 
 Repositories own exactly one collection each (see `src/repositories/`).
 
@@ -151,7 +158,7 @@ Supported types (`src/events/EventTypes.ts`):
 - `CATEGORY_CREATED` / `CATEGORY_UPDATED`
 - `CUSTOMER_CREATED` / `CUSTOMER_UPDATED`
 - `REFUND_CREATED` / `REFUND_UPDATED` / `PAYMENT_REFUNDED`
-- `SUPPLIER_CREATED`
+- `SUPPLIER_CREATED` / `SUPPLIER_UPDATED`
 - `EXPENSE_CREATED`
 
 Flow: repository write → `EventPublisher.publish` → `EventBus` → `SyncManager` enqueues → provider.

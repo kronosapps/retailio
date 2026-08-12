@@ -46,6 +46,12 @@
 5. Do not call Firestore or Apps Script from `ReportsPage`.
 6. Route: `/reports` (admin/manager).
 
+## Purchasing / Suppliers
+
+1. Supplier CRUD → `SupplierService` → `SupplierRepository` (never Firestore from UI).
+2. Route: `/purchasing/suppliers` (admin/manager). Shell ready for PO/GRN/invoices later.
+3. Do not increase stock when creating a supplier — only future Goods Received may call `InventoryService.addStock`.
+
 ## Utilities
 
 1. Landing + tools catalog: `src/modules/utilities/catalog.ts` (RBAC per tool).

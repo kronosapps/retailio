@@ -13,6 +13,7 @@ export const LIVE_SHEET_EVENTS = new Set<EventType>([
   EventTypes.CATEGORY_CREATED,
   EventTypes.CATEGORY_UPDATED,
   EventTypes.SUPPLIER_CREATED,
+  EventTypes.SUPPLIER_UPDATED,
   EventTypes.EXPENSE_CREATED,
 ])
 

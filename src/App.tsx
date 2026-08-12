@@ -9,6 +9,11 @@ import { PosLayout } from "@/layouts/PosLayout"
 import { BankingPage } from "@/pages/BankingPage"
 import { CustomersPage } from "@/pages/CustomersPage"
 import { DashboardPage } from "@/pages/DashboardPage"
+import { PurchasingPage } from "@/pages/PurchasingPage"
+import {
+  PurchasingIndexRedirect,
+  PurchasingSuppliersPage,
+} from "@/pages/purchasing/PurchasingSuppliersPage"
 import { InventoryPage } from "@/pages/InventoryPage"
 import { InventoryIndexRedirect } from "@/pages/inventory/InventoryItemsPage"
 import { InventoryItemsPage } from "@/pages/inventory/InventoryItemsPage"
@@ -157,6 +162,10 @@ export default function App() {
               <Route path="categories" element={<InventoryCategoriesPage />} />
             </Route>
             <Route path="/customers" element={<CustomersPage />} />
+            <Route path="/purchasing" element={<PurchasingPage />}>
+              <Route index element={<PurchasingIndexRedirect />} />
+              <Route path="suppliers" element={<PurchasingSuppliersPage />} />
+            </Route>
             <Route path="/transactions" element={<TransactionsPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route

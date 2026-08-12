@@ -199,9 +199,10 @@ Canonical docs: [`ARCHITECTURE.md`](./ARCHITECTURE.md), [`DEVELOPER_GUIDE.md`](.
 
 - Admin Staff page: list/create staff; roles admin|manager|cashier.
 
-### Expenses / Suppliers
+### Expenses / Suppliers / Purchasing
 
-- Types/events and repos exist; Sheets sync aware; less prominent in main nav depending on UI completeness.
+- Expenses: Utilities → Add Expense / Expense Reports.
+- **Purchasing (Phase 1):** `/purchasing/suppliers` — supplier master via `SupplierService` → `SupplierRepository` (local + Firestore + `SUPPLIER_CREATED` / `SUPPLIER_UPDATED` → Sheets). Later: PO → GRN → Invoice → AP → Payment.
 
 ---
 
