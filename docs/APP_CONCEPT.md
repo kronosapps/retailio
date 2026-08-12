@@ -110,7 +110,8 @@ Canonical docs: [`ARCHITECTURE.md`](./ARCHITECTURE.md), [`DEVELOPER_GUIDE.md`](.
 | `/transactions` | admin, manager |
 | `/invoices/:id` | admin, manager |
 | `/banking` | **admin only** |
-| `/options` Admin Options | admin |
+| `/settings` Settings Center | admin |
+| `/options` | redirects to `/settings` |
 | `/staff` Staff management | admin |
 
 - Cashier home = `/pos`; manager/admin home = `/`.
@@ -129,7 +130,7 @@ Canonical docs: [`ARCHITECTURE.md`](./ARCHITECTURE.md), [`DEVELOPER_GUIDE.md`](.
 - `/login` — guest only
 - Authenticated + permissioned:
   - PosLayout: `/pos`
-  - AppLayout: `/`, `/inventory`, `/customers`, `/transactions`, `/invoices/:invoiceId`, `/options`, `/banking`, `/staff`
+  - AppLayout: `/`, `/inventory`, `/customers`, `/transactions`, `/invoices/:invoiceId`, `/settings`, `/banking`, `/staff`
 - `*` → redirect `/`
 
 ---

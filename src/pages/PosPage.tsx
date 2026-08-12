@@ -61,6 +61,7 @@ import { PosCartPanel } from "@/modules/pos/components/PosCartPanel"
 import { ReceiptDialog } from "@/modules/receipt"
 import { ProductService } from "@/modules/products"
 import { DayOpsService } from "@/modules/dayOps"
+import { getPosSettings } from "@/modules/settings"
 import {
   LOYALTY_REWARD_ITEMS,
   getLoyaltyRewardItem,
@@ -681,7 +682,10 @@ export function PosPage() {
     const sessionId = store.activeSessionId
     updatePosSession(sessionId, { chargeError: null })
 
-    if (!DayOpsService.isStoreDayOpen(profile?.storeId ?? null)) {
+    if (
+      getPosSettings().requireDayOpen &&
+      !DayOpsService.isStoreDayOpen(profile?.storeId ?? null)
+    ) {
       setDayOpen(false)
       if (!dayGateAck) {
         const ok = window.confirm(

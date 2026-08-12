@@ -11,6 +11,7 @@ import { inventoryRepository } from "@/repositories/InventoryRepository"
 import { inventoryLotRepository } from "@/repositories/InventoryLotRepository"
 import { inventoryMovementRepository } from "@/repositories/InventoryMovementRepository"
 import { productRepository } from "@/repositories/ProductRepository"
+import { resolveDefaultReorderLevel } from "@/modules/settings/inventorySettings"
 
 import {
   DEFAULT_REORDER_LEVEL,
@@ -27,6 +28,10 @@ import {
   type StockRow,
   type StockStatus,
 } from "./types"
+
+function fallbackReorderLevel() {
+  return resolveDefaultReorderLevel() || DEFAULT_REORDER_LEVEL
+}
 
 export class InventoryError extends Error {
   code:
@@ -101,7 +106,7 @@ export class InventoryService {
           bySku.get(product.sku.trim().toLowerCase()) ??
           inventoryRepository.findByProductId(product.productId)
         const quantity = inv?.quantity ?? 0
-        const reorderLevel = product.reorderLevel ?? DEFAULT_REORDER_LEVEL
+        const reorderLevel = product.reorderLevel ?? fallbackReorderLevel()
         return toStockRow(product, quantity, inv?.id ?? null, inv?.updatedAt ?? null, reorderLevel)
       })
 
@@ -128,10 +133,10 @@ export class InventoryService {
         sellingPrice: 0,
         costPrice: null,
         gstRate: 0,
-        reorderLevel: DEFAULT_REORDER_LEVEL,
+        reorderLevel: fallbackReorderLevel(),
         active: true,
         quantity: inv.quantity,
-        status: resolveStockStatus(inv.quantity, DEFAULT_REORDER_LEVEL),
+        status: resolveStockStatus(inv.quantity, fallbackReorderLevel()),
         inventoryId: inv.id,
         updatedAt: inv.updatedAt,
       })
@@ -784,7 +789,7 @@ export class InventoryService {
       "Cost Price": p.purchasePrice,
       "Selling Price": p.sellingPrice,
       GST: p.gstRate,
-      "Reorder Level": p.reorderLevel ?? DEFAULT_REORDER_LEVEL,
+      "Reorder Level": p.reorderLevel ?? fallbackReorderLevel(),
       Active: p.active,
       "Created At": p.createdAt,
       "Updated At": p.updatedAt,

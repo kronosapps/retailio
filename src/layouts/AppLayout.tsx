@@ -41,6 +41,7 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   "/reports": ChartColumn,
   "/utilities": Wrench,
   "/banking": Landmark,
+  "/settings": Settings2,
   "/options": Settings2,
   "/staff": UserCog,
 }

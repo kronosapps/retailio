@@ -46,6 +46,52 @@ import { ShiftsPage } from "@/pages/ShiftsPage"
 import { ReturnsPage } from "@/pages/ReturnsPage"
 import { TransactionsPage } from "@/pages/TransactionsPage"
 
+const SettingsLayout = lazy(() =>
+  import("@/pages/settings/SettingsLayout").then((m) => ({
+    default: m.SettingsLayout,
+  }))
+)
+const SettingsHomePage = lazy(() =>
+  import("@/pages/settings/SettingsHomePage").then((m) => ({
+    default: m.SettingsHomePage,
+  }))
+)
+const SettingsInvoicePage = lazy(() =>
+  import("@/pages/settings/SettingsInvoicePage").then((m) => ({
+    default: m.SettingsInvoicePage,
+  }))
+)
+const SettingsTaxPage = lazy(() =>
+  import("@/pages/settings/SettingsTaxPage").then((m) => ({
+    default: m.SettingsTaxPage,
+  }))
+)
+const SettingsInventoryPage = lazy(() =>
+  import("@/pages/settings/SettingsInventoryPage").then((m) => ({
+    default: m.SettingsInventoryPage,
+  }))
+)
+const SettingsPosPage = lazy(() =>
+  import("@/pages/settings/SettingsPosPage").then((m) => ({
+    default: m.SettingsPosPage,
+  }))
+)
+const SettingsPaymentsPage = lazy(() =>
+  import("@/pages/settings/SettingsPaymentsPage").then((m) => ({
+    default: m.SettingsPaymentsPage,
+  }))
+)
+const SettingsNotificationsPage = lazy(() =>
+  import("@/pages/settings/SettingsNotificationsPage").then((m) => ({
+    default: m.SettingsNotificationsPage,
+  }))
+)
+const SettingsIntegrationsPage = lazy(() =>
+  import("@/pages/settings/SettingsIntegrationsPage").then((m) => ({
+    default: m.SettingsIntegrationsPage,
+  }))
+)
+
 const UtilitiesLayout = lazy(() =>
   import("@/pages/utilities/UtilitiesLayout").then((m) => ({
     default: m.UtilitiesLayout,
@@ -341,6 +387,29 @@ export default function App() {
               element={<InvoiceDetailsPage />}
             />
             <Route path="/options" element={<OptionsPage />} />
+            <Route
+              path="/settings"
+              element={
+                <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Loading settings…</p>}>
+                  <SettingsLayout />
+                </Suspense>
+              }
+            >
+              <Route index element={<SettingsHomePage />} />
+              <Route path="invoice" element={<SettingsInvoicePage />} />
+              <Route path="tax" element={<SettingsTaxPage />} />
+              <Route path="inventory" element={<SettingsInventoryPage />} />
+              <Route path="pos" element={<SettingsPosPage />} />
+              <Route path="payments" element={<SettingsPaymentsPage />} />
+              <Route
+                path="notifications"
+                element={<SettingsNotificationsPage />}
+              />
+              <Route
+                path="integrations"
+                element={<SettingsIntegrationsPage />}
+              />
+            </Route>
             <Route path="/banking" element={<BankingPage />} />
             <Route path="/staff" element={<StaffPage />} />
           </Route>

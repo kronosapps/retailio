@@ -342,6 +342,10 @@ The Payment Module does **not** know Google Sheets exists.
 
 ## Configuration (`.env`)
 
+Infrastructure reads **`src/core/config/env.ts`** only — never scatter `import.meta.env`.
+
+Business settings (identity, tax mode, payments, alerts, inventory defaults) use the **Settings Center** (`/settings`) and store/local settings stores — see [`SETTINGS.md`](./SETTINGS.md).
+
 ```env
 VITE_FIREBASE_API_KEY=
 VITE_FIREBASE_PROJECT_ID=
