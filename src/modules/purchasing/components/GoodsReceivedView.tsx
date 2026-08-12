@@ -30,6 +30,8 @@ type DraftLine = {
   sku: string
   quantity: string
   unitCostRupees: string
+  expiryDate: string
+  batchCode: string
   notes: string
   /** When receiving against PO — max remaining. */
   maxQty?: number
@@ -41,6 +43,8 @@ function newLine(): DraftLine {
     sku: "",
     quantity: "1",
     unitCostRupees: "",
+    expiryDate: "",
+    batchCode: "",
     notes: "",
   }
 }
@@ -115,6 +119,8 @@ export function GoodsReceivedView() {
       quantity: String(remainingQty(l)),
       unitCostRupees:
         l.unitCostRupees != null ? String(l.unitCostRupees) : "",
+      expiryDate: "",
+      batchCode: "",
       notes: "",
       maxQty: remainingQty(l),
     }))
@@ -137,6 +143,8 @@ export function GoodsReceivedView() {
         unitCostRupees: l.unitCostRupees.trim()
           ? Number(l.unitCostRupees)
           : null,
+        expiryDate: l.expiryDate.trim() || null,
+        batchCode: l.batchCode.trim() || null,
         notes: l.notes || null,
       }))
 
@@ -356,7 +364,7 @@ export function GoodsReceivedView() {
                 {lines.map((line, idx) => (
                   <div
                     key={line.key}
-                    className="grid gap-2 rounded-md border p-2 sm:grid-cols-[1.4fr_0.7fr_0.7fr_1fr_auto]"
+                    className="grid gap-2 rounded-md border p-2 sm:grid-cols-[1.4fr_0.55fr_0.55fr_0.7fr_0.7fr_1fr_auto]"
                   >
                     {mode === "po" ? (
                       <div className="flex h-9 items-center px-1 text-sm">
@@ -416,6 +424,33 @@ export function GoodsReceivedView() {
                           prev.map((l, i) =>
                             i === idx
                               ? { ...l, unitCostRupees: e.target.value }
+                              : l
+                          )
+                        )
+                      }
+                    />
+                    <Input
+                      type="date"
+                      title="Expiry date"
+                      value={line.expiryDate}
+                      onChange={(e) =>
+                        setLines((prev) =>
+                          prev.map((l, i) =>
+                            i === idx
+                              ? { ...l, expiryDate: e.target.value }
+                              : l
+                          )
+                        )
+                      }
+                    />
+                    <Input
+                      placeholder="Batch"
+                      value={line.batchCode}
+                      onChange={(e) =>
+                        setLines((prev) =>
+                          prev.map((l, i) =>
+                            i === idx
+                              ? { ...l, batchCode: e.target.value }
                               : l
                           )
                         )

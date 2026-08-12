@@ -126,6 +126,10 @@ export class ProductService {
       sellingPrice: input.sellingPrice,
       mrp,
       reorderLevel,
+      shelfLifeDays:
+        input.shelfLifeDays == null || !Number.isFinite(input.shelfLifeDays)
+          ? null
+          : Math.max(0, Math.floor(input.shelfLifeDays)),
       storeId: input.storeId ?? null,
       active: input.active ?? true,
       createdAt: now,
@@ -191,6 +195,12 @@ export class ProductService {
       sellingPrice,
       sellingPricePaisa: rupeesToPaisa(sellingPrice),
       reorderLevel: input.reorderLevel ?? existing.reorderLevel,
+      shelfLifeDays:
+        input.shelfLifeDays === undefined
+          ? existing.shelfLifeDays
+          : input.shelfLifeDays == null || !Number.isFinite(input.shelfLifeDays)
+            ? null
+            : Math.max(0, Math.floor(input.shelfLifeDays)),
       active: input.active ?? existing.active,
       updatedBy: input.actorId ?? existing.updatedBy,
     }

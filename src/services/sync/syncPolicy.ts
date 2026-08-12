@@ -8,6 +8,7 @@ export const LIVE_SHEET_EVENTS = new Set<EventType>([
   EventTypes.INVENTORY_CHANGED,
   EventTypes.INVENTORY_MOVEMENT_CREATED,
   EventTypes.STOCK_ADJUSTED,
+  EventTypes.STOCK_TAKE_POSTED,
   EventTypes.PRODUCT_CREATED,
   EventTypes.PRODUCT_UPDATED,
   EventTypes.CATEGORY_CREATED,

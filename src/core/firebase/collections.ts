@@ -17,6 +17,8 @@ export const COLLECTIONS = {
   NOTIFICATIONS: "notifications",
   INVENTORY: "inventory",
   INVENTORY_MOVEMENTS: "inventory_movements",
+  INVENTORY_LOTS: "inventory_lots",
+  STOCK_TAKES: "stock_takes",
   CATEGORIES: "categories",
   EXPENSES: "expenses",
   JOURNAL_ENTRIES: "journal_entries",

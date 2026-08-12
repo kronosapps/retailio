@@ -32,6 +32,8 @@ const COLLECTIONS_TO_WIPE = [
   "notification_logs",
   "inventory",
   "inventory_movements",
+  "inventory_lots",
+  "stock_takes",
   "expenses",
   "journal_entries",
   "settings",

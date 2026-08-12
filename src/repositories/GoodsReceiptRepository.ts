@@ -57,6 +57,8 @@ export class GoodsReceiptRepository {
         productName: (l.productName || l.sku).trim(),
         quantity: Number(l.quantity),
         unitCostRupees: l.unitCostRupees ?? null,
+        expiryDate: l.expiryDate?.slice(0, 10) || null,
+        batchCode: l.batchCode?.trim() || null,
         notes: l.notes?.trim() || null,
       })),
       storeId: input.storeId ?? null,

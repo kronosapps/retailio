@@ -9,6 +9,9 @@ export type GoodsReceiptLine = {
   quantity: number
   /** Optional unit cost in rupees (for later invoice matching). */
   unitCostRupees: number | null
+  /** Optional best-before YYYY-MM-DD for lot tracking. */
+  expiryDate: string | null
+  batchCode: string | null
   notes: string | null
 }
 
@@ -45,6 +48,8 @@ export type CreateGoodsReceiptInput = {
     productName?: string
     quantity: number
     unitCostRupees?: number | null
+    expiryDate?: string | null
+    batchCode?: string | null
     notes?: string | null
   }>
   storeId?: string | null
@@ -118,6 +123,8 @@ export function normalizeGoodsReceipt(
             l.unitCostRupees == null || !Number.isFinite(Number(l.unitCostRupees))
               ? null
               : Number(l.unitCostRupees),
+          expiryDate: l.expiryDate?.slice(0, 10) || null,
+          batchCode: l.batchCode?.trim() || null,
           notes: l.notes?.trim() || null,
         }))
       : [],

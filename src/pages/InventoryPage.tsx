@@ -10,12 +10,15 @@ const TABS = [
   { to: "/inventory/items", label: "Items", end: false },
   { to: "/inventory/import", label: "Import", end: false },
   { to: "/inventory/stock", label: "Stock", end: false },
+  { to: "/inventory/opening", label: "Opening", end: false },
+  { to: "/inventory/stock-take", label: "Stock take", end: false },
+  { to: "/inventory/lots", label: "Lots & health", end: false },
   { to: "/inventory/movements", label: "Movements", end: false },
   { to: "/inventory/categories", label: "Categories", end: false },
 ] as const
 
 /**
- * Inventory shell — Items / Stock / Movements / Categories.
+ * Inventory shell — Items / Stock / lifecycle / Movements / Categories.
  */
 export function InventoryPage() {
   const { userId, profile } = useAuth()
@@ -26,6 +29,7 @@ export function InventoryPage() {
     void ProductService.ensureCatalogSeeded(storeId, actorId)
     void InventoryService.ensureSamples(storeId, actorId)
     void InventoryService.ensureCategoriesFromProducts(storeId, actorId)
+    void InventoryService.hydrateLots()
   }, [profile?.storeId, userId])
 
   return (
@@ -33,7 +37,8 @@ export function InventoryPage() {
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Inventory</h1>
         <p className="text-sm text-muted-foreground">
-          Manage items, stock on hand, movements, and categories.
+          Items, on-hand stock, lots (FEFO), stock take, movements, and
+          categories.
         </p>
       </header>
 

@@ -27,7 +27,9 @@
 3. POS must not call inventory from React — `InventoryEngine` listens to `PAYMENT_RECEIVED`.
 4. Refund restock → `InventoryService.restockForRefund` from `RefundService`.
 5. Tabular export helpers: `InventoryService.export*Data()`; Excel catalog import/export: `ProductImportService` (`/inventory/import`).
-6. Routes: `/inventory/items`, `/inventory/import`, `/inventory/stock`, `/inventory/movements`, `/inventory/categories`.
+6. Routes: `/inventory/items`, `/inventory/import`, `/inventory/stock`, `/inventory/opening`, `/inventory/stock-take`, `/inventory/lots`, `/inventory/movements`, `/inventory/categories`.
+7. Lots: GRN / opening / adjust-in create lots; sales / damage / wastage / adjust-out consume FEFO. Expiry write-off → `WASTAGE`.
+8. Stock take → `StockTakeService.post` applies variance as ADJUSTMENT_IN/OUT.
 
 ### Bulk product import
 
