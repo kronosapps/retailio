@@ -10,6 +10,7 @@ import { supplierPaymentRepository } from "@/repositories/SupplierPaymentReposit
 import { purchaseReturnRepository } from "@/repositories/PurchaseReturnRepository"
 
 import { ACCOUNT_CODES } from "./chartOfAccounts"
+import { saleCogsPaisa } from "./costBasis"
 import { AccountingRules, journalLine } from "./rules/AccountingRules"
 import type { JournalEntry } from "./types"
 
@@ -96,6 +97,12 @@ export class AccountingProjectionService {
           createdBy: refund.createdBy,
           storeId: refund.storeId,
           source: "projected",
+          restockCogsPaisa: refund.restock
+            ? (() => {
+                const sale = invoices.find((s) => s.invoiceId === refund.invoiceId)
+                return sale ? saleCogsPaisa(sale as RecordedSale) : 0
+              })()
+            : 0,
         })
       )
     }
@@ -144,7 +151,22 @@ export class AccountingProjectionService {
       if (row.costPrice == null) return sum
       return sum + Math.max(0, row.quantity) * rupeesToPaisa(row.costPrice)
     }, 0)
-    if (inventoryValue > 0) {
+    // Skip snapshot when perpetual inventory is in play (purchase invoices /
+    // COGS / opening movements). Snapshot would double-count Inventory Asset.
+    const hasPerpetualInventory =
+      purchaseInvoices.some(
+        (p) =>
+          p.status === "POSTED" ||
+          p.status === "PARTIAL" ||
+          p.status === "PAID"
+      ) ||
+      entries.some(
+        (e) =>
+          e.referenceType === "sale" ||
+          e.referenceType === "purchase_invoice" ||
+          e.referenceType === "inventory_movement"
+      )
+    if (inventoryValue > 0 && !hasPerpetualInventory) {
       entries.push({
         id: "je_inventory_snapshot",
         date: range.end.toISOString().slice(0, 10),

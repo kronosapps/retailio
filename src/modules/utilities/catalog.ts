@@ -23,6 +23,7 @@ export type UtilityToolId =
   | "report-role"
   | "report-expense"
   | "expense-create"
+  | "erp-chain"
   | "gst"
   | "tcs"
   | "form-27eq"
@@ -166,6 +167,14 @@ export const UTILITY_TOOLS: UtilityTool[] = [
     title: "Add Expense",
     description: "Record a store expense (Cash / UPI)",
     path: "/utilities/expenses",
+    roles: ["admin", "manager"],
+  },
+  {
+    id: "erp-chain",
+    group: "daily",
+    title: "ERP chain",
+    description: "Purchase → sale event spine & journal health",
+    path: "/utilities/erp-chain",
     roles: ["admin", "manager"],
   },
   {

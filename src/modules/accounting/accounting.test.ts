@@ -42,11 +42,18 @@ describe("AccountingRules", () => {
       paymentStatus: "Paid",
       storeId: "s1",
       totals: { taxableAmount: 10000, gstAmount: 500, total: 10500 },
-    } as never)
+      lines: [],
+    } as never, { cogsPaisa: 4000 })
 
     expect(isBalanced(sale)).toBe(true)
     expect(sale.referenceType).toBe("sale")
     expect(sale.source).toBe("posted")
+    expect(
+      sale.lines.some((l) => l.accountCode === "5100" && l.debitPaisa === 4000)
+    ).toBe(true)
+    expect(
+      sale.lines.some((l) => l.accountCode === "1200" && l.creditPaisa === 4000)
+    ).toBe(true)
 
     const refund = AccountingRules.fromRefund({
       refundId: "REF-1",
@@ -54,8 +61,35 @@ describe("AccountingRules", () => {
       amountPaisa: 10500,
       method: "UPI",
       createdAt: "2026-04-02T10:00:00.000Z",
+      restockCogsPaisa: 4000,
     })
     expect(isBalanced(refund)).toBe(true)
+    expect(
+      refund.lines.some((l) => l.accountCode === "1200" && l.debitPaisa === 4000)
+    ).toBe(true)
+
+    const opening = AccountingRules.fromInventoryMovement(
+      {
+        id: "imv-1",
+        productId: "SKU-1",
+        sku: "SKU-1",
+        productName: "Test",
+        type: "OPENING_STOCK",
+        quantity: 5,
+        balanceAfter: 5,
+        referenceId: null,
+        reason: null,
+        notes: null,
+        createdBy: "t",
+        createdByName: null,
+        storeId: "s1",
+        createdAt: "2026-04-01T08:00:00.000Z",
+      },
+      { costPaisa: 2000 }
+    )
+    expect(opening).not.toBeNull()
+    expect(isBalanced(opening!)).toBe(true)
+    expect(opening!.referenceType).toBe("inventory_movement")
 
     const expense = AccountingRules.fromExpense({
       id: "exp-1",

@@ -151,6 +151,8 @@ export class RefundService {
         customerPhone: sale.customerPhone ?? null,
         amount: refund.amount,
         refundId: refund.refundId,
+        restock: refund.restock,
+        restockedSkuCount,
       },
       refund.storeId
     )

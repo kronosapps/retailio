@@ -3,13 +3,16 @@ import type { PurchaseReturnRecord } from "@/data/purchaseReturns"
 import type { SupplierPaymentRecord } from "@/data/supplierPayments"
 import { EventSubscriber } from "@/events/EventSubscriber"
 import { EventTypes, type DomainEvent } from "@/events/EventTypes"
+import type { InventoryMovement } from "@/modules/inventory/types"
 import { invoiceRepository } from "@/repositories/InvoiceRepository"
 import { journalRepository } from "@/repositories/JournalRepository"
 import type { ExpenseRecord } from "@/repositories/ExpenseRepository"
 import { purchaseReturnRepository } from "@/repositories/PurchaseReturnRepository"
+import { refundRepository } from "@/repositories/RefundRepository"
 import { supplierInvoiceRepository } from "@/repositories/SupplierInvoiceRepository"
 import { supplierPaymentRepository } from "@/repositories/SupplierPaymentRepository"
 
+import { saleCogsPaisa } from "./costBasis"
 import { AccountingRules } from "./rules/AccountingRules"
 
 type PaymentReceivedPayload = {
@@ -31,6 +34,7 @@ type RefundPayload = {
   storeId?: string | null
   createdAt?: string
   createdBy?: string | null
+  restock?: boolean
 }
 
 /**
@@ -65,6 +69,9 @@ export class AccountingEngine {
     })
     this.subscriber.on(EventTypes.PURCHASE_RETURN_POSTED, (event) => {
       void this.onPurchaseReturnPosted(event)
+    })
+    this.subscriber.on(EventTypes.INVENTORY_MOVEMENT_CREATED, (event) => {
+      void this.onInventoryMovement(event)
     })
   }
 
@@ -105,16 +112,27 @@ export class AccountingEngine {
     try {
       if (journalRepository.getByReference("refund", payload.refundId)) return
 
+      const refund = await refundRepository.getById(payload.refundId)
+      const restock = refund?.restock ?? payload.restock !== false
+      let restockCogsPaisa = 0
+      if (restock && (payload.invoiceId || refund?.invoiceId)) {
+        const sale = await invoiceRepository.getById(
+          payload.invoiceId || refund!.invoiceId
+        )
+        if (sale) restockCogsPaisa = saleCogsPaisa(sale)
+      }
+
       const entry = AccountingRules.fromRefundPayload({
         refundId: payload.refundId,
-        invoiceId: payload.invoiceId,
-        amount: payload.amount,
-        amountPaisa: payload.amountPaisa,
-        method: payload.method,
-        storeId: payload.storeId,
-        createdAt: payload.createdAt,
-        createdBy: payload.createdBy,
+        invoiceId: payload.invoiceId || refund?.invoiceId,
+        amount: payload.amount ?? refund?.amount,
+        amountPaisa: payload.amountPaisa ?? refund?.amountPaisa,
+        method: payload.method ?? refund?.method,
+        storeId: payload.storeId ?? refund?.storeId,
+        createdAt: payload.createdAt || refund?.createdAt,
+        createdBy: payload.createdBy ?? refund?.createdBy,
         eventId: event.id,
+        restockCogsPaisa,
       })
       if (!entry) return
       await journalRepository.savePosted(entry)
@@ -278,6 +296,30 @@ export class AccountingEngine {
     } catch (err) {
       if (import.meta.env.DEV) {
         console.warn("[AccountingEngine] purchase return journal failed", err)
+      }
+    }
+  }
+
+  private async onInventoryMovement(event: DomainEvent) {
+    const movement = event.payload as InventoryMovement
+    if (!movement?.id) return
+
+    try {
+      if (
+        journalRepository.getByReference("inventory_movement", movement.id)
+      ) {
+        return
+      }
+
+      const entry = AccountingRules.fromInventoryMovement(movement, {
+        eventId: event.id,
+        source: "posted",
+      })
+      if (!entry) return
+      await journalRepository.savePosted(entry)
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn("[AccountingEngine] inventory movement journal failed", err)
       }
     }
   }

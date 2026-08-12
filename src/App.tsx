@@ -77,6 +77,11 @@ const ExpenseCreatePage = lazy(() =>
     default: m.ExpenseCreatePage,
   }))
 )
+const ErpChainPage = lazy(() =>
+  import("@/pages/utilities/ErpChainPage").then((m) => ({
+    default: m.ErpChainPage,
+  }))
+)
 
 const DaybookPage = lazy(() =>
   import("@/pages/utilities/AccountingPages").then((m) => ({
@@ -228,6 +233,7 @@ export default function App() {
               <Route path="report-role" element={<RoleReportPage />} />
               <Route path="report-expense" element={<ExpenseReportPage />} />
               <Route path="expenses" element={<ExpenseCreatePage />} />
+              <Route path="erp-chain" element={<ErpChainPage />} />
               <Route path="gst" element={<GstReportsPage />} />
               <Route path="tcs" element={<TcsReportsPage />} />
               <Route path="form-27eq" element={<Form27EqPage />} />

@@ -169,6 +169,26 @@ const ROUTES: Partial<Record<string, SheetRoute>> = {
       }
     },
   },
+  [EventTypes.STOCK_ADJUSTED]: {
+    sheet: "InventoryMovements",
+    sync: async (p, data) => {
+      if (typeof p.syncInventoryMovement === "function") {
+        await p.syncInventoryMovement(data)
+      } else {
+        await p.syncInventory(data)
+      }
+    },
+  },
+  [EventTypes.STOCK_TAKE_POSTED]: {
+    sheet: "StockTakes",
+    sync: async (p, data) => {
+      if (typeof p.syncInventoryMovement === "function") {
+        await p.syncInventoryMovement(data)
+      } else {
+        await p.syncInventory(data)
+      }
+    },
+  },
   [EventTypes.CATEGORY_CREATED]: {
     sheet: "Categories",
     sync: async (p, data) => {
