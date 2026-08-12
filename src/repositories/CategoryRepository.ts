@@ -11,6 +11,7 @@ import type {
   CategoryRecord,
   CreateCategoryInput,
 } from "@/modules/inventory/types"
+import { normalizeNameKey } from "@/modules/masterData/normalizeNameKey"
 import { createId } from "@/utils/id"
 
 import { upsertDocument } from "./firestoreHelpers"
@@ -47,6 +48,7 @@ export class CategoryRepository {
     const record: CategoryRecord = {
       id: createId("cat"),
       name,
+      nameKey: normalizeNameKey(name),
       active: true,
       storeId: input.storeId ?? null,
       createdAt: now,
@@ -59,9 +61,16 @@ export class CategoryRepository {
   }
 
   async save(record: CategoryRecord): Promise<CategoryRecord> {
+    const name = record.name.trim()
+    if (!name) throw new Error("Category name is required.")
+    const clash = findLocalCategoryByName(name)
+    if (clash && clash.id !== record.id) {
+      throw new Error("A category with that name already exists.")
+    }
     const next: CategoryRecord = {
       ...record,
-      name: record.name.trim(),
+      name,
+      nameKey: normalizeNameKey(name),
       updatedAt: new Date().toISOString(),
     }
     return this.persist(next, false)

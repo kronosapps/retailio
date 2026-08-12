@@ -51,7 +51,7 @@ No layer may skip another layer.
 
 ## Firestore collections
 
-`products` · `customers` · `suppliers` · `purchase_orders` · `goods_receipts` · `purchase_invoices` · `supplier_payments` · `inventory` · `inventory_movements` · `inventory_lots` · `stock_takes` · `cashier_shifts` · `sales_returns` · `credit_notes` · `crm_audit` · `categories` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events`
+`products` · `customers` · `suppliers` · `purchase_orders` · `goods_receipts` · `purchase_invoices` · `supplier_payments` · `inventory` · `inventory_movements` · `inventory_lots` · `stock_takes` · `cashier_shifts` · `sales_returns` · `credit_notes` · `crm_audit` · `categories` · `brands` · `units` · `invoices` · `payments` · `refunds` · `expenses` · `journal_entries` · `users` · `settings` · `sync_events`
 
 ### Purchasing (Phases 1–5)
 
@@ -75,7 +75,8 @@ Repositories own exactly one collection each (see `src/repositories/`).
 - **Lots** (`inventory_lots`): FEFO batches with optional `expiryDate` / `batchCode` (created on Opening/Purchase/Adjust-in/Return).
 - **Movements** (`inventory_movements`): append-only ledger (`OPENING_STOCK`, `PURCHASE`, `SALE`, `RETURN`, `PURCHASE_RETURN`, `DAMAGE`, `WASTAGE`, `ADJUSTMENT_IN`, `ADJUSTMENT_OUT`).
 - **Stock take** (`stock_takes`): physical count → variance → ADJUSTMENT_IN/OUT.
-- **Categories** (`categories`): first-class names with active flag; products still store category as a string for POS/Sheets compat.
+- **Categories** (`categories`): first-class names with `nameKey` (case-insensitive unique) and active flag; products still store category as a string for POS/Sheets compat. See `docs/MASTER_DATA.md`.
+- **Brands / Units** (`brands`, `units`): master-data collections with the same nameKey pattern; product forms ensure masters on save.
 
 Stock status: Out ≤ 0 · Low ≤ reorderLevel · else In Stock.
 

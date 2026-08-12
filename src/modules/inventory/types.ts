@@ -54,6 +54,8 @@ export type InventoryMovement = {
 export type CategoryRecord = {
   id: string
   name: string
+  /** normalizeNameKey(name) — uniqueness key (optional on legacy rows). */
+  nameKey?: string
   active: boolean
   storeId: string | null
   createdAt: string
@@ -157,7 +159,9 @@ export type UpdateProductInput = {
   name?: string
   barcode?: string | null
   category?: string
+  brand?: string | null
   unitSize?: number
+  unit?: string
   costPrice?: number | null
   sellingPrice?: number
   gstRate?: number

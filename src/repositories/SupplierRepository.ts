@@ -1,6 +1,7 @@
 import {
   buildSupplierRecord,
   deleteLocalSupplier,
+  findLocalSupplierByName,
   getLocalSupplier,
   listLocalSuppliers,
   upsertLocalSupplier,
@@ -49,6 +50,9 @@ export class SupplierRepository {
   ): Promise<SupplierRecord> {
     const name = input.name.trim()
     if (!name) throw new Error("Supplier name is required.")
+    if (findLocalSupplierByName(name)) {
+      throw new Error("A supplier with that name already exists.")
+    }
     const id = createId("sup")
     const record = buildSupplierRecord(
       { ...input, name, createdBy: actorId },
@@ -75,10 +79,16 @@ export class SupplierRepository {
     const existing = getLocalSupplier(input.id)
     if (!existing) throw new Error("Supplier not found.")
 
+    const nextName =
+      input.name !== undefined ? input.name.trim() || existing.name : existing.name
+    const clash = findLocalSupplierByName(nextName)
+    if (clash && clash.id !== existing.id) {
+      throw new Error("A supplier with that name already exists.")
+    }
+
     const next: SupplierRecord = {
       ...existing,
-      name:
-        input.name !== undefined ? input.name.trim() || existing.name : existing.name,
+      name: nextName,
       phone:
         input.phone === undefined
           ? existing.phone

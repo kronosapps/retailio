@@ -23,6 +23,7 @@ import {
   type StockRow,
   type StockStatus,
 } from "@/modules/inventory"
+import { MasterDataService } from "@/modules/masterData"
 import {
   ProductError,
   ProductService,
@@ -39,7 +40,9 @@ const itemSchema = z.object({
   sku: z.string().trim().min(1, "SKU is required"),
   barcode: z.string().trim().optional(),
   category: z.string().trim().min(1, "Category is required"),
-  unitSize: z.string().trim().min(1, "Unit is required"),
+  brand: z.string().trim().optional(),
+  unit: z.string().trim().min(1, "Unit is required"),
+  unitSize: z.string().trim().min(1, "Pack size is required"),
   costPrice: z.string().trim().optional(),
   sellingPrice: z.string().trim().min(1, "Selling price is required"),
   gstRate: z.string().trim().min(1, "GST is required"),
@@ -112,12 +115,29 @@ export function InventoryItemsView() {
 
   const categories = useMemo(() => {
     void tick
-    const fromCats = InventoryService.listCategories()
+    const fromCats = MasterDataService.listCategories()
       .filter((c) => c.active)
       .map((c) => c.name)
     const fromStock = stockRows.map((r) => r.category)
     return [...new Set([...fromCats, ...fromStock])].sort()
   }, [tick, stockRows])
+
+  const brands = useMemo(() => {
+    void tick
+    return MasterDataService.listBrands()
+      .filter((b) => b.active)
+      .map((b) => b.name)
+  }, [tick])
+
+  const units = useMemo(() => {
+    void tick
+    return MasterDataService.listUnits().filter((u) => u.active)
+  }, [tick])
+
+  const taxRates = useMemo(() => {
+    void tick
+    return MasterDataService.listTaxRates().filter((r) => r.active)
+  }, [tick])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -151,10 +171,12 @@ export function InventoryItemsView() {
       sku: "",
       barcode: "",
       category: categories[0] || "Uncategorized",
+      brand: "",
+      unit: units[0]?.code || "pcs",
       unitSize: "1",
       costPrice: "",
       sellingPrice: "0",
-      gstRate: "5",
+      gstRate: String(taxRates[0]?.ratePercent ?? 5),
       reorderLevel: "10",
       active: true,
     },
@@ -168,10 +190,12 @@ export function InventoryItemsView() {
       sku: "",
       barcode: "",
       category: categories[0] || "Uncategorized",
+      brand: "",
+      unit: units[0]?.code || "pcs",
       unitSize: "1",
       costPrice: "",
       sellingPrice: "0",
-      gstRate: "5",
+      gstRate: String(taxRates[0]?.ratePercent ?? 5),
       reorderLevel: "10",
       active: true,
     })
@@ -188,6 +212,11 @@ export function InventoryItemsView() {
       sku: product.sku,
       barcode: product.barcode || "",
       category: product.category,
+      brand: product.brand || "",
+      unit:
+        Number.isNaN(Number(product.unit)) && product.unit
+          ? product.unit
+          : units[0]?.code || "pcs",
       unitSize: String(product.unitSize),
       costPrice:
         product.purchasePrice == null ? "" : String(product.purchasePrice),
@@ -202,7 +231,7 @@ export function InventoryItemsView() {
   async function onSubmit(values: ItemFormValues) {
     setFormError(null)
     try {
-      const unitSize = parsePositive("Unit size", values.unitSize)
+      const unitSize = parsePositive("Pack size", values.unitSize)
       const sellingPrice = parseNonNeg("Selling price", values.sellingPrice)
       const gstRate = parseNonNeg("GST", values.gstRate)
       const reorderLevel = parseNonNeg("Reorder level", values.reorderLevel)
@@ -211,13 +240,36 @@ export function InventoryItemsView() {
           ? parseNonNeg("Cost price", values.costPrice)
           : null
 
+      const storeId = profile?.storeId ?? null
+      const category = await MasterDataService.ensureCategory(
+        values.category,
+        storeId,
+        userId
+      )
+      const unit = await MasterDataService.ensureUnit(
+        values.unit,
+        storeId,
+        userId
+      )
+      let brandName: string | null = null
+      if (values.brand?.trim()) {
+        const brand = await MasterDataService.ensureBrand(
+          values.brand,
+          storeId,
+          userId
+        )
+        brandName = brand.name
+      }
+
       if (editing) {
         await ProductService.update({
           id: editing.id,
           name: values.name,
           barcode: values.barcode || null,
-          category: values.category,
+          category: category.name,
+          brand: brandName,
           unitSize,
+          unit: unit.code,
           costPrice,
           sellingPrice,
           gstRate,
@@ -230,14 +282,16 @@ export function InventoryItemsView() {
           name: values.name,
           sku: values.sku,
           barcode: values.barcode || null,
-          category: values.category,
+          category: category.name,
+          brand: brandName,
           unitSize,
+          unit: unit.code,
           costPrice,
           sellingPrice,
           gstRate,
           reorderLevel,
           active: values.active,
-          storeId: profile?.storeId ?? null,
+          storeId,
           actorId: userId,
         })
       }
@@ -507,15 +561,46 @@ export function InventoryItemsView() {
               </div>
               <div className="space-y-1">
                 <Label htmlFor="item-category">Category</Label>
-                <Input id="item-category" list="inv-categories" {...register("category")} />
+                <Input
+                  id="item-category"
+                  list="inv-categories"
+                  {...register("category")}
+                />
                 <datalist id="inv-categories">
                   {categories.map((c) => (
                     <option key={c} value={c} />
                   ))}
                 </datalist>
+                <p className="text-[11px] text-muted-foreground">
+                  New names are added to the category master (case-insensitive).
+                </p>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="item-unit">Unit size</Label>
+                <Label htmlFor="item-brand">Brand</Label>
+                <Input
+                  id="item-brand"
+                  list="inv-brands"
+                  placeholder="Optional"
+                  {...register("brand")}
+                />
+                <datalist id="inv-brands">
+                  {brands.map((b) => (
+                    <option key={b} value={b} />
+                  ))}
+                </datalist>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="item-uom">Unit</Label>
+                <select id="item-uom" className={selectClassName} {...register("unit")}>
+                  {units.map((u) => (
+                    <option key={u.id} value={u.code}>
+                      {u.code} · {u.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="item-unit">Pack size</Label>
                 <Input id="item-unit" type="number" step="1" {...register("unitSize")} />
               </div>
               <div className="space-y-1">
@@ -533,7 +618,17 @@ export function InventoryItemsView() {
               </div>
               <div className="space-y-1">
                 <Label htmlFor="item-gst">GST %</Label>
-                <Input id="item-gst" type="number" step="0.1" {...register("gstRate")} />
+                <select
+                  id="item-gst"
+                  className={selectClassName}
+                  {...register("gstRate")}
+                >
+                  {taxRates.map((r) => (
+                    <option key={r.id} value={String(r.ratePercent)}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-1">
                 <Label htmlFor="item-reorder">Reorder level</Label>

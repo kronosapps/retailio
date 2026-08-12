@@ -2,6 +2,7 @@ import type { UserRole } from "@/types/user"
 
 export type UtilityGroupId =
   | "setup"
+  | "master-data"
   | "daily"
   | "accounting"
   | "analysis"
@@ -12,6 +13,11 @@ export type UtilityToolId =
   | "financial-year"
   | "barcode"
   | "recycle-bin"
+  | "master-data"
+  | "master-brands"
+  | "master-units"
+  | "master-tax-rates"
+  | "master-payment-methods"
   | "daybook"
   | "all-transactions"
   | "accounting"
@@ -47,6 +53,7 @@ export const UTILITY_GROUPS: {
   title: string
 }[] = [
   { id: "setup", title: "Business & Setup" },
+  { id: "master-data", title: "Master Data" },
   { id: "daily", title: "Daily Operations" },
   { id: "accounting", title: "Accounting" },
   { id: "analysis", title: "Analysis" },
@@ -84,6 +91,46 @@ export const UTILITY_TOOLS: UtilityTool[] = [
     title: "Recycle Bin",
     description: "Restore deactivated master records",
     path: "/utilities/recycle-bin",
+    roles: ["admin"],
+  },
+  {
+    id: "master-data",
+    group: "master-data",
+    title: "Master Data Hub",
+    description: "Products, categories, brands, units, tax & more",
+    path: "/utilities/master-data",
+    roles: ["admin", "manager"],
+  },
+  {
+    id: "master-brands",
+    group: "master-data",
+    title: "Brands",
+    description: "Canonical brand names (case-insensitive)",
+    path: "/utilities/master-data/brands",
+    roles: ["admin", "manager"],
+  },
+  {
+    id: "master-units",
+    group: "master-data",
+    title: "Units",
+    description: "Units of measure (g, kg, pcs, …)",
+    path: "/utilities/master-data/units",
+    roles: ["admin", "manager"],
+  },
+  {
+    id: "master-tax-rates",
+    group: "master-data",
+    title: "Tax Rates",
+    description: "GST slabs for catalog & POS",
+    path: "/utilities/master-data/tax-rates",
+    roles: ["admin", "manager"],
+  },
+  {
+    id: "master-payment-methods",
+    group: "master-data",
+    title: "Payment Methods",
+    description: "Enable or label Cash / UPI / On account",
+    path: "/utilities/master-data/payment-methods",
     roles: ["admin"],
   },
   {

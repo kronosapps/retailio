@@ -177,6 +177,31 @@ const Form27EqPage = lazy(() =>
     default: m.Form27EqPage,
   }))
 )
+const MasterDataHubPage = lazy(() =>
+  import("@/pages/utilities/MasterDataPages").then((m) => ({
+    default: m.MasterDataHubPage,
+  }))
+)
+const BrandsMasterPage = lazy(() =>
+  import("@/pages/utilities/MasterDataPages").then((m) => ({
+    default: m.BrandsMasterPage,
+  }))
+)
+const UnitsMasterPage = lazy(() =>
+  import("@/pages/utilities/MasterDataPages").then((m) => ({
+    default: m.UnitsMasterPage,
+  }))
+)
+const TaxRatesMasterPage = lazy(() =>
+  import("@/pages/utilities/MasterDataPages").then((m) => ({
+    default: m.TaxRatesMasterPage,
+  }))
+)
+const PaymentMethodsMasterPage = lazy(() =>
+  import("@/pages/utilities/MasterDataPages").then((m) => ({
+    default: m.PaymentMethodsMasterPage,
+  }))
+)
 
 function UtilitiesFallback() {
   return (
@@ -247,6 +272,20 @@ export default function App() {
               <Route path="financial-year" element={<FinancialYearPage />} />
               <Route path="barcode" element={<BarcodeGeneratorPage />} />
               <Route path="recycle-bin" element={<RecycleBinPage />} />
+              <Route path="master-data" element={<MasterDataHubPage />} />
+              <Route
+                path="master-data/brands"
+                element={<BrandsMasterPage />}
+              />
+              <Route path="master-data/units" element={<UnitsMasterPage />} />
+              <Route
+                path="master-data/tax-rates"
+                element={<TaxRatesMasterPage />}
+              />
+              <Route
+                path="master-data/payment-methods"
+                element={<PaymentMethodsMasterPage />}
+              />
               <Route path="daybook" element={<DaybookPage />} />
               <Route
                 path="all-transactions"
