@@ -1,5 +1,6 @@
 import { env } from "@/core/config/env"
 import { rupeesToPaisa } from "@/lib/money"
+import { AuditService } from "@/modules/audit"
 
 import {
   appendLedgerEntry,
@@ -138,22 +139,49 @@ export class BankingService {
 
   static setOpeningBalances(input: SetOpeningBalancesInput) {
     this.assertCanEdit(input.passcode)
-    return setOpeningBalancesLocal(
-      rupeesToPaisa(input.cashRupees),
-      rupeesToPaisa(input.upiRupees)
-    )
+    const cashPaisa = rupeesToPaisa(input.cashRupees)
+    const upiPaisa = rupeesToPaisa(input.upiRupees)
+    const result = setOpeningBalancesLocal(cashPaisa, upiPaisa)
+    void AuditService.record({
+      kind: "BANKING_OPENING",
+      message: `Opening balances set · cash ${AuditService.formatRupees(cashPaisa)} · UPI ${AuditService.formatRupees(upiPaisa)}`,
+      actorId: input.actorId ?? null,
+      actorName: input.actorName ?? null,
+      storeId: input.storeId ?? env.storeId,
+      entityType: "banking",
+      entityId: "opening",
+      after: { cashPaisa, upiPaisa },
+    })
+    return result
   }
 
   static addManualAdjustment(input: ManualAdjustmentInput) {
     this.assertCanEdit(input.passcode)
-    return appendLedgerEntry({
+    const amountPaisa = rupeesToPaisa(input.amountRupees)
+    const entry = appendLedgerEntry({
       channel: input.channel,
       direction: input.direction,
-      amountPaisa: rupeesToPaisa(input.amountRupees),
+      amountPaisa,
       source: "adjustment",
       note: input.note || "Manual adjustment",
       storeId: input.storeId ?? env.storeId,
     })
+    void AuditService.record({
+      kind: "BANKING_ADJUSTMENT",
+      message: `Banking ${input.direction} ${input.channel} · ${AuditService.formatRupees(amountPaisa)}${input.note ? ` · ${input.note}` : ""}`,
+      actorId: input.actorId ?? null,
+      actorName: input.actorName ?? null,
+      storeId: input.storeId ?? env.storeId,
+      entityType: "banking",
+      entityId: entry.id,
+      after: {
+        channel: input.channel,
+        direction: input.direction,
+        amountPaisa,
+        note: input.note,
+      },
+    })
+    return entry
   }
 
   /** Called by BankingEngine on PAYMENT_RECEIVED (no passcode). */

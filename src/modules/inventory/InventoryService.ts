@@ -333,6 +333,8 @@ export class InventoryService {
         reason: input.reason,
         movementId: result.movement.id,
         balanceAfter: result.movement.balanceAfter,
+        actorId: input.actorId ?? null,
+        actorName: input.actorName ?? null,
       },
       result.inventory.storeId
     )

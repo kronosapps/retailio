@@ -23,6 +23,7 @@ import {
   listLocalCreatedStaff,
   toStaffListItem,
 } from "./localStaffStore"
+import { AuditService } from "@/modules/audit"
 import type {
   CreateStaffInput,
   CreateStaffResult,
@@ -129,15 +130,26 @@ export class StaffService {
         )
       }
 
-      return createFirebaseStaffUser({
+      const createdBy = currentUser()?.uid ?? null
+      const result = await createFirebaseStaffUser({
         username,
         email: usernameToAuthEmail(username),
         passcode,
         displayName,
         role: input.role,
         storeId: input.storeId?.trim() || env.storeId,
-        createdBy: currentUser()?.uid ?? null,
+        createdBy,
       })
+      void AuditService.record({
+        kind: "STAFF_CREATED",
+        message: `Staff created · ${displayName} (@${username}) · ${input.role}`,
+        actorId: createdBy,
+        storeId: input.storeId?.trim() || env.storeId,
+        entityType: "user",
+        entityId: result.id,
+        after: { username, role: input.role, displayName },
+      })
+      return result
     }
 
     if (LOCAL_USERS.some((u) => u.username === username)) {
@@ -148,6 +160,15 @@ export class StaffService {
       { ...input, username, passcode, displayName },
       env.storeId
     )
+    void AuditService.record({
+      kind: "STAFF_CREATED",
+      message: `Staff created · ${displayName} (@${username}) · ${input.role}`,
+      actorId: null,
+      storeId: env.storeId,
+      entityType: "user",
+      entityId: record.id,
+      after: { username, role: input.role, displayName },
+    })
     return {
       id: record.id,
       username: record.username,

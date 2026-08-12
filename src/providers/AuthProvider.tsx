@@ -26,6 +26,7 @@ import {
   normalizeUsername,
   usernameToAuthEmail,
 } from "@/modules/staff"
+import { AuditService } from "@/modules/audit"
 import type { UserProfile, UserRole } from "@/types/user"
 
 const LOCAL_SESSION_KEY = "retailos.auth.local"
@@ -132,48 +133,96 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const normalizedUser = normalizeUsername(username)
     const normalizedPass = normalizePasscode(passcode)
 
-    if (usingFirebaseAuth) {
-      const user = await firebaseLogin({
-        email: usernameToAuthEmail(normalizedUser),
-        password: normalizedPass,
-      })
-      try {
-        const nextProfile = await fetchUserProfile(user.uid)
-        setUserId(user.uid)
-        setProfile(nextProfile)
-        return nextProfile
-      } catch (error) {
-        await firebaseLogout()
-        setUserId(null)
-        setProfile(null)
-        if (error instanceof MissingStoreProfileError) throw error
-        throw new AppFirebaseError(
-          "auth/profile",
-          getFirebaseErrorMessage(error),
-          error
-        )
+    try {
+      if (usingFirebaseAuth) {
+        const user = await firebaseLogin({
+          email: usernameToAuthEmail(normalizedUser),
+          password: normalizedPass,
+        })
+        try {
+          const nextProfile = await fetchUserProfile(user.uid)
+          setUserId(user.uid)
+          setProfile(nextProfile)
+          void AuditService.record({
+            kind: "LOGIN_SUCCESS",
+            message: `Login · ${nextProfile.displayName || nextProfile.username || normalizedUser}`,
+            actorId: user.uid,
+            actorName: nextProfile.displayName || nextProfile.username || null,
+            storeId: nextProfile.storeId ?? null,
+            entityType: "user",
+            entityId: user.uid,
+            meta: { username: normalizedUser, provider: "firebase" },
+          })
+          return nextProfile
+        } catch (error) {
+          await firebaseLogout()
+          setUserId(null)
+          setProfile(null)
+          if (error instanceof MissingStoreProfileError) throw error
+          throw new AppFirebaseError(
+            "auth/profile",
+            getFirebaseErrorMessage(error),
+            error
+          )
+        }
       }
-    }
 
-    const localUser = findLocalUser(normalizedUser, normalizedPass)
-    if (!localUser) {
-      throw new InvalidLocalCredentialsError()
-    }
+      const localUser = findLocalUser(normalizedUser, normalizedPass)
+      if (!localUser) {
+        throw new InvalidLocalCredentialsError()
+      }
 
-    const nextProfile = toUserProfile(localUser)
-    writeLocalSession({ userId: localUser.id, profile: nextProfile })
-    setUserId(localUser.id)
-    setProfile(nextProfile)
-    return nextProfile
+      const nextProfile = toUserProfile(localUser)
+      writeLocalSession({ userId: localUser.id, profile: nextProfile })
+      setUserId(localUser.id)
+      setProfile(nextProfile)
+      void AuditService.record({
+        kind: "LOGIN_SUCCESS",
+        message: `Login · ${nextProfile.displayName || nextProfile.username || normalizedUser}`,
+        actorId: localUser.id,
+        actorName: nextProfile.displayName || nextProfile.username || null,
+        storeId: nextProfile.storeId ?? null,
+        entityType: "user",
+        entityId: localUser.id,
+        meta: { username: normalizedUser, provider: "local" },
+      })
+      return nextProfile
+    } catch (error) {
+      void AuditService.record({
+        kind: "LOGIN_FAILED",
+        message: `Failed login · ${normalizedUser}`,
+        actorId: null,
+        actorName: normalizedUser,
+        storeId: null,
+        entityType: "user",
+        entityId: normalizedUser,
+        meta: {
+          username: normalizedUser,
+          reason: error instanceof Error ? error.name : "unknown",
+        },
+      })
+      throw error
+    }
   }
 
   async function signOut() {
+    const previous = profile
+    const previousId = userId
     if (usingFirebaseAuth) {
       await firebaseLogout()
     }
     clearLocalSession()
     setUserId(null)
     setProfile(null)
+    void AuditService.record({
+      kind: "LOGOUT",
+      message: `Logout · ${previous?.displayName || previous?.username || previousId || "user"}`,
+      actorId: previousId,
+      actorName: previous?.displayName || previous?.username || null,
+      storeId: previous?.storeId ?? null,
+      entityType: "user",
+      entityId: previousId,
+    })
   }
 
   const isAuthenticated = Boolean(userId && profile)

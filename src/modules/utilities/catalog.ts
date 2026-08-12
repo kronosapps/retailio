@@ -34,6 +34,7 @@ export type UtilityToolId =
   | "report-expense"
   | "expense-create"
   | "erp-chain"
+  | "audit-log"
   | "pricing"
   | "gst"
   | "tcs"
@@ -259,6 +260,14 @@ export const UTILITY_TOOLS: UtilityTool[] = [
     title: "ERP chain",
     description: "Purchase → sale event spine & journal health",
     path: "/utilities/erp-chain",
+    roles: ["admin", "manager"],
+  },
+  {
+    id: "audit-log",
+    group: "daily",
+    title: "Audit log",
+    description: "Who changed prices, stock, discounts, refunds, settings",
+    path: "/utilities/audit",
     roles: ["admin", "manager"],
   },
   {

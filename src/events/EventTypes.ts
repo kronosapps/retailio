@@ -64,6 +64,8 @@ export const EventTypes = {
   PRICE_CHANGED: "PRICE_CHANGED",
   /** Sync queue item moved to dead letter after max retries. */
   SYNC_FAILED: "SYNC_FAILED",
+  /** Operational security audit row appended. */
+  AUDIT_RECORDED: "AUDIT_RECORDED",
 } as const
 
 export type EventType = (typeof EventTypes)[keyof typeof EventTypes]

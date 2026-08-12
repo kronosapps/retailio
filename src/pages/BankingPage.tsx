@@ -21,7 +21,7 @@ const selectClass =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
 
 export function BankingPage() {
-  const { profile } = useAuth()
+  const { profile, userId } = useAuth()
   const [tick, setTick] = useState(0)
   const [unlocked, setUnlocked] = useState(() => BankingService.isUnlocked())
   const [passcode, setPasscode] = useState("")
@@ -83,6 +83,9 @@ export function BankingPage() {
         cashRupees: Number(cashOpening),
         upiRupees: Number(upiOpening),
         passcode: editPasscode,
+        actorId: userId,
+        actorName: profile?.displayName || profile?.username || null,
+        storeId: profile?.storeId ?? null,
       })
       setFormSuccess("Opening balances updated.")
       setEditPasscode("")
@@ -109,6 +112,8 @@ export function BankingPage() {
         note: adjNote,
         passcode: editPasscode,
         storeId: profile?.storeId ?? null,
+        actorId: userId,
+        actorName: profile?.displayName || profile?.username || null,
       })
       setFormSuccess("Ledger entry added.")
       setAdjAmount("")

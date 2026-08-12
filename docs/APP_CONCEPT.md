@@ -185,6 +185,11 @@ Canonical docs: [`ARCHITECTURE.md`](./ARCHITECTURE.md), [`DEVELOPER_GUIDE.md`](.
 - Staff soft alerts (`in_app`) for stock, discounts/refunds, cash variance, sync/payment failures, pending POs, AR/AP — bell inbox in App + POS layouts.
 - Follow-ups: [`NOTIFICATIONS_TODO.md`](./NOTIFICATIONS_TODO.md).
 
+### Operational audit
+
+- `auditEngine` + `AuditService` — store mutation trail (login, price, stock, discount, refund, banking, staff, settings).
+- UI: Utilities → Audit log (`/utilities/audit`). Docs: [`AUDIT.md`](./AUDIT.md).
+
 ### Banking (admin)
 
 - Route `/banking`; module `src/modules/banking/`.
