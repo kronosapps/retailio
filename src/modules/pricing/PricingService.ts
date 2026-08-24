@@ -342,7 +342,9 @@ export class PricingService {
     const couponRequested = Boolean(input.couponCode?.trim())
     // F&F XOR Coupon — prefer F&F when both somehow set
     const couponCodeEffective =
-      fnf > 0 ? null : input.couponCode?.trim() || null
+      fnf > 0 || !couponRequested
+        ? null
+        : input.couponCode?.trim() || null
     if (couponCodeEffective) {
       fnf = 0
     }

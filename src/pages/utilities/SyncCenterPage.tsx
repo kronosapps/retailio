@@ -99,7 +99,10 @@ export function SyncCenterPage() {
     )
   }, [snapshot, tab, query])
 
-  async function run(action: () => void | Promise<unknown>, ok: string) {
+  async function run(
+    action: () => unknown | Promise<unknown>,
+    ok: string
+  ) {
     setBusy(true)
     setMsg(null)
     try {

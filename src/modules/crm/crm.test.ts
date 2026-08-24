@@ -178,7 +178,11 @@ describe("CRM — customer profile & loyalty", () => {
         endsOn: today,
       },
       masters: {
+        productPromotionsEnabled: true,
+        punchCardEnabled: true,
+        punchPercentEnabled: true,
         pointsRedeemEnabled: true,
+        freeItemPromoEnabled: true,
         orderPromotionsEnabled: true,
       },
     })

@@ -134,6 +134,8 @@ describe("PricingService", () => {
         endsOn: today,
       },
       masters: {
+        productPromotionsEnabled: true,
+        punchCardEnabled: true,
         punchPercentEnabled: true,
         pointsRedeemEnabled: true,
         freeItemPromoEnabled: false,
@@ -181,7 +183,11 @@ describe("PricingService", () => {
         endsOn: today,
       },
       masters: {
+        productPromotionsEnabled: true,
+        punchCardEnabled: true,
         punchPercentEnabled: true,
+        pointsRedeemEnabled: true,
+        freeItemPromoEnabled: true,
         orderPromotionsEnabled: true,
       },
     })
@@ -246,6 +252,8 @@ describe("PricingService", () => {
         endsOn: today,
       },
       masters: {
+        productPromotionsEnabled: true,
+        punchCardEnabled: true,
         punchPercentEnabled: true,
         pointsRedeemEnabled: true,
         freeItemPromoEnabled: true,

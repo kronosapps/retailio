@@ -9,7 +9,7 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions",
-    "deploy": "firebase deploy --only functions",
+    "deploy:functions": "firebase deploy --only functions",
     "logs": "firebase functions:log"
   },
   "dependencies": {

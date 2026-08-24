@@ -91,3 +91,9 @@ Script: [`scripts/wipe-firestore.mjs`](scripts/wipe-firestore.mjs)
 More Firebase architecture notes: [`docs/FIREBASE.md`](docs/FIREBASE.md).
 
 Company WhatsApp receipts (business number via webhook): [`docs/WHATSAPP_RECEIPTS.md`](docs/WHATSAPP_RECEIPTS.md).
+
+Start-Service ssh-agent
+ssh-add $env:USERPROFILE\.ssh\id_ed25519
+ssh-add C:\Users\adity\.ssh\ka_github
+ssh -T git@github.com
+
