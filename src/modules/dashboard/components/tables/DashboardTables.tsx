@@ -19,13 +19,15 @@ function TableShell({
   title,
   description,
   children,
+  accentClass = "border-border/70",
 }: {
   title: string
   description?: string
   children: ReactNode
+  accentClass?: string
 }) {
   return (
-    <Card size="sm">
+    <Card size="sm" className={`overflow-hidden shadow-none ${accentClass}`}>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm">{title}</CardTitle>
         {description ? (
@@ -39,8 +41,11 @@ function TableShell({
 
 export function TopProductsTable({ rows }: { rows: TopProductRow[] }) {
   return (
-    <TableShell title="Top selling products" description="By quantity sold">
-      {rows.length === 0 ? (
+    <TableShell
+      title="Top selling products"
+      description="By quantity sold"
+      accentClass="border-emerald-200/70 bg-gradient-to-b from-emerald-50/50 to-card dark:border-emerald-800/40 dark:from-emerald-950/20"
+    >      {rows.length === 0 ? (
         <Empty />
       ) : (
         <table className="w-full min-w-[420px] text-left text-sm">
@@ -82,8 +87,11 @@ export function RecentSalesTable({
   onRefund?: (row: RecentSaleRow) => void
 }) {
   return (
-    <TableShell title="Recent sales" description="Latest paid invoices">
-      {rows.length === 0 ? (
+    <TableShell
+      title="Recent sales"
+      description="Latest paid invoices"
+      accentClass="border-sky-200/70 bg-gradient-to-b from-sky-50/50 to-card dark:border-sky-800/40 dark:from-sky-950/20"
+    >      {rows.length === 0 ? (
         <Empty />
       ) : (
         <table className="w-full min-w-[560px] text-left text-sm">
@@ -140,8 +148,14 @@ export function StockTable({
   rows: StockRow[]
 }) {
   return (
-    <TableShell title={title}>
-      {rows.length === 0 ? (
+    <TableShell
+      title={title}
+      accentClass={
+        title.toLowerCase().includes("out")
+          ? "border-rose-200/70 bg-gradient-to-b from-rose-50/50 to-card dark:border-rose-800/40 dark:from-rose-950/20"
+          : "border-amber-200/70 bg-gradient-to-b from-amber-50/50 to-card dark:border-amber-800/40 dark:from-amber-950/20"
+      }
+    >      {rows.length === 0 ? (
         <Empty text="None right now" />
       ) : (
         <table className="w-full min-w-[360px] text-left text-sm">
