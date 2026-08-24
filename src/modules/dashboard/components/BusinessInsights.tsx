@@ -7,8 +7,8 @@ export function BusinessInsights({ insights }: { insights: BusinessInsight[] }) 
   return (
     <section className="space-y-2">
       <div className="flex items-center gap-2">
-        <Lightbulb className="size-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold tracking-wide uppercase">
+        <Lightbulb className="size-4 text-amber-500" />
+        <h2 className="text-sm font-semibold tracking-wide text-amber-950 uppercase dark:text-amber-100">
           Business insights
         </h2>
       </div>

@@ -1,4 +1,14 @@
 import { Suspense, lazy, useState } from "react"
+import {
+  Banknote,
+  Boxes,
+  HandCoins,
+  Package,
+  Receipt,
+  ShoppingBag,
+  Users,
+  Wallet,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { NotificationAnalyticsCards } from "@/modules/notifications"
@@ -47,10 +57,17 @@ export function DashboardPage() {
   )
 
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 pb-8">
+    <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-6 pb-8">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 -top-6 -z-10 h-72 rounded-3xl bg-[radial-gradient(ellipse_at_top,_oklch(0.95_0.04_175),_transparent_60%),radial-gradient(ellipse_at_80%_0%,_oklch(0.95_0.04_230),_transparent_50%)] dark:bg-[radial-gradient(ellipse_at_top,_oklch(0.28_0.04_175),_transparent_60%),radial-gradient(ellipse_at_80%_0%,_oklch(0.28_0.04_230),_transparent_50%)]"
+      />
+
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-teal-950 dark:text-teal-50">
+            Dashboard
+          </h1>
           <p className="text-sm text-muted-foreground">
             Store performance overview — sales, customers, and inventory.
           </p>
@@ -94,31 +111,59 @@ export function DashboardPage() {
           : data
             ? (
                 <>
-                  <KpiCard title="Total revenue" kpi={data.kpis.totalRevenue} />
+                  <KpiCard
+                    title="Total revenue"
+                    kpi={data.kpis.totalRevenue}
+                    accent="teal"
+                    icon={Banknote}
+                  />
                   <KpiCard
                     title="Gross profit"
                     kpi={data.kpis.grossProfit}
+                    accent="emerald"
+                    icon={Wallet}
                     hint={
                       data.meta.profitApproximate
                         ? "Approximate — add purchase prices for accuracy"
                         : undefined
                     }
                   />
-                  <KpiCard title="Orders" kpi={data.kpis.orders} />
+                  <KpiCard
+                    title="Orders"
+                    kpi={data.kpis.orders}
+                    accent="sky"
+                    icon={ShoppingBag}
+                  />
                   <KpiCard
                     title="Average order value"
                     kpi={data.kpis.averageOrderValue}
+                    accent="cyan"
+                    icon={Receipt}
                   />
-                  <KpiCard title="Customers" kpi={data.kpis.customers} />
+                  <KpiCard
+                    title="Customers"
+                    kpi={data.kpis.customers}
+                    accent="violet"
+                    icon={Users}
+                  />
                   <KpiCard
                     title="Inventory value"
                     kpi={data.kpis.inventoryValue}
+                    accent="amber"
+                    icon={Package}
                   />
                   <KpiCard
                     title="Pending payments"
                     kpi={data.kpis.pendingPayments}
+                    accent="amber"
+                    icon={HandCoins}
                   />
-                  <KpiCard title="Refunds" kpi={data.kpis.refunds} />
+                  <KpiCard
+                    title="Refunds"
+                    kpi={data.kpis.refunds}
+                    accent="rose"
+                    icon={Boxes}
+                  />
                 </>
               )
             : null}
@@ -129,7 +174,7 @@ export function DashboardPage() {
       <NotificationAnalyticsCards />
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold tracking-wide uppercase">
+        <h2 className="text-sm font-semibold tracking-wide text-teal-900 uppercase dark:text-teal-200">
           Charts
         </h2>
         {loading && !data ? (
@@ -167,7 +212,7 @@ export function DashboardPage() {
       ) : null}
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold tracking-wide uppercase">
+        <h2 className="text-sm font-semibold tracking-wide text-slate-800 uppercase dark:text-slate-200">
           Details
         </h2>
         {loading && !data ? (

@@ -1,46 +1,112 @@
 import {
+  CheckCircle2,
+  Clock3,
+  MessageCircle,
+  Percent,
+  XCircle,
+} from "lucide-react"
+
+import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
+import {
+  DASHBOARD_ACCENT,
+  type DashboardAccent,
+} from "@/modules/dashboard/components/palette"
 
 import { useNotificationAnalytics } from "../hooks/useNotificationAnalytics"
 
 export function NotificationAnalyticsCards() {
   const stats = useNotificationAnalytics()
 
-  const cards = [
-    { label: "WhatsApp sent today", value: String(stats.sentToday) },
-    { label: "Failed messages", value: String(stats.failed) },
-    { label: "Pending queue", value: String(stats.pendingQueue) },
+  const cards: Array<{
+    label: string
+    value: string
+    accent: DashboardAccent
+    icon: typeof MessageCircle
+  }> = [
+    {
+      label: "WhatsApp sent today",
+      value: String(stats.sentToday),
+      accent: "emerald",
+      icon: MessageCircle,
+    },
+    {
+      label: "Failed messages",
+      value: String(stats.failed),
+      accent: "rose",
+      icon: XCircle,
+    },
+    {
+      label: "Pending queue",
+      value: String(stats.pendingQueue),
+      accent: "amber",
+      icon: Clock3,
+    },
     {
       label: "Delivery rate",
       value: `${stats.deliveryRate.toFixed(0)}%`,
+      accent: "sky",
+      icon: CheckCircle2,
     },
-    { label: "Read rate", value: `${stats.readRate.toFixed(0)}%` },
+    {
+      label: "Read rate",
+      value: `${stats.readRate.toFixed(0)}%`,
+      accent: "cyan",
+      icon: Percent,
+    },
   ]
 
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-semibold tracking-wide uppercase">
+      <h2 className="text-sm font-semibold tracking-wide text-emerald-900 uppercase dark:text-emerald-200">
         Notification analytics
       </h2>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        {cards.map((card) => (
-          <Card key={card.label} size="sm">
-            <CardHeader className="pb-1">
-              <CardTitle className="text-xs font-medium text-muted-foreground">
-                {card.label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-semibold tabular-nums">
-                {card.value}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+        {cards.map((card) => {
+          const tone = DASHBOARD_ACCENT[card.accent]
+          const Icon = card.icon
+          return (
+            <Card
+              key={card.label}
+              size="sm"
+              className={cn("overflow-hidden shadow-none", tone.card)}
+            >
+              <CardHeader className="pb-1">
+                <CardTitle
+                  className={cn(
+                    "flex items-center justify-between gap-2 text-xs font-medium",
+                    tone.label
+                  )}
+                >
+                  {card.label}
+                  <span
+                    className={cn(
+                      "inline-flex size-7 items-center justify-center rounded-lg",
+                      tone.iconWrap
+                    )}
+                  >
+                    <Icon className="size-3.5" aria-hidden />
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p
+                  className={cn(
+                    "text-2xl font-semibold tabular-nums",
+                    tone.value
+                  )}
+                >
+                  {card.value}
+                </p>
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
     </section>
   )

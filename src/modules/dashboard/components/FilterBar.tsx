@@ -30,9 +30,9 @@ export function FilterBar({
   generatedAt?: string
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border bg-card/60 p-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-xl border border-teal-200/60 bg-gradient-to-r from-teal-50/70 via-card to-sky-50/50 p-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between dark:border-teal-800/40 dark:from-teal-950/30 dark:to-sky-950/20">
       <div className="space-y-2">
-        <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        <p className="text-xs font-medium tracking-wide text-teal-800 uppercase dark:text-teal-200">
           Period
         </p>
         <div className="flex flex-wrap gap-1.5">
@@ -44,8 +44,8 @@ export function FilterBar({
               className={cn(
                 "rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
                 preset === item.id
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background hover:bg-muted"
+                  ? "border-teal-700 bg-teal-700 text-white dark:border-teal-400 dark:bg-teal-500 dark:text-teal-950"
+                  : "border-border bg-background hover:bg-teal-50 dark:hover:bg-teal-950/40"
               )}
             >
               {item.label}
