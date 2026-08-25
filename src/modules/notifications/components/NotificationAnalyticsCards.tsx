@@ -5,6 +5,7 @@ import {
   Percent,
   XCircle,
 } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import {
   Card,
@@ -21,6 +22,7 @@ import {
 import { useNotificationAnalytics } from "../hooks/useNotificationAnalytics"
 
 export function NotificationAnalyticsCards() {
+  const { t } = useTranslation()
   const stats = useNotificationAnalytics()
 
   const cards: Array<{
@@ -30,31 +32,31 @@ export function NotificationAnalyticsCards() {
     icon: typeof MessageCircle
   }> = [
     {
-      label: "WhatsApp sent today",
+      label: t("notifications.whatsappSentToday"),
       value: String(stats.sentToday),
       accent: "emerald",
       icon: MessageCircle,
     },
     {
-      label: "Failed messages",
+      label: t("notifications.failedMessages"),
       value: String(stats.failed),
       accent: "rose",
       icon: XCircle,
     },
     {
-      label: "Pending queue",
+      label: t("notifications.pendingQueue"),
       value: String(stats.pendingQueue),
       accent: "amber",
       icon: Clock3,
     },
     {
-      label: "Delivery rate",
+      label: t("notifications.deliveryRate"),
       value: `${stats.deliveryRate.toFixed(0)}%`,
       accent: "sky",
       icon: CheckCircle2,
     },
     {
-      label: "Read rate",
+      label: t("notifications.readRate"),
       value: `${stats.readRate.toFixed(0)}%`,
       accent: "cyan",
       icon: Percent,
@@ -64,7 +66,7 @@ export function NotificationAnalyticsCards() {
   return (
     <section className="space-y-3">
       <h2 className="text-sm font-semibold tracking-wide text-emerald-900 uppercase dark:text-emerald-200">
-        Notification analytics
+        {t("dashboard.notificationAnalytics")}
       </h2>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {cards.map((card) => {

@@ -4,6 +4,7 @@ import {
   ShoppingBag,
   Users,
 } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatMoney } from "@/lib/money"
@@ -12,39 +13,41 @@ import type { TodaySnapshot as Snapshot } from "../types/dashboard"
 import { DASHBOARD_ACCENT } from "./palette"
 
 export function TodaySnapshotPanel({ snapshot }: { snapshot: Snapshot }) {
+  const { t } = useTranslation()
+
   const rows = [
     {
-      label: "Revenue",
+      label: t("dashboard.snapshot.revenue"),
       value: formatMoney(snapshot.revenuePaisa),
       accent: "teal" as const,
       icon: Banknote,
     },
     {
-      label: "Orders",
+      label: t("dashboard.snapshot.orders"),
       value: String(snapshot.orders),
       accent: "sky" as const,
       icon: ShoppingBag,
     },
     {
-      label: "Customers",
+      label: t("dashboard.snapshot.customers"),
       value: String(snapshot.customers),
       accent: "violet" as const,
       icon: Users,
     },
     {
-      label: "Best seller",
-      value: snapshot.bestSellerName || "—",
+      label: t("dashboard.snapshot.bestSeller"),
+      value: snapshot.bestSellerName || t("common.none"),
       accent: "emerald" as const,
       icon: ShoppingBag,
     },
     {
-      label: "Low stock",
+      label: t("dashboard.snapshot.lowStock"),
       value: String(snapshot.lowStockCount),
       accent: "amber" as const,
       icon: PackageMinus,
     },
     {
-      label: "UPI sales",
+      label: t("dashboard.snapshot.upiSales"),
       value: `${snapshot.upiSharePercent.toFixed(0)}%`,
       accent: "cyan" as const,
       icon: Banknote,
@@ -58,7 +61,7 @@ export function TodaySnapshotPanel({ snapshot }: { snapshot: Snapshot }) {
     >
       <CardHeader className="pb-2">
         <CardTitle className="text-sm tracking-wide text-teal-900 uppercase dark:text-teal-100">
-          Today&apos;s snapshot
+          {t("dashboard.todaySnapshot")}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -79,14 +82,9 @@ export function TodaySnapshotPanel({ snapshot }: { snapshot: Snapshot }) {
                 >
                   <Icon className="size-3.5" aria-hidden />
                 </span>
-                {row.label}
+                <span className="truncate">{row.label}</span>
               </span>
-              <span
-                className={cn(
-                  "max-w-[55%] truncate text-right font-semibold tabular-nums",
-                  tone.value
-                )}
-              >
+              <span className={cn("shrink-0 font-medium tabular-nums", tone.value)}>
                 {row.value}
               </span>
             </div>

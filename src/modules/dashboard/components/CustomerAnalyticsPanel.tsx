@@ -1,4 +1,5 @@
 import { UserRound, Users } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatMoney } from "@/lib/money"
@@ -11,27 +12,29 @@ export function CustomerAnalyticsPanel({
 }: {
   data: CustomerAnalytics
 }) {
+  const { t } = useTranslation()
+
   const items = [
     {
-      label: "New customers",
+      label: t("dashboard.customer.newCustomers"),
       value: String(data.newCustomers),
       accent: "emerald" as const,
     },
     {
-      label: "Returning",
+      label: t("dashboard.customer.returning"),
       value: String(data.returningCustomers),
       accent: "sky" as const,
     },
     {
-      label: "Repeat purchase",
+      label: t("dashboard.customer.repeatPurchase"),
       value: `${data.repeatPurchasePercent.toFixed(0)}%`,
       accent: "violet" as const,
     },
     {
-      label: "Top spender",
+      label: t("dashboard.customer.topSpender"),
       value: data.highestSpendingCustomer
         ? `${data.highestSpendingCustomer.name} · ${formatMoney(data.highestSpendingCustomer.spendPaisa)}`
-        : "—",
+        : t("common.none"),
       accent: "amber" as const,
     },
   ]
@@ -44,7 +47,7 @@ export function CustomerAnalyticsPanel({
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm tracking-wide text-indigo-900 uppercase dark:text-indigo-100">
           <Users className="size-4" aria-hidden />
-          Customer analytics
+          {t("dashboard.customerAnalytics")}
         </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-3 sm:grid-cols-2">
@@ -53,16 +56,21 @@ export function CustomerAnalyticsPanel({
           return (
             <div
               key={item.label}
-              className={cn(
-                "rounded-xl border px-3 py-2.5",
-                tone.card
-              )}
+              className={cn("rounded-xl border px-3 py-2.5", tone.card)}
             >
               <p className={cn("text-xs font-medium", tone.label)}>
                 {item.label}
               </p>
-              <p className={cn("mt-1 flex items-center gap-1.5 text-sm font-semibold", tone.value)}>
-                <UserRound className={cn("size-3.5 shrink-0", tone.icon)} aria-hidden />
+              <p
+                className={cn(
+                  "mt-1 flex items-center gap-1.5 text-sm font-semibold",
+                  tone.value
+                )}
+              >
+                <UserRound
+                  className={cn("size-3.5 shrink-0", tone.icon)}
+                  aria-hidden
+                />
                 <span className="truncate">{item.value}</span>
               </p>
             </div>

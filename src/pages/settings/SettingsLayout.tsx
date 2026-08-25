@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom"
 import { Suspense, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { Settings2 } from "lucide-react"
 
 import { settingsSectionsForRole } from "@/modules/settings"
@@ -7,6 +8,7 @@ import { useAuth } from "@/providers/AuthProvider"
 import { cn } from "@/lib/utils"
 
 export function SettingsLayout() {
+  const { t } = useTranslation()
   const { role } = useAuth()
   const sections = useMemo(() => settingsSectionsForRole(role), [role])
 
@@ -15,11 +17,10 @@ export function SettingsLayout() {
       <header>
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
           <Settings2 className="size-6" />
-          Settings
+          {t("settings.title")}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Business configuration for this store. Deploy secrets and Firebase /
-          webhook URLs stay in environment config — not editable here.
+          {t("settings.subtitle")}
         </p>
       </header>
 
@@ -34,7 +35,7 @@ export function SettingsLayout() {
             )
           }
         >
-          Home
+          {t("settings.home")}
         </NavLink>
         {sections
           .filter((s) => s.path.startsWith("/settings/"))
@@ -49,14 +50,14 @@ export function SettingsLayout() {
                 )
               }
             >
-              {s.title}
+              {t(`settings.sections.${s.id}.title`)}
             </NavLink>
           ))}
       </nav>
 
       <Suspense
         fallback={
-          <p className="text-sm text-muted-foreground">Loading settings…</p>
+          <p className="text-sm text-muted-foreground">{t("settings.loading")}</p>
         }
       >
         <Outlet />

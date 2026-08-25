@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { Link } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 
 import {
   Card,
@@ -208,6 +209,7 @@ function TxnTable({
 }
 
 export function TransactionsPage() {
+  const { t } = useTranslation()
   const { profile } = useAuth()
   const [today, setToday] = useState<DayTransactions | null>(null)
   const [yesterday, setYesterday] = useState<DayTransactions | null>(null)
@@ -241,11 +243,10 @@ export function TransactionsPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Transactions
+            {t("transactions.title")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Today and yesterday are listed separately — sales, payments, and
-            refunds for each day.
+            {t("transactions.subtitle")}
           </p>
         </div>
         <button

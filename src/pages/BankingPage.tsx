@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Landmark, Lock, LockOpen, RefreshCw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -21,6 +22,7 @@ const selectClass =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
 
 export function BankingPage() {
+  const { t } = useTranslation()
   const { profile, userId } = useAuth()
   const [tick, setTick] = useState(0)
   const [unlocked, setUnlocked] = useState(() => BankingService.isUnlocked())
@@ -137,11 +139,10 @@ export function BankingPage() {
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
             <Landmark className="size-6" />
-            Banking
+            {t("banking.title")}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Opening balances, cash & UPI movement, account and GST details.
-            Any change requires the banking admin passcode.
+            {t("banking.subtitle")}
           </p>
         </div>
         <div className="flex gap-2">

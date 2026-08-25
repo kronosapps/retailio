@@ -1,4 +1,5 @@
 import { Suspense, lazy, useState } from "react"
+import { useTranslation } from "react-i18next"
 import {
   Banknote,
   Boxes,
@@ -40,6 +41,7 @@ const ChartsSection = lazy(() =>
 )
 
 export function DashboardPage() {
+  const { t } = useTranslation()
   const {
     data,
     loading,
@@ -66,10 +68,10 @@ export function DashboardPage() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight text-teal-950 dark:text-teal-50">
-            Dashboard
+            {t("dashboard.title")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Store performance overview — sales, customers, and inventory.
+            {t("dashboard.subtitle")}
           </p>
           <div className="pt-2">
             <QuickActions />
@@ -100,7 +102,7 @@ export function DashboardPage() {
             className="mt-3"
             onClick={refresh}
           >
-            Retry
+            {t("common.retry")}
           </Button>
         </div>
       ) : null}
@@ -112,54 +114,54 @@ export function DashboardPage() {
             ? (
                 <>
                   <KpiCard
-                    title="Total revenue"
+                    title={t("dashboard.kpis.totalRevenue")}
                     kpi={data.kpis.totalRevenue}
                     accent="teal"
                     icon={Banknote}
                   />
                   <KpiCard
-                    title="Gross profit"
+                    title={t("dashboard.kpis.grossProfit")}
                     kpi={data.kpis.grossProfit}
                     accent="emerald"
                     icon={Wallet}
                     hint={
                       data.meta.profitApproximate
-                        ? "Approximate — add purchase prices for accuracy"
+                        ? t("dashboard.profitHint")
                         : undefined
                     }
                   />
                   <KpiCard
-                    title="Orders"
+                    title={t("dashboard.kpis.orders")}
                     kpi={data.kpis.orders}
                     accent="sky"
                     icon={ShoppingBag}
                   />
                   <KpiCard
-                    title="Average order value"
+                    title={t("dashboard.kpis.averageOrderValue")}
                     kpi={data.kpis.averageOrderValue}
                     accent="cyan"
                     icon={Receipt}
                   />
                   <KpiCard
-                    title="Customers"
+                    title={t("dashboard.kpis.customers")}
                     kpi={data.kpis.customers}
                     accent="violet"
                     icon={Users}
                   />
                   <KpiCard
-                    title="Inventory value"
+                    title={t("dashboard.kpis.inventoryValue")}
                     kpi={data.kpis.inventoryValue}
                     accent="amber"
                     icon={Package}
                   />
                   <KpiCard
-                    title="Pending payments"
+                    title={t("dashboard.kpis.pendingPayments")}
                     kpi={data.kpis.pendingPayments}
                     accent="amber"
                     icon={HandCoins}
                   />
                   <KpiCard
-                    title="Refunds"
+                    title={t("dashboard.kpis.refunds")}
                     kpi={data.kpis.refunds}
                     accent="rose"
                     icon={Boxes}
@@ -175,7 +177,7 @@ export function DashboardPage() {
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold tracking-wide text-teal-900 uppercase dark:text-teal-200">
-          Charts
+          {t("dashboard.charts")}
         </h2>
         {loading && !data ? (
           <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
@@ -213,7 +215,7 @@ export function DashboardPage() {
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold tracking-wide text-slate-800 uppercase dark:text-slate-200">
-          Details
+          {t("dashboard.details")}
         </h2>
         {loading && !data ? (
           <div className="grid gap-4 lg:grid-cols-2">
@@ -235,9 +237,12 @@ export function DashboardPage() {
                 })
               }
             />
-            <StockTable title="Low stock items" rows={data.tables.lowStock} />
             <StockTable
-              title="Out of stock items"
+              title={t("dashboard.lowStockItems")}
+              rows={data.tables.lowStock}
+            />
+            <StockTable
+              title={t("dashboard.outOfStockItems")}
               rows={data.tables.outOfStock}
             />
           </div>

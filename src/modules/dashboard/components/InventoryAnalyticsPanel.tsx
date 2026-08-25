@@ -1,4 +1,5 @@
 import { Package } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatMoney } from "@/lib/money"
@@ -11,35 +12,40 @@ export function InventoryAnalyticsPanel({
 }: {
   data: InventoryAnalytics
 }) {
+  const { t } = useTranslation()
+
   const items = [
     {
-      label: "Total products",
+      label: t("dashboard.inventoryPanel.totalProducts"),
       value: String(data.totalProducts),
       accent: "slate" as const,
     },
     {
-      label: "Inventory value",
+      label: t("dashboard.inventoryPanel.inventoryValue"),
       value: formatMoney(data.inventoryValuePaisa),
       accent: "teal" as const,
     },
     {
-      label: "Low stock",
+      label: t("dashboard.inventoryPanel.lowStock"),
       value: String(data.lowStockCount),
       accent: "amber" as const,
     },
     {
-      label: "Out of stock",
+      label: t("dashboard.inventoryPanel.outOfStock"),
       value: String(data.outOfStockCount),
       accent: "rose" as const,
     },
     {
-      label: "Inactive products",
+      label: t("dashboard.inventoryPanel.inactiveProducts"),
       value: String(data.inactiveProducts),
       accent: "slate" as const,
     },
     {
-      label: "Damaged products",
-      value: data.damagedProducts === 0 ? "—" : String(data.damagedProducts),
+      label: t("dashboard.inventoryPanel.damagedProducts"),
+      value:
+        data.damagedProducts === 0
+          ? t("common.none")
+          : String(data.damagedProducts),
       accent: "rose" as const,
     },
   ]
@@ -52,7 +58,7 @@ export function InventoryAnalyticsPanel({
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm tracking-wide text-amber-950 uppercase dark:text-amber-100">
           <Package className="size-4" aria-hidden />
-          Inventory analytics
+          {t("dashboard.inventoryAnalytics")}
         </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

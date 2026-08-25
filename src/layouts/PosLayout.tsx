@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { NavLink, Outlet } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { LogOut, Menu } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -9,6 +10,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { LanguageSwitcher } from "@/i18n/LanguageSwitcher"
+import { navLabelKey } from "@/i18n/navKeys"
 import { cn } from "@/lib/utils"
 import { SoftAlertsBell } from "@/modules/notifications/components/SoftAlertsBell"
 import { navItemsForRole, roleLabel } from "@/modules/staff"
@@ -24,6 +27,7 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
 }
 
 export function PosLayout() {
+  const { t } = useTranslation()
   const { profile, role, signOut } = useAuth()
   const nav = navItemsForRole(role).filter((item) => item.to !== "/pos")
   const [navOpen, setNavOpen] = useState(false)
@@ -35,7 +39,7 @@ export function PosLayout() {
         onClick={() => setNavOpen(false)}
         className={navLinkClass}
       >
-        POS
+        {t("nav.pos")}
       </NavLink>
       {nav.map((item) => (
         <NavLink
@@ -45,7 +49,7 @@ export function PosLayout() {
           onClick={() => setNavOpen(false)}
           className={navLinkClass}
         >
-          {item.label}
+          {t(navLabelKey(item.to))}
         </NavLink>
       ))}
     </>
@@ -66,7 +70,7 @@ export function PosLayout() {
             size="icon"
             className="shrink-0 sm:hidden"
             onClick={() => setNavOpen(true)}
-            aria-label="Open navigation"
+            aria-label={t("common.openNavigation")}
           >
             <Menu className="size-5" />
           </Button>
@@ -76,7 +80,7 @@ export function PosLayout() {
               R
             </div>
             <span className="text-base font-semibold tracking-tight">
-              RetailOS
+              {t("app.name")}
             </span>
           </div>
 
@@ -84,13 +88,14 @@ export function PosLayout() {
         </div>
 
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <LanguageSwitcher compact className="hidden sm:inline-flex" />
           <SoftAlertsBell />
           <div className="min-w-0 text-right">
             <p className="truncate text-sm font-medium">
-              {profile?.displayName || profile?.username || "Staff"}
+              {profile?.displayName || profile?.username || t("app.staff")}
             </p>
             <p className="truncate text-xs text-muted-foreground">
-              {role ? roleLabel(role) : "staff"}
+              {role ? roleLabel(role) : t("roles.staff")}
               {profile?.storeId ? ` · ${profile.storeId}` : ""}
             </p>
           </div>
@@ -101,7 +106,7 @@ export function PosLayout() {
             onClick={() => void signOut()}
           >
             <LogOut data-icon="inline-start" />
-            <span className="hidden sm:inline">Sign out</span>
+            <span className="hidden sm:inline">{t("common.signOut")}</span>
           </Button>
         </div>
       </header>
@@ -109,9 +114,12 @@ export function PosLayout() {
       <Sheet open={navOpen} onOpenChange={setNavOpen}>
         <SheetContent side="left" className="w-[min(100%,20rem)] p-0">
           <SheetHeader className="border-b border-border">
-            <SheetTitle>Navigate</SheetTitle>
+            <SheetTitle>{t("common.navigate")}</SheetTitle>
           </SheetHeader>
           <nav className="flex flex-col gap-1 p-3">{links}</nav>
+          <div className="border-t border-border p-3">
+            <LanguageSwitcher className="w-full justify-between" />
+          </div>
         </SheetContent>
       </Sheet>
 

@@ -1,15 +1,18 @@
 import { Lightbulb } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import { cn } from "@/lib/utils"
 import type { BusinessInsight } from "../types/dashboard"
 
 export function BusinessInsights({ insights }: { insights: BusinessInsight[] }) {
+  const { t } = useTranslation()
+
   return (
     <section className="space-y-2">
       <div className="flex items-center gap-2">
         <Lightbulb className="size-4 text-amber-500" />
         <h2 className="text-sm font-semibold tracking-wide text-amber-950 uppercase dark:text-amber-100">
-          Business insights
+          {t("dashboard.businessInsights")}
         </h2>
       </div>
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">

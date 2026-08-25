@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom"
 import { useEffect, useMemo, useState, type FormEvent } from "react"
+import { useTranslation } from "react-i18next"
 import { Download, Megaphone, Trash2, UserPlus } from "lucide-react"
 
 import { MobileListCard, ResponsiveList } from "@/components/ResponsiveList"
@@ -40,6 +41,7 @@ function downloadCsv(filename: string, csv: string) {
 }
 
 export function CustomersPage() {
+  const { t } = useTranslation()
   const { userId, profile } = useAuth()
   const [items, setItems] = useState<CustomerRecord[]>(() =>
     CustomerService.list()
@@ -172,10 +174,11 @@ export function CustomersPage() {
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Customers</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {t("customers.title")}
+        </h1>
         <p className="text-sm text-muted-foreground">
-          CRM directory — profile, purchases, store credit, loyalty, and
-          segments. Open a customer for the full view.
+          {t("customers.subtitle")}
         </p>
       </div>
 

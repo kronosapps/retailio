@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import {
   PackagePlus,
   ShoppingCart,
@@ -10,28 +11,45 @@ import {
 import { Button } from "@/components/ui/button"
 
 const ACTIONS = [
-  { label: "New sale", to: "/pos", icon: ShoppingCart },
-  { label: "Add product", to: "/inventory", icon: PackagePlus },
-  { label: "Receive stock", to: "/inventory", icon: Warehouse },
-  { label: "Add customer", to: "/customers", icon: UserPlus },
-  { label: "Day Ops", to: "/day-ops", icon: FileBarChart2 },
+  { labelKey: "dashboard.quickActions.newSale", to: "/pos", icon: ShoppingCart },
+  {
+    labelKey: "dashboard.quickActions.addProduct",
+    to: "/inventory",
+    icon: PackagePlus,
+  },
+  {
+    labelKey: "dashboard.quickActions.receiveStock",
+    to: "/inventory",
+    icon: Warehouse,
+  },
+  {
+    labelKey: "dashboard.quickActions.addCustomer",
+    to: "/customers",
+    icon: UserPlus,
+  },
+  {
+    labelKey: "dashboard.quickActions.dayOps",
+    to: "/day-ops",
+    icon: FileBarChart2,
+  },
 ] as const
 
 export function QuickActions() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   return (
     <div className="flex flex-wrap gap-2">
-      {ACTIONS.map(({ label, to, icon: Icon }) => (
+      {ACTIONS.map(({ labelKey, to, icon: Icon }) => (
         <Button
-          key={label}
+          key={labelKey}
           type="button"
           variant="outline"
           size="sm"
           onClick={() => navigate(to)}
         >
           <Icon data-icon="inline-start" />
-          {label}
+          {t(labelKey)}
         </Button>
       ))}
     </div>

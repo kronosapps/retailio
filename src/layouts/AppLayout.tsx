@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { NavLink, Outlet } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import {
   LayoutDashboard,
   Landmark,
@@ -25,6 +26,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { LanguageSwitcher } from "@/i18n/LanguageSwitcher"
+import { navLabelKey } from "@/i18n/navKeys"
 import { cn } from "@/lib/utils"
 import { SoftAlertsBell } from "@/modules/notifications/components/SoftAlertsBell"
 import { PaymentDialog } from "@/modules/payment"
@@ -56,13 +59,14 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
 }
 
 export function AppLayout() {
+  const { t } = useTranslation()
   const { profile, role, signOut } = useAuth()
   const visibleNav = navItemsForRole(role)
   const [navOpen, setNavOpen] = useState(false)
 
   const navLinks = (
     <>
-      {visibleNav.map(({ to, label }) => {
+      {visibleNav.map(({ to }) => {
         const Icon = NAV_ICONS[to] ?? LayoutDashboard
         return (
           <NavLink
@@ -73,7 +77,7 @@ export function AppLayout() {
             className={navLinkClass}
           >
             <Icon className="size-4 shrink-0" />
-            {label}
+            {t(navLabelKey(to))}
           </NavLink>
         )
       })}
@@ -94,21 +98,22 @@ export function AppLayout() {
             size="icon"
             className="shrink-0"
             onClick={() => setNavOpen(true)}
-            aria-label="Open navigation"
+            aria-label={t("common.openNavigation")}
           >
             <Menu className="size-5" />
           </Button>
           <div className="min-w-0">
             <p className="truncate text-base font-semibold tracking-tight">
-              RetailOS
+              {t("app.name")}
             </p>
             <p className="truncate text-xs text-muted-foreground">
-              {profile?.displayName || profile?.username || "Store"}
+              {profile?.displayName || profile?.username || t("app.store")}
               {role ? ` · ${roleLabel(role)}` : ""}
             </p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          <LanguageSwitcher compact />
           <SoftAlertsBell />
           <Button
             type="button"
@@ -118,7 +123,7 @@ export function AppLayout() {
             onClick={() => void signOut()}
           >
             <LogOut data-icon="inline-start" />
-            <span className="sr-only">Sign out</span>
+            <span className="sr-only">{t("common.signOut")}</span>
           </Button>
         </div>
       </header>
@@ -127,10 +132,10 @@ export function AppLayout() {
       <aside className="hidden w-56 shrink-0 flex-col border-r border-border bg-sidebar text-sidebar-foreground md:flex">
         <div className="px-4 py-5">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            RetailOS
+            {t("app.name")}
           </p>
           <p className="mt-1 truncate text-sm font-medium">
-            {profile?.displayName || profile?.username || "Store"}
+            {profile?.displayName || profile?.username || t("app.store")}
           </p>
           {role ? (
             <p className="mt-0.5 text-xs text-muted-foreground">
@@ -147,7 +152,8 @@ export function AppLayout() {
         </nav>
 
         <div className="p-3">
-          <div className="mb-2 flex justify-end md:justify-start">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <LanguageSwitcher />
             <SoftAlertsBell className="hidden md:inline-flex" />
           </div>
           <Button
@@ -156,7 +162,7 @@ export function AppLayout() {
             onClick={() => void signOut()}
           >
             <LogOut data-icon="inline-start" />
-            Sign out
+            {t("common.signOut")}
           </Button>
         </div>
       </aside>
@@ -168,12 +174,13 @@ export function AppLayout() {
           className="flex w-[min(100%,20rem)] flex-col bg-sidebar p-0 text-sidebar-foreground"
         >
           <SheetHeader className="border-b border-border">
-            <SheetTitle>Navigate</SheetTitle>
+            <SheetTitle>{t("common.navigate")}</SheetTitle>
           </SheetHeader>
           <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
             {navLinks}
           </nav>
-          <div className="border-t border-border p-3">
+          <div className="space-y-2 border-t border-border p-3">
+            <LanguageSwitcher className="w-full justify-between" />
             <Button
               variant="ghost"
               className="w-full justify-start"
@@ -183,7 +190,7 @@ export function AppLayout() {
               }}
             >
               <LogOut data-icon="inline-start" />
-              Sign out
+              {t("common.signOut")}
             </Button>
           </div>
         </SheetContent>

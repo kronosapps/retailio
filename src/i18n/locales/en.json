@@ -1,0 +1,412 @@
+{
+  "app": {
+    "name": "RetailOS",
+    "store": "Store",
+    "staff": "Staff"
+  },
+  "language": {
+    "label": "Language",
+    "english": "English",
+    "telugu": "Telugu"
+  },
+  "common": {
+    "signOut": "Sign out",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "add": "Add",
+    "search": "Search",
+    "refresh": "Refresh",
+    "retry": "Retry",
+    "loading": "Loading…",
+    "home": "Home",
+    "back": "Back",
+    "navigate": "Navigate",
+    "openNavigation": "Open navigation",
+    "actions": "Actions",
+    "details": "Details",
+    "status": "Status",
+    "from": "From",
+    "to": "To",
+    "period": "Period",
+    "none": "—",
+    "yes": "Yes",
+    "no": "No",
+    "close": "Close",
+    "confirm": "Confirm",
+    "view": "View",
+    "all": "All"
+  },
+  "roles": {
+    "admin": "Admin",
+    "manager": "Manager",
+    "cashier": "Cashier",
+    "staff": "staff"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "pos": "POS",
+    "shifts": "Shifts",
+    "dayOps": "Day Ops",
+    "returns": "Returns",
+    "inventory": "Inventory",
+    "purchasing": "Purchasing",
+    "customers": "Customers",
+    "transactions": "Transactions",
+    "reports": "Reports",
+    "utilities": "Utilities",
+    "banking": "Banking",
+    "settings": "Settings",
+    "staff": "Staff management"
+  },
+  "login": {
+    "title": "Sign in",
+    "subtitle": "Sign in with your staff username and passcode",
+    "username": "Username",
+    "passcode": "Passcode",
+    "usernameRequired": "Username is required",
+    "usernameTooLong": "Username is too long",
+    "passcodeRequired": "Passcode is required"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Store performance overview — sales, customers, and inventory.",
+    "charts": "Charts",
+    "details": "Details",
+    "businessInsights": "Business insights",
+    "notificationAnalytics": "Notification analytics",
+    "todaySnapshot": "Today's snapshot",
+    "customerAnalytics": "Customer analytics",
+    "inventoryAnalytics": "Inventory analytics",
+    "kpis": {
+      "totalRevenue": "Total revenue",
+      "grossProfit": "Gross profit",
+      "orders": "Orders",
+      "averageOrderValue": "Average order value",
+      "customers": "Customers",
+      "inventoryValue": "Inventory value",
+      "pendingPayments": "Pending payments",
+      "refunds": "Refunds"
+    },
+    "snapshot": {
+      "revenue": "Revenue",
+      "orders": "Orders",
+      "customers": "Customers",
+      "bestSeller": "Best seller",
+      "lowStock": "Low stock",
+      "upiSales": "UPI sales"
+    },
+    "ranges": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "this_week": "This week",
+      "this_month": "This month",
+      "last_month": "Last month",
+      "custom": "Custom"
+    },
+    "quickActions": {
+      "newSale": "New sale",
+      "addProduct": "Add product",
+      "receiveStock": "Receive stock",
+      "addCustomer": "Add customer",
+      "dayOps": "Day Ops"
+    },
+    "vsPriorPeriod": "vs prior period",
+    "profitHint": "Approximate — add purchase prices for accuracy",
+    "updated": "Updated",
+    "lowStockItems": "Low stock items",
+    "outOfStockItems": "Out of stock items",
+    "customer": {
+      "newCustomers": "New customers",
+      "returning": "Returning",
+      "repeatPurchase": "Repeat purchase",
+      "topSpender": "Top spender"
+    },
+    "inventoryPanel": {
+      "totalProducts": "Total products",
+      "inventoryValue": "Inventory value",
+      "lowStock": "Low stock",
+      "outOfStock": "Out of stock",
+      "inactiveProducts": "Inactive products",
+      "damagedProducts": "Damaged products"
+    }
+  },
+  "inventory": {
+    "title": "Inventory",
+    "subtitle": "Stock, items, and movements",
+    "tabs": {
+      "items": "Items",
+      "import": "Import",
+      "stock": "Stock",
+      "opening": "Opening",
+      "stockTake": "Stock take",
+      "lots": "Lots & health",
+      "movements": "Movements",
+      "categories": "Categories"
+    }
+  },
+  "purchasing": {
+    "title": "Purchasing",
+    "subtitle": "Suppliers, orders, and payments",
+    "tabs": {
+      "suppliers": "Suppliers",
+      "quick": "Quick buy",
+      "orders": "Purchase Orders",
+      "goodsReceived": "Goods Received",
+      "invoices": "Purchase Invoices",
+      "payments": "Supplier Payments",
+      "returns": "Returns",
+      "statements": "Statements",
+      "match": "Match"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Business configuration for this store. Deploy secrets and Firebase / webhook URLs stay in environment config — not editable here.",
+    "home": "Home",
+    "loading": "Loading settings…",
+    "languageHint": "Choose the app language. More languages can be added via locale JSON files.",
+    "homeIntro": "Central place for store configuration. Utilities remain for accounting tools and reports; this hub is for settings only.",
+    "noSections": "No settings sections for this role.",
+    "sectionsMeta": "{{count}} sections defined · admin access required",
+    "storage": {
+      "env": "Env (read-only)",
+      "link": "Opens tool",
+      "store": "Store settings"
+    },
+    "sections": {
+      "business": {
+        "title": "Business",
+        "description": "Legal identity, address, GSTIN, branding"
+      },
+      "invoice": {
+        "title": "Invoice",
+        "description": "Invoice prefix and receipt footer"
+      },
+      "tax": {
+        "title": "Tax",
+        "description": "GST pricing mode, store state, default rates"
+      },
+      "inventory": {
+        "title": "Inventory",
+        "description": "Default reorder level for new / unset SKUs"
+      },
+      "pos": {
+        "title": "POS",
+        "description": "Checkout gates and lane notes"
+      },
+      "payments": {
+        "title": "Payments",
+        "description": "Merchant UPI, timeout, receipt WhatsApp labels"
+      },
+      "banking": {
+        "title": "Banking",
+        "description": "Cash / UPI ledger — account display from env until migrated"
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "Staff alert thresholds and role mutes"
+      },
+      "users": {
+        "title": "Users & Roles",
+        "description": "Staff management — create, edit, deactivate accounts"
+      },
+      "integrations": {
+        "title": "Integrations",
+        "description": "Sheets sync status, webhooks (env), Sync Center"
+      },
+      "data": {
+        "title": "Data / Backup",
+        "description": "Database and domain exports — restore inspect-only"
+      }
+    }
+  },
+  "utilities": {
+    "title": "Utilities",
+    "subtitle": "Setup, hybrid accounting, analysis & statutory scaffolds.",
+    "home": "Home",
+    "activeFy": "Active FY",
+    "loading": "Loading tool…",
+    "groups": {
+      "setup": "Business & Setup",
+      "master-data": "Master Data",
+      "daily": "Daily Operations",
+      "accounting": "Accounting",
+      "analysis": "Analysis",
+      "statutory": "Statutory"
+    },
+    "tools": {
+      "business-setup": {
+        "title": "Business Setup",
+        "description": "Legal identity, tax IDs, invoice footer"
+      },
+      "financial-year": {
+        "title": "Financial Year",
+        "description": "Active FY for accounting & statutory reports"
+      },
+      "barcode": {
+        "title": "Barcode Generator",
+        "description": "Preview and print product barcodes"
+      },
+      "recycle-bin": {
+        "title": "Recycle Bin",
+        "description": "Restore deactivated master records"
+      },
+      "master-data": {
+        "title": "Master Data Hub",
+        "description": "Brands, units, tax rates, payment methods"
+      },
+      "master-brands": {
+        "title": "Brands",
+        "description": "Product brand master"
+      },
+      "master-units": {
+        "title": "Units",
+        "description": "Unit of measure master"
+      },
+      "master-tax-rates": {
+        "title": "Tax Rates",
+        "description": "GST / tax rate master"
+      },
+      "master-payment-methods": {
+        "title": "Payment Methods",
+        "description": "Tender types for POS and accounts"
+      },
+      "daybook": {
+        "title": "Daybook",
+        "description": "Daily cash and UPI activity"
+      },
+      "all-transactions": {
+        "title": "All Transactions",
+        "description": "Cross-module transaction list"
+      },
+      "accounting": {
+        "title": "Accounting Hub",
+        "description": "Ledgers and financial statements"
+      },
+      "chart-of-accounts": {
+        "title": "Chart of Accounts",
+        "description": "Account tree"
+      },
+      "manual-journal": {
+        "title": "Manual Journal",
+        "description": "Post journal entries"
+      },
+      "trial-balance": {
+        "title": "Trial Balance",
+        "description": "Debit / credit check"
+      },
+      "profit-loss": {
+        "title": "Profit & Loss",
+        "description": "Income statement"
+      },
+      "balance-sheet": {
+        "title": "Balance Sheet",
+        "description": "Assets and liabilities"
+      },
+      "cash-flow": {
+        "title": "Cash Flow",
+        "description": "Cash movement summary"
+      },
+      "account-statement": {
+        "title": "Account Statement",
+        "description": "Ledger statement for an account"
+      },
+      "report-item": {
+        "title": "Report by Item",
+        "description": "Sales analysis by SKU"
+      },
+      "report-operator": {
+        "title": "Report by Operator",
+        "description": "Sales by cashier"
+      },
+      "report-role": {
+        "title": "Report by Role",
+        "description": "Activity by staff role"
+      },
+      "report-expense": {
+        "title": "Expense Reports",
+        "description": "Expense summaries"
+      },
+      "expense-create": {
+        "title": "Add Expense",
+        "description": "Record a business expense"
+      },
+      "erp-chain": {
+        "title": "ERP chain",
+        "description": "End-to-end ERP flow checks"
+      },
+      "audit-log": {
+        "title": "Audit log",
+        "description": "Who changed what"
+      },
+      "sync-center": {
+        "title": "Sync Center",
+        "description": "Sheets and outbound sync status"
+      },
+      "backup-recovery": {
+        "title": "Backup & Recovery",
+        "description": "Export and inspect backups"
+      },
+      "pricing": {
+        "title": "Promotions Management",
+        "description": "Offers and price rules"
+      },
+      "gst": {
+        "title": "GST / Tax Billing",
+        "description": "GST summaries and returns aids"
+      },
+      "tcs": {
+        "title": "TCS Reports",
+        "description": "Tax collected at source"
+      },
+      "form-27eq": {
+        "title": "Form 27EQ",
+        "description": "TCS quarterly statement"
+      }
+    }
+  },
+  "customers": {
+    "title": "Customers",
+    "subtitle": "Store customer directory"
+  },
+  "transactions": {
+    "title": "Transactions",
+    "subtitle": "Today and yesterday listed separately"
+  },
+  "reports": {
+    "title": "Reports",
+    "subtitle": "Sales and operations reports"
+  },
+  "staff": {
+    "title": "Staff management",
+    "subtitle": "Create and manage staff accounts"
+  },
+  "shifts": {
+    "title": "Shifts",
+    "subtitle": "Open and close cashier shifts"
+  },
+  "dayOps": {
+    "title": "Day Ops",
+    "subtitle": "Day open / close and cash controls"
+  },
+  "returns": {
+    "title": "Returns",
+    "subtitle": "Sales returns and refunds"
+  },
+  "banking": {
+    "title": "Banking",
+    "subtitle": "Cash and UPI ledger"
+  },
+  "notifications": {
+    "whatsappSentToday": "WhatsApp sent today",
+    "failedMessages": "Failed messages",
+    "pendingQueue": "Pending queue",
+    "deliveryRate": "Delivery rate",
+    "readRate": "Read rate"
+  }
+}

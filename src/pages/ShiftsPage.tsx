@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Banknote, Lock, Unlock } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -32,6 +33,7 @@ function formatWhen(iso: string | null | undefined) {
  * Separate from Banking (store cashbook).
  */
 export function ShiftsPage() {
+  const { t } = useTranslation()
   const { userId, profile, role } = useAuth()
   const cashierId = userId || ""
   const cashierName =
@@ -161,10 +163,11 @@ export function ShiftsPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Cashier shifts</h1>
+        <h1 className="text-xl font-semibold tracking-tight">
+          {t("shifts.title")}
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Till accountability (float → sales → drops → count). Separate from
-          Banking store cashbook.
+          {t("shifts.subtitle")}
         </p>
       </div>
 

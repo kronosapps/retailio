@@ -1,6 +1,7 @@
 import type { UserRole } from "@/types/user"
 import { canAccessUtilityPath } from "@/modules/utilities/catalog"
 import { canAccessSettingsPath } from "@/modules/settings/catalog"
+import i18n from "@/i18n"
 
 export type StaffNavItem = {
   to: string
@@ -93,12 +94,5 @@ export function canAccessPath(
 }
 
 export function roleLabel(role: UserRole): string {
-  switch (role) {
-    case "admin":
-      return "Admin"
-    case "manager":
-      return "Manager"
-    case "cashier":
-      return "Cashier"
-  }
+  return i18n.t(`roles.${role}`)
 }

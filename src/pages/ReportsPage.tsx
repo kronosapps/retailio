@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { FileSpreadsheet, RefreshCw, Sheet } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -41,6 +42,7 @@ const selectClass = cn(
  * Reports UI — read-only. Calls ReportingService + exporters only.
  */
 export function ReportsPage() {
+  const { t } = useTranslation()
   const { profile } = useAuth()
   const [reportType, setReportType] = useState<ReportType>("sales")
   const [preset, setPreset] = useState<ReportPeriodPreset>("this_month")
@@ -125,10 +127,11 @@ export function ReportsPage() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 md:gap-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {t("reports.title")}
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Read-only operational reports. Export to Excel or Google Sheets —
-          Firestore stays the source of truth.
+          {t("reports.subtitle")}
         </p>
       </header>
 

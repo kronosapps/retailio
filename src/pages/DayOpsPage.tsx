@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
-import { Link } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import {
   CalendarCheck,
   FileSpreadsheet,
@@ -35,6 +35,7 @@ function money(p: number) {
  * Store day ops — Open Day → Operations preview → Close Day.
  */
 export function DayOpsPage() {
+  const { t } = useTranslation()
   const { profile, userId, role } = useAuth()
   const storeId = profile?.storeId ?? null
   const [dayRef, setDayRef] = useState<DayOpsDayRef>("today")
@@ -224,17 +225,11 @@ export function DayOpsPage() {
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-10">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Day operations</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {t("dayOps.title")}
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Open Day → run the store → Close Day. Cashier tills on{" "}
-          <Link to="/shifts" className="underline">
-            Shifts
-          </Link>
-          ; cashbook on{" "}
-          <Link to="/banking" className="underline">
-            Banking
-          </Link>
-          .
+          {t("dayOps.subtitle")}
         </p>
       </header>
 
