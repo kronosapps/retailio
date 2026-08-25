@@ -14,7 +14,7 @@ import { LanguageSwitcher } from "@/i18n/LanguageSwitcher"
 import { navLabelKey } from "@/i18n/navKeys"
 import { cn } from "@/lib/utils"
 import { SoftAlertsBell } from "@/modules/notifications/components/SoftAlertsBell"
-import { navItemsForRole, roleLabel } from "@/modules/staff"
+import { posNavItemsForRole, roleLabel } from "@/modules/staff"
 import { useAuth } from "@/providers/AuthProvider"
 
 function navLinkClass({ isActive }: { isActive: boolean }) {
@@ -29,7 +29,7 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
 export function PosLayout() {
   const { t } = useTranslation()
   const { profile, role, signOut } = useAuth()
-  const nav = navItemsForRole(role).filter((item) => item.to !== "/pos")
+  const nav = posNavItemsForRole(role)
   const [navOpen, setNavOpen] = useState(false)
 
   const links = (
@@ -124,8 +124,10 @@ export function PosLayout() {
       </Sheet>
 
       <main className="relative min-h-0 flex-1">
-        <div className="absolute inset-0">
-          <Outlet />
+        <div className="absolute inset-0 flex flex-col overflow-hidden px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] sm:px-3 sm:pt-3 sm:pb-3">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background sm:rounded-2xl">
+            <Outlet />
+          </div>
         </div>
       </main>
     </div>

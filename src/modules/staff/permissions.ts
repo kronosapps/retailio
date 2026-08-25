@@ -40,6 +40,24 @@ export function navItemsForRole(role: UserRole | null | undefined): StaffNavItem
   return STAFF_NAV_ITEMS.filter((item) => item.roles.includes(role))
 }
 
+/**
+ * Slim nav for the POS header — keep cashiers focused; admins jump to dashboard only.
+ * Full app nav remains in AppLayout.
+ */
+const POS_NAV_PATHS: Record<UserRole, readonly string[]> = {
+  admin: ["/"],
+  manager: ["/", "/shifts", "/day-ops", "/returns", "/customers"],
+  cashier: ["/shifts"],
+}
+
+export function posNavItemsForRole(
+  role: UserRole | null | undefined
+): StaffNavItem[] {
+  if (!role) return []
+  const allowed = new Set(POS_NAV_PATHS[role])
+  return navItemsForRole(role).filter((item) => allowed.has(item.to))
+}
+
 export function homePathForRole(role: UserRole | null | undefined): string {
   if (role === "cashier") return "/pos"
   if (role === "manager" || role === "admin") return "/"

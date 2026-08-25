@@ -1,22 +1,9 @@
 import { Minus, Plus, Trash2 } from "lucide-react"
-import type { ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
 import { formatMoney } from "@/data/menu"
 import { cn } from "@/lib/utils"
-import {
-  POS_SESSION_COUNT,
-  sessionItemCount,
-  type PosCartLine,
-  type PosSession,
-  type PosSessionId,
-} from "@/modules/pos"
-
-const SESSION_IDS = Array.from(
-  { length: POS_SESSION_COUNT },
-  (_, i) => (i + 1) as PosSessionId
-)
+import type { PosCartLine } from "@/modules/pos"
 
 export type PosCartTotals = {
   grossSubtotal: number
@@ -47,47 +34,48 @@ export type PosCartTotals = {
 }
 
 type PosCartPanelProps = {
-  activeSessionId: PosSessionId
-  sessions: Record<PosSessionId, PosSession>
   cart: PosCartLine[]
   itemCount: number
   nextInvoiceId: string
   totals: PosCartTotals
   lastInvoiceId: string | null
   chargeError: string | null
-  paymentOpen: boolean
-  switchBlockedMessage: string | null
-  onSwitchSession: (id: PosSessionId) => void
   onClearCart: () => void
   onSetQty: (itemId: string, qty: number) => void
   onCharge: () => void
-  /** Customer attach before charge (CRM identity). */
-  customerSection?: ReactNode
   /** Extra classes on the root (e.g. sheet fill). */
   className?: string
 }
 
+function discountTotal(totals: PosCartTotals): number {
+  return (
+    (totals.promotionalDiscount ?? 0) +
+    (totals.couponDiscount ?? 0) +
+    (totals.pointsDiscount ?? 0) +
+    totals.friendsFamilyDiscount +
+    totals.occasionDiscount +
+    totals.loyaltyDiscount
+  )
+}
+
 /**
- * Shared cart / sessions / totals / charge — used by desktop aside and mobile sheet.
+ * Clean billing panel — ticket lines + total + charge only.
+ * Sessions / customer live in the POS header toolbar.
  */
 export function PosCartPanel({
-  activeSessionId,
-  sessions,
   cart,
   itemCount,
   nextInvoiceId,
   totals,
   lastInvoiceId,
   chargeError,
-  paymentOpen,
-  switchBlockedMessage,
-  onSwitchSession,
   onClearCart,
   onSetQty,
   onCharge,
-  customerSection,
   className,
 }: PosCartPanelProps) {
+  const discounts = discountTotal(totals)
+
   return (
     <div
       className={cn(
@@ -95,91 +83,32 @@ export function PosCartPanel({
         className
       )}
     >
-      <div className="space-y-2 px-4 py-3">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <h2 className="text-base font-semibold">Current order</h2>
-            <p className="text-xs text-muted-foreground">
-              Session {activeSessionId} · Invoice {nextInvoiceId}
-              {itemCount === 0
-                ? " · No items yet"
-                : ` · ${itemCount} item${itemCount === 1 ? "" : "s"}`}
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={cart.length === 0}
-            onClick={onClearCart}
-          >
-            <Trash2 data-icon="inline-start" />
-            Clear
-          </Button>
-        </div>
-
-        <div
-          className="grid grid-cols-3 gap-1.5"
-          role="tablist"
-          aria-label="POS sessions"
-        >
-          {SESSION_IDS.map((id) => {
-            const lane = sessions[id]
-            const count = sessionItemCount(lane)
-            const active = id === activeSessionId
-            return (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                disabled={paymentOpen && !active}
-                onClick={() => onSwitchSession(id)}
-                className={cn(
-                  "relative flex min-h-11 flex-col items-center justify-center rounded-md px-1 py-1.5 text-xs font-medium transition-colors",
-                  active
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-foreground hover:bg-muted/80",
-                  paymentOpen && !active && "cursor-not-allowed opacity-50"
-                )}
-              >
-                <span>Session {id}</span>
-                {count > 0 ? (
-                  <span
-                    className={cn(
-                      "mt-0.5 rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
-                      active
-                        ? "bg-primary-foreground/20 text-primary-foreground"
-                        : "bg-background text-foreground"
-                    )}
-                  >
-                    {count}
-                  </span>
-                ) : null}
-              </button>
-            )
-          })}
-        </div>
-        {switchBlockedMessage ? (
-          <p className="text-center text-[11px] text-destructive">
-            {switchBlockedMessage}
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2.5">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold tracking-tight">Bill</h2>
+          <p className="truncate text-xs text-muted-foreground">
+            {nextInvoiceId}
+            {itemCount === 0
+              ? " · Empty"
+              : ` · ${itemCount} item${itemCount === 1 ? "" : "s"}`}
           </p>
-        ) : null}
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={cart.length === 0}
+          onClick={onClearCart}
+        >
+          <Trash2 data-icon="inline-start" />
+          Clear
+        </Button>
       </div>
-
-      {customerSection ? (
-        <>
-          <Separator />
-          <div className="space-y-2 px-4 py-3">{customerSection}</div>
-        </>
-      ) : null}
-
-      <Separator />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
         {cart.length === 0 ? (
           <div className="flex h-full min-h-28 items-center justify-center rounded-lg border border-dashed border-border px-4 text-center text-sm text-muted-foreground">
-            Tap menu items to build the ticket
+            Tap menu items to add to the bill
           </div>
         ) : (
           <ul className="space-y-2">
@@ -193,7 +122,7 @@ export function PosCartPanel({
                     {line.item.name}
                     {line.isLoyaltyReward ? (
                       <span className="ml-1 text-xs font-normal text-muted-foreground">
-                        (Loyalty free)
+                        (Free)
                       </span>
                     ) : null}
                   </p>
@@ -247,113 +176,18 @@ export function PosCartPanel({
         )}
       </div>
 
-      <div className="space-y-2 border-t border-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]">
-        <div className="space-y-1.5 text-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Subtotal</span>
-            <span className="tabular-nums">
-              {formatMoney(totals.grossSubtotal)}
-            </span>
-          </div>
-          {(totals.promotionalDiscount ?? 0) > 0 ? (
+      <div className="shrink-0 space-y-2 border-t border-border p-3">
+        <div className="space-y-1 text-sm">
+          {discounts > 0 ? (
             <div className="flex items-center justify-between text-muted-foreground">
-              <span>Promotions</span>
-              <span className="tabular-nums">
-                −{formatMoney(totals.promotionalDiscount ?? 0)}
-              </span>
+              <span>Discounts</span>
+              <span className="tabular-nums">−{formatMoney(discounts)}</span>
             </div>
           ) : null}
-          {(totals.couponDiscount ?? 0) > 0 ? (
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span>Coupon {totals.couponCode}</span>
-              <span className="tabular-nums">
-                −{formatMoney(totals.couponDiscount ?? 0)}
-              </span>
-            </div>
-          ) : null}
-          {(totals.pointsDiscount ?? 0) > 0 ? (
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span>Points (−{totals.pointsRedeemed ?? 0})</span>
-              <span className="tabular-nums">
-                −{formatMoney(totals.pointsDiscount ?? 0)}
-              </span>
-            </div>
-          ) : null}
-          {totals.friendsFamilyDiscount > 0 ? (
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span>Friends & Family ({totals.friendsFamilyPercent}%)</span>
-              <span className="tabular-nums">
-                −{formatMoney(totals.friendsFamilyDiscount)}
-              </span>
-            </div>
-          ) : null}
-          {totals.occasionDiscount > 0 ? (
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span>
-                {totals.occasionName ?? "Occasion"} ({totals.occasionPercent}%)
-              </span>
-              <span className="tabular-nums">
-                −{formatMoney(totals.occasionDiscount)}
-              </span>
-            </div>
-          ) : null}
-          {totals.loyaltyDiscount > 0 ? (
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span>{totals.loyaltyLabel ?? "Loyalty"}</span>
-              <span className="tabular-nums">
-                −{formatMoney(totals.loyaltyDiscount)}
-              </span>
-            </div>
-          ) : null}
-          {cart.length > 0 && totals.gstAmount > 0 ? (
-            <>
-              <Separator className="my-1" />
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span>Taxable value</span>
-                <span className="tabular-nums">
-                  {formatMoney(totals.taxableAmount)}
-                </span>
-              </div>
-              {(totals.igstAmount ?? 0) > 0 ? (
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span>IGST ({totals.igstPercent ?? totals.gstPercent}%)</span>
-                  <span className="tabular-nums">
-                    {formatMoney(totals.igstAmount ?? 0)}
-                  </span>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span>
-                      {totals.sgstLabel} ({totals.sgstPercent}%)
-                    </span>
-                    <span className="tabular-nums">
-                      {formatMoney(totals.sgstAmount)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span>
-                      {totals.cgstLabel} ({totals.cgstPercent}%)
-                    </span>
-                    <span className="tabular-nums">
-                      {formatMoney(totals.cgstAmount)}
-                    </span>
-                  </div>
-                </>
-              )}
-            </>
-          ) : null}
-          <div className="flex items-center justify-between font-semibold">
+          <div className="flex items-center justify-between text-base font-semibold">
             <span>Total</span>
             <span className="tabular-nums">{formatMoney(totals.total)}</span>
           </div>
-          {cart.length > 0 && totals.gstAmount > 0 ? (
-            <p className="text-[11px] text-muted-foreground">
-              {(totals.igstAmount ?? 0) > 0
-                ? "Interstate supply — IGST breakout"
-                : `Inclusive of ${totals.sgstLabel} ${totals.sgstPercent}% + ${totals.cgstLabel} ${totals.cgstPercent}% — charge unchanged`}
-            </p>
-          ) : null}
         </div>
 
         {lastInvoiceId && cart.length === 0 ? (

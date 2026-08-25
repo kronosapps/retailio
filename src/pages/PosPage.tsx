@@ -818,142 +818,157 @@ export function PosPage() {
   }
 
   const cartPanelProps = {
-    activeSessionId: store.activeSessionId,
-    sessions: store.sessions,
     cart,
     itemCount,
     nextInvoiceId,
     totals,
     lastInvoiceId,
     chargeError,
-    paymentOpen,
-    switchBlockedMessage,
-    onSwitchSession: switchSession,
     onClearCart: clearCart,
     onSetQty: setQty,
     onCharge: () => {
       setCartSheetOpen(false)
       void chargeOrder()
     },
-    customerSection: (
-      <div className="space-y-2">
-        <p className="text-xs font-medium text-muted-foreground">Customer</p>
-        {attachedCustomer ? (
-          <div className="space-y-2 rounded-md bg-muted/50 px-2.5 py-2 text-sm">
-            <p className="font-medium">{attachedCustomer.name}</p>
-            <p className="text-[11px] text-muted-foreground">
-              {attachedCustomer.phone || "No phone"} ·{" "}
-              {walletPoints} pts
-              {availablePoints !== walletPoints
-                ? ` (${availablePoints} redeemable now)`
-                : ""}{" "}
-              · credit {formatMoney(attachedCustomer.storeCreditPaisa)}
-            </p>
-            {welcomeStatus ? (
-              <p className="text-[11px] text-muted-foreground">{welcomeStatus}</p>
-            ) : null}
-            <p className="text-[11px] text-muted-foreground">
-              Redeem {formatRedeemMappingLabel()} · steps of {redeemStep}
-            </p>
-            {loyaltyEff.pointsRedeemEnabled &&
-            isPointsMember &&
-            availablePoints >= redeemStep &&
-            cart.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  disabled={
-                    !loyaltyDiscountAllowed || maxPointsForOrder < redeemStep
-                  }
-                  onClick={() =>
-                    applyLoyaltyPoints(
-                      snapRedeemPoints(
-                        (pointsToRedeem || 0) + redeemStep,
-                        maxPointsForOrder
-                      )
-                    )
-                  }
-                >
-                  +{redeemStep} pts
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  disabled={
-                    !loyaltyDiscountAllowed || maxPointsForOrder < redeemStep
-                  }
-                  onClick={() => applyLoyaltyPoints(maxPointsForOrder)}
-                >
-                  Apply max ({maxPointsForOrder})
-                </Button>
-                {effectivePointsToRedeem > 0 ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={() =>
-                      updateActivePosSession({ pointsToRedeem: 0 })
-                    }
-                  >
-                    Clear pts
-                  </Button>
-                ) : null}
-              </div>
-            ) : null}
-            {effectivePointsToRedeem > 0 ? (
-              <p className="text-[11px] font-medium">
-                Applying {effectivePointsToRedeem} pts (−
-                {formatMoney(totals.pointsDiscount || 0)})
-              </p>
-            ) : null}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="mt-1 h-7 px-2 text-xs"
-              onClick={() =>
-                updateActivePosSession({
-                  customerId: null,
-                  customerName: "",
-                  customerPhone: "",
-                  pointsToRedeem: 0,
-                })
-              }
-            >
-              Clear
-            </Button>
-          </div>
-        ) : (
-          <CustomerAttachField
-            storeId={profile?.storeId ?? null}
-            actorId={userId}
-            onPick={(c) =>
-              updateActivePosSession({
-                customerId: c.id,
-                customerName: c.name,
-                customerPhone: c.phone || "",
-                chargeError: null,
-              })
-            }
-            onSkipPunchFallback={() =>
-              updateActivePosSession({
-                chargeError: punchFallbackNote,
-              })
-            }
-          />
-        )}
-      </div>
-    ),
   }
 
+  const sessionSwitcher = (
+    <div
+      className="flex items-center gap-1"
+      role="tablist"
+      aria-label="POS sessions"
+    >
+      {SESSION_IDS.map((id) => {
+        const lane = store.sessions[id]
+        const count = sessionItemCount(lane)
+        const active = id === store.activeSessionId
+        return (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            disabled={paymentOpen && !active}
+            onClick={() => switchSession(id)}
+            className={cn(
+              "inline-flex min-h-8 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-colors",
+              active
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-foreground hover:bg-muted/80",
+              paymentOpen && !active && "cursor-not-allowed opacity-50"
+            )}
+          >
+            S{id}
+            {count > 0 ? (
+              <span
+                className={cn(
+                  "rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
+                  active
+                    ? "bg-primary-foreground/20 text-primary-foreground"
+                    : "bg-background text-foreground"
+                )}
+              >
+                {count}
+              </span>
+            ) : null}
+          </button>
+        )
+      })}
+    </div>
+  )
+
+  const customerToolbar = (
+    <div className="min-w-0 flex-1">
+      {attachedCustomer ? (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="truncate font-medium">{attachedCustomer.name}</span>
+          <span className="truncate text-xs text-muted-foreground">
+            {attachedCustomer.phone || "No phone"} · {walletPoints} pts
+            {availablePoints !== walletPoints
+              ? ` (${availablePoints} redeemable)`
+              : ""}
+          </span>
+          {loyaltyEff.pointsRedeemEnabled &&
+          isPointsMember &&
+          availablePoints >= redeemStep &&
+          cart.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                disabled={
+                  !loyaltyDiscountAllowed || maxPointsForOrder < redeemStep
+                }
+                onClick={() =>
+                  applyLoyaltyPoints(
+                    snapRedeemPoints(
+                      (pointsToRedeem || 0) + redeemStep,
+                      maxPointsForOrder
+                    )
+                  )
+                }
+              >
+                +{redeemStep} pts
+              </Button>
+              {effectivePointsToRedeem > 0 ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => updateActivePosSession({ pointsToRedeem: 0 })}
+                >
+                  Clear pts
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={() =>
+              updateActivePosSession({
+                customerId: null,
+                customerName: "",
+                customerPhone: "",
+                pointsToRedeem: 0,
+              })
+            }
+          >
+            Clear
+          </Button>
+        </div>
+      ) : (
+        <CustomerAttachField
+          storeId={profile?.storeId ?? null}
+          actorId={userId}
+          onPick={(c) =>
+            updateActivePosSession({
+              customerId: c.id,
+              customerName: c.name,
+              customerPhone: c.phone || "",
+              chargeError: null,
+            })
+          }
+          onSkipPunchFallback={() =>
+            updateActivePosSession({
+              chargeError: punchFallbackNote,
+            })
+          }
+        />
+      )}
+      {switchBlockedMessage ? (
+        <p className="mt-1 text-[11px] text-destructive">{switchBlockedMessage}</p>
+      ) : null}
+    </div>
+  )
+
   return (
-    <>
+    <div className="flex h-full min-h-0 w-full flex-col">
       <PaymentDialog />
       <ReceiptDialog
         invoiceId={receiptInvoiceId}
@@ -964,7 +979,7 @@ export function PosPage() {
         }}
       />
       {!dayOpen ? (
-        <div className="border-b border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+        <div className="shrink-0 border-b border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950">
           Business day is not open.{" "}
           <Link to="/day-ops" className="underline font-medium">
             Open Day
@@ -972,31 +987,28 @@ export function PosPage() {
           before selling when possible. Charge will ask to confirm.
         </div>
       ) : null}
-      <div className="relative flex h-full w-full flex-col lg:grid lg:grid-cols-[minmax(280px,32%)_minmax(0,1fr)]">
+      <div className="relative flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(280px,32%)_minmax(0,1fr)]">
         {/* Current order — desktop sidebar */}
-        <aside className="hidden min-h-0 flex-col border-border bg-sidebar text-sidebar-foreground lg:flex lg:h-full lg:border-r">
+        <aside className="hidden min-h-0 flex-col overflow-hidden border-border bg-sidebar text-sidebar-foreground lg:flex lg:h-full lg:border-r">
           <PosCartPanel {...cartPanelProps} />
         </aside>
 
         {/* Menu / Discounts / Loyalty (shared panel) */}
-        <section className="flex min-h-0 min-w-0 flex-1 flex-col pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
-          <div className="shrink-0 space-y-2 border-b border-border px-4 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-base font-semibold">
-                  {menuPanel === "discounts"
-                    ? "Discounts"
-                    : menuPanel === "loyalty"
-                      ? loyaltyConfig.name
-                      : "Menu"}
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  {menuPanel === "discounts"
-                    ? "Applied to the whole order"
-                    : menuPanel === "loyalty"
-                      ? "Offline punch cards — stamp in person"
-                      : "Tap items to add to the order"}
-                </p>
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className="shrink-0 space-y-2 border-b border-border px-3 py-2.5 sm:px-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                {sessionSwitcher}
+                <div className="hidden h-4 w-px bg-border sm:block" />
+                <div className="min-w-0">
+                  <h2 className="text-sm font-semibold">
+                    {menuPanel === "discounts"
+                      ? "Discounts"
+                      : menuPanel === "loyalty"
+                        ? loyaltyConfig.name
+                        : "Menu"}
+                  </h2>
+                </div>
               </div>
               {menuPanel === "menu" ? (
                 <div className="flex shrink-0 gap-2">
@@ -1044,6 +1056,10 @@ export function PosPage() {
                   Back to menu
                 </Button>
               )}
+            </div>
+
+            <div className="flex items-start gap-2 border-t border-border/60 pt-2">
+              {customerToolbar}
             </div>
 
             {menuPanel === "menu" ? (
@@ -1667,42 +1683,37 @@ export function PosPage() {
             )}
           </div>
         </section>
+      </div>
 
-        {/* Mobile sticky cart bar */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 lg:hidden">
-          <div
-            className="pointer-events-auto flex items-center gap-2 border-t border-border bg-background/95 px-3 py-2 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] backdrop-blur supports-backdrop-filter:bg-background/85"
-            style={{
-              paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))",
-            }}
+      {/* Mobile charge footer — in layout flow so it is never clipped */}
+      <div className="shrink-0 border-t border-border bg-background px-2 py-2 lg:hidden">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setCartSheetOpen(true)}
+            className="flex min-h-12 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 text-left active:scale-[0.99]"
           >
-            <button
-              type="button"
-              onClick={() => setCartSheetOpen(true)}
-              className="flex min-h-12 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 text-left active:scale-[0.99]"
-            >
-              <ShoppingCart className="size-5 shrink-0" />
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold">
-                  {itemCount === 0
-                    ? "Cart empty"
-                    : `${itemCount} item${itemCount === 1 ? "" : "s"}`}
-                </span>
-                <span className="block text-xs text-muted-foreground tabular-nums">
-                  {formatMoney(totals.total)}
-                </span>
+            <ShoppingCart className="size-5 shrink-0" />
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold">
+                {itemCount === 0
+                  ? "Cart empty"
+                  : `${itemCount} item${itemCount === 1 ? "" : "s"}`}
               </span>
-            </button>
-            <Button
-              type="button"
-              size="lg"
-              className="h-12 shrink-0 px-5 text-base"
-              disabled={cart.length === 0}
-              onClick={() => void chargeOrder()}
-            >
-              Charge
-            </Button>
-          </div>
+              <span className="block text-xs text-muted-foreground tabular-nums">
+                {formatMoney(totals.total)}
+              </span>
+            </span>
+          </button>
+          <Button
+            type="button"
+            size="lg"
+            className="h-12 shrink-0 px-5 text-base"
+            disabled={cart.length === 0}
+            onClick={() => void chargeOrder()}
+          >
+            Charge
+          </Button>
         </div>
       </div>
 
@@ -1718,6 +1729,6 @@ export function PosPage() {
           <PosCartPanel {...cartPanelProps} className="min-h-0 flex-1" />
         </SheetContent>
       </Sheet>
-    </>
+    </div>
   )
 }
