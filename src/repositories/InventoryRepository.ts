@@ -14,6 +14,7 @@ import {
 } from "@/data/inventory"
 import { EventPublisher } from "@/events/EventPublisher"
 import { EventTypes } from "@/events/EventTypes"
+import { posCacheInvalidateInventory } from "@/modules/cache"
 import { createId } from "@/utils/id"
 
 import { removeDocument, upsertDocument } from "./firestoreHelpers"
@@ -140,6 +141,7 @@ export class InventoryRepository {
       existing.storeId
     )
 
+    posCacheInvalidateInventory(existing.storeId)
     return existing
   }
 
@@ -179,6 +181,7 @@ export class InventoryRepository {
       record.storeId
     )
 
+    posCacheInvalidateInventory(record.storeId)
     return record
   }
 }

@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom"
 import { useEffect } from "react"
+import { useTranslation } from "react-i18next"
 
 import { InventoryService } from "@/modules/inventory"
 import { MasterDataService } from "@/modules/masterData"
@@ -8,20 +9,21 @@ import { cn } from "@/lib/utils"
 import { useAuth } from "@/providers/AuthProvider"
 
 const TABS = [
-  { to: "/inventory/items", label: "Items", end: false },
-  { to: "/inventory/import", label: "Import", end: false },
-  { to: "/inventory/stock", label: "Stock", end: false },
-  { to: "/inventory/opening", label: "Opening", end: false },
-  { to: "/inventory/stock-take", label: "Stock take", end: false },
-  { to: "/inventory/lots", label: "Lots & health", end: false },
-  { to: "/inventory/movements", label: "Movements", end: false },
-  { to: "/inventory/categories", label: "Categories", end: false },
+  { to: "/inventory/items", labelKey: "inventory.tabs.items" },
+  { to: "/inventory/import", labelKey: "inventory.tabs.import" },
+  { to: "/inventory/stock", labelKey: "inventory.tabs.stock" },
+  { to: "/inventory/opening", labelKey: "inventory.tabs.opening" },
+  { to: "/inventory/stock-take", labelKey: "inventory.tabs.stockTake" },
+  { to: "/inventory/lots", labelKey: "inventory.tabs.lots" },
+  { to: "/inventory/movements", labelKey: "inventory.tabs.movements" },
+  { to: "/inventory/categories", labelKey: "inventory.tabs.categories" },
 ] as const
 
 /**
  * Inventory shell — Items / Stock / lifecycle / Movements / Categories.
  */
 export function InventoryPage() {
+  const { t } = useTranslation()
   const { userId, profile } = useAuth()
 
   useEffect(() => {
@@ -37,10 +39,11 @@ export function InventoryPage() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 md:gap-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Inventory</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {t("inventory.title")}
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Items, on-hand stock, lots (FEFO), stock take, movements, and
-          categories.
+          {t("inventory.subtitle")}
         </p>
       </header>
 
@@ -58,7 +61,7 @@ export function InventoryPage() {
               )
             }
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </NavLink>
         ))}
       </nav>

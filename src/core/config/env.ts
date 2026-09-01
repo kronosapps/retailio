@@ -33,6 +33,17 @@ export const env = {
   googleScriptUrl: read("VITE_GOOGLE_SCRIPT_URL"),
 
   /**
+   * POS Redis cache (Cloudflare Worker + Upstash).
+   * Requires Firebase Auth + deployed worker. Disabled when unset.
+   */
+  posCache: {
+    enabled: read("VITE_POS_REDIS_CACHE_ENABLED").toLowerCase() === "true",
+    workerUrl: read("VITE_POS_CACHE_WORKER_URL"),
+    /** Optional dev bypass matching worker CACHE_API_KEY secret */
+    apiKey: read("VITE_POS_CACHE_API_KEY"),
+  },
+
+  /**
    * WhatsApp Business send webhook (Apps Script / Cloud Function / BSP).
    * Never put Meta access tokens in the browser — only a server webhook URL.
    */

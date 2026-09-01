@@ -2,6 +2,7 @@ import { accountingEngine } from "@/modules/accounting"
 import { env } from "@/core/config/env"
 import { bankingEngine } from "@/modules/banking"
 import { auditEngine } from "@/modules/audit"
+import { hydratePosFromCache, posCacheWarmAll } from "@/modules/cache"
 import { inventoryEngine } from "@/modules/inventory"
 import { notificationEngine } from "@/modules/notifications"
 import { ProductService } from "@/modules/products"
@@ -23,11 +24,19 @@ export function bootstrapApp() {
   tillEngine.start()
   saleTransactionEngine.start()
 
-  void ProductService.ensureCatalogSeeded(env.storeId || null, "system").catch(
-    (error) => {
+  void ProductService.ensureCatalogSeeded(env.storeId || null, "system")
+    .then(() => {
+      posCacheWarmAll(env.storeId || null)
+    })
+    .catch((error) => {
       if (import.meta.env.DEV) {
         console.warn("[RetailOS] Product catalog seed failed", error)
       }
+    })
+
+  void hydratePosFromCache(env.storeId || null).catch((error) => {
+    if (import.meta.env.DEV) {
+      console.warn("[RetailOS] POS cache hydrate failed", error)
     }
-  )
+  })
 }

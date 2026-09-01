@@ -7,6 +7,7 @@ import { bootstrapApp } from "@/app/bootstrap"
 import { AssetBootstrap } from "@/components/AssetBootstrap"
 import { AuthProvider } from "@/providers/AuthProvider"
 import App from "./App.tsx"
+import "./i18n"
 import "./index.css"
 
 bootstrapApp()

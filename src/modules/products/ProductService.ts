@@ -1,5 +1,9 @@
 import { rupeesToPaisa } from "@/lib/money"
 import {
+  mergeProductsFromCache,
+  PosCacheClient,
+} from "@/modules/cache"
+import {
   productRepository,
   type ProductRecord,
 } from "@/repositories/ProductRepository"
@@ -47,7 +51,19 @@ export class ProductService {
     return productRepository.ensureCatalogSeeded(storeId, actorId)
   }
 
-  /** Force push products.json → local + Firestore + Sheets. */
+  /** Merge product catalog from Redis (other POS terminals). */
+  static async hydrateCatalogFromCache(
+    storeId: string | null
+  ): Promise<boolean> {
+    const result = await PosCacheClient.fetchCatalog(storeId ?? "")
+    if (result?.products && result.source === "redis") {
+      mergeProductsFromCache(result.products)
+      return true
+    }
+    return false
+  }
+
+  /** Force push products.json → local, Firestore, and Sheets. */
   static syncCatalogFromSeed(
     storeId?: string | null,
     actorId?: string | null

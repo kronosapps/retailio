@@ -1,6 +1,7 @@
 import type { UserRole } from "@/types/user"
 import { canAccessUtilityPath } from "@/modules/utilities/catalog"
 import { canAccessSettingsPath } from "@/modules/settings/catalog"
+import i18n from "@/i18n"
 
 export type StaffNavItem = {
   to: string
@@ -37,6 +38,24 @@ export function isManagerOrAbove(role: UserRole | null | undefined): boolean {
 export function navItemsForRole(role: UserRole | null | undefined): StaffNavItem[] {
   if (!role) return []
   return STAFF_NAV_ITEMS.filter((item) => item.roles.includes(role))
+}
+
+/**
+ * Slim nav for the POS header — keep cashiers focused; admins jump to dashboard only.
+ * Full app nav remains in AppLayout.
+ */
+const POS_NAV_PATHS: Record<UserRole, readonly string[]> = {
+  admin: ["/"],
+  manager: ["/", "/shifts", "/day-ops", "/returns", "/customers"],
+  cashier: ["/shifts"],
+}
+
+export function posNavItemsForRole(
+  role: UserRole | null | undefined
+): StaffNavItem[] {
+  if (!role) return []
+  const allowed = new Set(POS_NAV_PATHS[role])
+  return navItemsForRole(role).filter((item) => allowed.has(item.to))
 }
 
 export function homePathForRole(role: UserRole | null | undefined): string {
@@ -93,12 +112,5 @@ export function canAccessPath(
 }
 
 export function roleLabel(role: UserRole): string {
-  switch (role) {
-    case "admin":
-      return "Admin"
-    case "manager":
-      return "Manager"
-    case "cashier":
-      return "Cashier"
-  }
+  return i18n.t(`roles.${role}`)
 }

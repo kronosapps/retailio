@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom"
 import { useEffect } from "react"
+import { useTranslation } from "react-i18next"
 
 import {
   PurchaseOrderService,
@@ -12,21 +13,23 @@ import { SupplierService } from "@/modules/supplier"
 import { cn } from "@/lib/utils"
 
 const TABS = [
-  { to: "/purchasing/suppliers", label: "Suppliers" },
-  { to: "/purchasing/quick", label: "Quick buy" },
-  { to: "/purchasing/orders", label: "Purchase Orders" },
-  { to: "/purchasing/goods-received", label: "Goods Received" },
-  { to: "/purchasing/invoices", label: "Purchase Invoices" },
-  { to: "/purchasing/payments", label: "Supplier Payments" },
-  { to: "/purchasing/returns", label: "Returns" },
-  { to: "/purchasing/statements", label: "Statements" },
-  { to: "/purchasing/match", label: "Match" },
+  { to: "/purchasing/suppliers", labelKey: "purchasing.tabs.suppliers" },
+  { to: "/purchasing/quick", labelKey: "purchasing.tabs.quick" },
+  { to: "/purchasing/orders", labelKey: "purchasing.tabs.orders" },
+  { to: "/purchasing/goods-received", labelKey: "purchasing.tabs.goodsReceived" },
+  { to: "/purchasing/invoices", labelKey: "purchasing.tabs.invoices" },
+  { to: "/purchasing/payments", labelKey: "purchasing.tabs.payments" },
+  { to: "/purchasing/returns", labelKey: "purchasing.tabs.returns" },
+  { to: "/purchasing/statements", labelKey: "purchasing.tabs.statements" },
+  { to: "/purchasing/match", labelKey: "purchasing.tabs.match" },
 ] as const
 
 /**
  * Purchasing shell — Suppliers through AP / payments / returns / match.
  */
 export function PurchasingPage() {
+  const { t } = useTranslation()
+
   useEffect(() => {
     void SupplierService.hydrate()
     void PurchaseOrderService.hydrate()
@@ -39,11 +42,11 @@ export function PurchasingPage() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 md:gap-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Purchasing</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {t("purchasing.title")}
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Suppliers, orders, goods received, invoices, payments, and returns.
-          Posted GRNs stock inventory; posted invoices create AP; returns
-          reverse stock and AP.
+          {t("purchasing.subtitle")}
         </p>
       </header>
 
@@ -61,7 +64,7 @@ export function PurchasingPage() {
               )
             }
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </NavLink>
         ))}
       </nav>

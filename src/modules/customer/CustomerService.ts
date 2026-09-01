@@ -5,6 +5,10 @@ import {
   type UpsertCheckoutCustomerInput,
 } from "@/repositories/CustomerRepository"
 import { searchLocalCustomers } from "@/data/customers"
+import {
+  mergeCustomerFromCache,
+  PosCacheClient,
+} from "@/modules/cache"
 
 /**
  * Customer business module.
@@ -25,6 +29,22 @@ export class CustomerService {
 
   static findByPhone(phone: string, storeId?: string | null) {
     return customerRepository.findByPhone(phone, storeId)
+  }
+
+  /** Try Redis first for cross-terminal customer lookup at POS. */
+  static async findByPhoneFast(phone: string, storeId?: string | null) {
+    const local = customerRepository.findByPhone(phone, storeId)
+    const cached = await PosCacheClient.lookupCustomerByPhone(
+      storeId ?? "",
+      phone
+    )
+    if (cached?.customer && cached.source === "redis") {
+      mergeCustomerFromCache(cached.customer)
+      return (
+        customerRepository.findByPhone(phone, storeId) ?? cached.customer
+      )
+    }
+    return local
   }
 
   static findByName(name: string, storeId?: string | null) {

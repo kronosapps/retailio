@@ -1,0 +1,412 @@
+{
+  "app": {
+    "name": "RetailOS",
+    "store": "దుకాణం",
+    "staff": "సిబ్బంది"
+  },
+  "language": {
+    "label": "భాష",
+    "english": "ఆంగ్లం",
+    "telugu": "తెలుగు"
+  },
+  "common": {
+    "signOut": "సైన్ అవుట్",
+    "signIn": "సైన్ ఇన్",
+    "signingIn": "సైన్ ఇన్ అవుతోంది…",
+    "save": "సేవ్",
+    "cancel": "రద్దు",
+    "delete": "తొలగించు",
+    "edit": "సవరించు",
+    "create": "సృష్టించు",
+    "add": "జోడించు",
+    "search": "వెతుకు",
+    "refresh": "రిఫ్రెష్",
+    "retry": "మళ్లీ ప్రయత్నించు",
+    "loading": "లోడ్ అవుతోంది…",
+    "home": "హోమ్",
+    "back": "వెనుకకు",
+    "navigate": "నావిగేట్",
+    "openNavigation": "నావిగేషన్ తెరువు",
+    "actions": "చర్యలు",
+    "details": "వివరాలు",
+    "status": "స్థితి",
+    "from": "నుండి",
+    "to": "వరకు",
+    "period": "కాలం",
+    "none": "—",
+    "yes": "అవును",
+    "no": "కాదు",
+    "close": "మూసివేయి",
+    "confirm": "నిర్ధారించు",
+    "view": "చూడండి",
+    "all": "అన్నీ"
+  },
+  "roles": {
+    "admin": "అడ్మిన్",
+    "manager": "మేనేజర్",
+    "cashier": "క్యాషియర్",
+    "staff": "సిబ్బంది"
+  },
+  "nav": {
+    "dashboard": "డాష్‌బోర్డ్",
+    "pos": "పిఓఎస్",
+    "shifts": "షిఫ్టులు",
+    "dayOps": "రోజు కార్యకలాపాలు",
+    "returns": "రిటర్న్స్",
+    "inventory": "ఇన్వెంటరీ",
+    "purchasing": "కొనుగోళ్లు",
+    "customers": "వినియోగదారులు",
+    "transactions": "లావాదేవీలు",
+    "reports": "రిపోర్టులు",
+    "utilities": "యుటిలిటీలు",
+    "banking": "బ్యాంకింగ్",
+    "settings": "సెట్టింగులు",
+    "staff": "సిబ్బంది నిర్వహణ"
+  },
+  "login": {
+    "title": "సైన్ ఇన్",
+    "subtitle": "మీ సిబ్బంది యూజర్‌నేమ్ మరియు పాస్‌కోడ్‌తో సైన్ ఇన్ చేయండి",
+    "username": "యూజర్‌నేమ్",
+    "passcode": "పాస్‌కోడ్",
+    "usernameRequired": "యూజర్‌నేమ్ అవసరం",
+    "usernameTooLong": "యూజర్‌నేమ్ చాలా పొడవుగా ఉంది",
+    "passcodeRequired": "పాస్‌కోడ్ అవసరం"
+  },
+  "dashboard": {
+    "title": "డాష్‌బోర్డ్",
+    "subtitle": "దుకాణం పనితీరు అవలోకనం — అమ్మకాలు, వినియోగదారులు మరియు ఇన్వెంటరీ.",
+    "charts": "చార్టులు",
+    "details": "వివరాలు",
+    "businessInsights": "వ్యాపార అంతర్దృష్టులు",
+    "notificationAnalytics": "నోటిఫికేషన్ విశ్లేషణ",
+    "todaySnapshot": "నేటి స్నాప్‌షాట్",
+    "customerAnalytics": "వినియోగదారు విశ్లేషణ",
+    "inventoryAnalytics": "ఇన్వెంటరీ విశ్లేషణ",
+    "kpis": {
+      "totalRevenue": "మొత్తం ఆదాయం",
+      "grossProfit": "స్థూల లాభం",
+      "orders": "ఆర్డర్లు",
+      "averageOrderValue": "సగటు ఆర్డర్ విలువ",
+      "customers": "వినియోగదారులు",
+      "inventoryValue": "ఇన్వెంటరీ విలువ",
+      "pendingPayments": "పెండింగ్ చెల్లింపులు",
+      "refunds": "రీఫండ్లు"
+    },
+    "snapshot": {
+      "revenue": "ఆదాయం",
+      "orders": "ఆర్డర్లు",
+      "customers": "వినియోగదారులు",
+      "bestSeller": "బెస్ట్ సెల్లర్",
+      "lowStock": "తక్కువ స్టాక్",
+      "upiSales": "యూపీఐ అమ్మకాలు"
+    },
+    "ranges": {
+      "today": "ఈరోజు",
+      "yesterday": "నిన్న",
+      "this_week": "ఈ వారం",
+      "this_month": "ఈ నెల",
+      "last_month": "గత నెల",
+      "custom": "కస్టమ్"
+    },
+    "quickActions": {
+      "newSale": "కొత్త అమ్మకం",
+      "addProduct": "ఉత్పత్తి జోడించు",
+      "receiveStock": "స్టాక్ స్వీకరించు",
+      "addCustomer": "వినియోగదారుని జోడించు",
+      "dayOps": "రోజు కార్యకలాపాలు"
+    },
+    "vsPriorPeriod": "మునుపటి కాలంతో పోల్చి",
+    "profitHint": "అంచనా — ఖచ్చితత్వానికి కొనుగోలు ధరలు జోడించండి",
+    "updated": "అప్‌డేట్",
+    "lowStockItems": "తక్కువ స్టాక్ వస్తువులు",
+    "outOfStockItems": "స్టాక్ లేని వస్తువులు",
+    "customer": {
+      "newCustomers": "కొత్త వినియోగదారులు",
+      "returning": "తిరిగి వచ్చినవారు",
+      "repeatPurchase": "పునరావృత కొనుగోలు",
+      "topSpender": "అత్యధిక ఖర్చు చేసినవారు"
+    },
+    "inventoryPanel": {
+      "totalProducts": "మొత్తం ఉత్పత్తులు",
+      "inventoryValue": "ఇన్వెంటరీ విలువ",
+      "lowStock": "తక్కువ స్టాక్",
+      "outOfStock": "స్టాక్ లేదు",
+      "inactiveProducts": "నిష్క్రియ ఉత్పత్తులు",
+      "damagedProducts": "పాడైన ఉత్పత్తులు"
+    }
+  },
+  "inventory": {
+    "title": "ఇన్వెంటరీ",
+    "subtitle": "స్టాక్, వస్తువులు మరియు కదలికలు",
+    "tabs": {
+      "items": "వస్తువులు",
+      "import": "ఇంపోర్ట్",
+      "stock": "స్టాక్",
+      "opening": "ఓపెనింగ్",
+      "stockTake": "స్టాక్ టేక్",
+      "lots": "లాట్లు & ఆరోగ్యం",
+      "movements": "కదలికలు",
+      "categories": "వర్గాలు"
+    }
+  },
+  "purchasing": {
+    "title": "కొనుగోళ్లు",
+    "subtitle": "సప్లయర్లు, ఆర్డర్లు మరియు చెల్లింపులు",
+    "tabs": {
+      "suppliers": "సప్లయర్లు",
+      "quick": "త్వరిత కొనుగోలు",
+      "orders": "పర్చేజ్ ఆర్డర్లు",
+      "goodsReceived": "వస్తువులు స్వీకరించబడ్డాయి",
+      "invoices": "పర్చేజ్ ఇన్వాయిస్‌లు",
+      "payments": "సప్లయర్ చెల్లింపులు",
+      "returns": "రిటర్న్స్",
+      "statements": "స్టేట్‌మెంట్లు",
+      "match": "మ్యాచ్"
+    }
+  },
+  "settings": {
+    "title": "సెట్టింగులు",
+    "subtitle": "ఈ దుకాణం కోసం వ్యాపార కాన్ఫిగరేషన్. డిప్లాయ్ సీక్రెట్లు మరియు Firebase / వెబ్‌హుక్ URLలు ఎన్విరాన్‌మెంట్ కాన్ఫిగ్‌లో ఉంటాయి — ఇక్కడ సవరించలేరు.",
+    "home": "హోమ్",
+    "loading": "సెట్టింగులు లోడ్ అవుతున్నాయి…",
+    "languageHint": "యాప్ భాషను ఎంచుకోండి. కొత్త భాషలను locale JSON ఫైళ్ల ద్వారా జోడించవచ్చు.",
+    "homeIntro": "దుకాణం కాన్ఫిగరేషన్ కోసం కేంద్రం. అకౌంటింగ్ టూల్స్ మరియు రిపోర్టులు యుటిలిటీలలో ఉంటాయి; ఇది సెట్టింగుల హబ్ మాత్రమే.",
+    "noSections": "ఈ రోల్‌కు సెట్టింగ్ విభాగాలు లేవు.",
+    "sectionsMeta": "{{count}} విభాగాలు నిర్వచించబడ్డాయి · అడ్మిన్ యాక్సెస్ అవసరం",
+    "storage": {
+      "env": "Env (రీడ్-ఓన్లీ)",
+      "link": "టూల్ తెరుస్తుంది",
+      "store": "స్టోర్ సెట్టింగులు"
+    },
+    "sections": {
+      "business": {
+        "title": "వ్యాపారం",
+        "description": "చట్టపరమైన గుర్తింపు, చిరునామా, GSTIN, బ్రాండింగ్"
+      },
+      "invoice": {
+        "title": "ఇన్వాయిస్",
+        "description": "ఇన్వాయిస్ ప్రిఫిక్స్ మరియు రసీదు ఫుటర్"
+      },
+      "tax": {
+        "title": "పన్ను",
+        "description": "GST ధర మోడ్, దుకాణం రాష్ట్రం, డిఫాల్ట్ రేట్లు"
+      },
+      "inventory": {
+        "title": "ఇన్వెంటరీ",
+        "description": "కొత్త / సెట్ కాని SKUలకు డిఫాల్ట్ రీఆర్డర్ స్థాయి"
+      },
+      "pos": {
+        "title": "పిఓఎస్",
+        "description": "చెకౌట్ నియమాలు మరియు లేన్ నోట్స్"
+      },
+      "payments": {
+        "title": "చెల్లింపులు",
+        "description": "మర్చంట్ UPI, టైమ్‌అవుట్, రసీదు WhatsApp లేబుల్స్"
+      },
+      "banking": {
+        "title": "బ్యాంకింగ్",
+        "description": "క్యాష్ / UPI లెడ్జర్"
+      },
+      "notifications": {
+        "title": "నోటిఫికేషన్లు",
+        "description": "సిబ్బంది అలర్ట్ థ్రెషోల్డ్లు మరియు రోల్ మ్యూట్స్"
+      },
+      "users": {
+        "title": "యూజర్లు & రోల్స్",
+        "description": "సిబ్బంది నిర్వహణ — ఖాతాలు సృష్టించండి, సవరించండి"
+      },
+      "integrations": {
+        "title": "ఇంటిగ్రేషన్లు",
+        "description": "Sheets సింక్ స్థితి, వెబ్‌హుక్స్, సింక్ సెంటర్"
+      },
+      "data": {
+        "title": "డేటా / బ్యాకప్",
+        "description": "డేటాబేస్ మరియు డొమైన్ ఎగుమతులు"
+      }
+    }
+  },
+  "utilities": {
+    "title": "యుటిలిటీలు",
+    "subtitle": "సెటప్, హైబ్రిడ్ అకౌంటింగ్, విశ్లేషణ & చట్టపరమైన స్కాఫోల్డులు.",
+    "home": "హోమ్",
+    "activeFy": "యాక్టివ్ FY",
+    "loading": "టూల్ లోడ్ అవుతోంది…",
+    "groups": {
+      "setup": "వ్యాపారం & సెటప్",
+      "master-data": "మాస్టర్ డేటా",
+      "daily": "రోజువారీ కార్యకలాపాలు",
+      "accounting": "అకౌంటింగ్",
+      "analysis": "విశ్లేషణ",
+      "statutory": "చట్టపరమైన"
+    },
+    "tools": {
+      "business-setup": {
+        "title": "వ్యాపార సెటప్",
+        "description": "చట్టపరమైన గుర్తింపు, పన్ను IDలు, ఇన్వాయిస్ ఫుటర్"
+      },
+      "financial-year": {
+        "title": "ఆర్థిక సంవత్సరం",
+        "description": "అకౌంటింగ్ & చట్టపరమైన రిపోర్టులకు యాక్టివ్ FY"
+      },
+      "barcode": {
+        "title": "బార్‌కోడ్ జనరేటర్",
+        "description": "ఉత్పత్తి బార్‌కోడ్లు ప్రివ్యూ మరియు ప్రింట్"
+      },
+      "recycle-bin": {
+        "title": "రీసైకిల్ బిన్",
+        "description": "నిష్క్రియ మాస్టర్ రికార్డులను పునరుద్ధరించండి"
+      },
+      "master-data": {
+        "title": "మాస్టర్ డేటా హబ్",
+        "description": "బ్రాండ్లు, యూనిట్లు, పన్ను రేట్లు, చెల్లింపు పద్ధతులు"
+      },
+      "master-brands": {
+        "title": "బ్రాండ్లు",
+        "description": "ఉత్పత్తి బ్రాండ్ మాస్టర్"
+      },
+      "master-units": {
+        "title": "యూనిట్లు",
+        "description": "కొలమాన యూనిట్ మాస్టర్"
+      },
+      "master-tax-rates": {
+        "title": "పన్ను రేట్లు",
+        "description": "GST / పన్ను రేట్ మాస్టర్"
+      },
+      "master-payment-methods": {
+        "title": "చెల్లింపు పద్ధతులు",
+        "description": "POS మరియు అకౌంట్స్ కోసం టెండర్ రకాలు"
+      },
+      "daybook": {
+        "title": "డేబుక్",
+        "description": "రోజువారీ క్యాష్ మరియు UPI కార్యకలాపం"
+      },
+      "all-transactions": {
+        "title": "అన్ని లావాదేవీలు",
+        "description": "క్రాస్-మాడ్యూల్ లావాదేవీల జాబితా"
+      },
+      "accounting": {
+        "title": "అకౌంటింగ్ హబ్",
+        "description": "లెడ్జర్లు మరియు ఆర్థిక నివేదికలు"
+      },
+      "chart-of-accounts": {
+        "title": "చార్ట్ ఆఫ్ అకౌంట్స్",
+        "description": "అకౌంట్ ట్రీ"
+      },
+      "manual-journal": {
+        "title": "మాన్యువల్ జర్నల్",
+        "description": "జర్నల్ ఎంట్రీలు పోస్ట్ చేయండి"
+      },
+      "trial-balance": {
+        "title": "ట్రయల్ బ్యాలెన్స్",
+        "description": "డెబిట్ / క్రెడిట్ తనిఖీ"
+      },
+      "profit-loss": {
+        "title": "లాభనష్టాలు",
+        "description": "ఆదాయ నివేదిక"
+      },
+      "balance-sheet": {
+        "title": "బ్యాలెన్స్ షీట్",
+        "description": "ఆస్తులు మరియు బాధ్యతలు"
+      },
+      "cash-flow": {
+        "title": "క్యాష్ ఫ్లో",
+        "description": "నగదు కదలిక సారాంశం"
+      },
+      "account-statement": {
+        "title": "అకౌంట్ స్టేట్‌మెంట్",
+        "description": "ఒక అకౌంట్ కోసం లెడ్జర్ స్టేట్‌మెంట్"
+      },
+      "report-item": {
+        "title": "వస్తువు వారీ రిపోర్ట్",
+        "description": "SKU వారీ అమ్మకాల విశ్లేషణ"
+      },
+      "report-operator": {
+        "title": "ఆపరేటర్ వారీ రిపోర్ట్",
+        "description": "క్యాషియర్ వారీ అమ్మకాలు"
+      },
+      "report-role": {
+        "title": "రోల్ వారీ రిపోర్ట్",
+        "description": "సిబ్బంది రోల్ వారీ కార్యకలాపం"
+      },
+      "report-expense": {
+        "title": "ఖర్చు రిపోర్టులు",
+        "description": "ఖర్చు సారాంశాలు"
+      },
+      "expense-create": {
+        "title": "ఖర్చు జోడించు",
+        "description": "వ్యాపార ఖర్చును నమోదు చేయండి"
+      },
+      "erp-chain": {
+        "title": "ERP చైన్",
+        "description": "ఎండ్-టు-ఎండ్ ERP ఫ్లో తనిఖీలు"
+      },
+      "audit-log": {
+        "title": "ఆడిట్ లాగ్",
+        "description": "ఎవరు ఏమి మార్చారు"
+      },
+      "sync-center": {
+        "title": "సింక్ సెంటర్",
+        "description": "Sheets మరియు అవుట్‌బౌండ్ సింక్ స్థితి"
+      },
+      "backup-recovery": {
+        "title": "బ్యాకప్ & రికవరీ",
+        "description": "బ్యాకప్‌లను ఎగుమతి చేయండి మరియు పరిశీలించండి"
+      },
+      "pricing": {
+        "title": "ప్రమోషన్స్ నిర్వహణ",
+        "description": "ఆఫర్లు మరియు ధర నియమాలు"
+      },
+      "gst": {
+        "title": "GST / పన్ను బిల్లింగ్",
+        "description": "GST సారాంశాలు మరియు రిటర్న్ సహాయాలు"
+      },
+      "tcs": {
+        "title": "TCS రిపోర్టులు",
+        "description": "మూలం వద్ద వసూలైన పన్ను"
+      },
+      "form-27eq": {
+        "title": "ఫారం 27EQ",
+        "description": "TCS త్రైమాసిక స్టేట్‌మెంట్"
+      }
+    }
+  },
+  "customers": {
+    "title": "వినియోగదారులు",
+    "subtitle": "దుకాణం వినియోగదారుల డైరెక్టరీ"
+  },
+  "transactions": {
+    "title": "లావాదేవీలు",
+    "subtitle": "ఈరోజు మరియు నిన్న వేర్వేరుగా చూపబడతాయి"
+  },
+  "reports": {
+    "title": "రిపోర్టులు",
+    "subtitle": "అమ్మకాలు మరియు కార్యకలాపాల రిపోర్టులు"
+  },
+  "staff": {
+    "title": "సిబ్బంది నిర్వహణ",
+    "subtitle": "సిబ్బంది ఖాతాలను సృష్టించండి మరియు నిర్వహించండి"
+  },
+  "shifts": {
+    "title": "షిఫ్టులు",
+    "subtitle": "క్యాషియర్ షిఫ్టులను తెరవండి మరియు మూసివేయండి"
+  },
+  "dayOps": {
+    "title": "రోజు కార్యకలాపాలు",
+    "subtitle": "రోజు తెరవడం / మూసివేయడం మరియు నగదు నియంత్రణలు"
+  },
+  "returns": {
+    "title": "రిటర్న్స్",
+    "subtitle": "అమ్మకాల రిటర్న్స్ మరియు రీఫండ్లు"
+  },
+  "banking": {
+    "title": "బ్యాంకింగ్",
+    "subtitle": "క్యాష్ మరియు UPI లెడ్జర్"
+  },
+  "notifications": {
+    "whatsappSentToday": "ఈరోజు పంపిన WhatsApp",
+    "failedMessages": "విఫలమైన సందేశాలు",
+    "pendingQueue": "పెండింగ్ క్యూ",
+    "deliveryRate": "డెలివరీ రేటు",
+    "readRate": "రీడ్ రేటు"
+  }
+}

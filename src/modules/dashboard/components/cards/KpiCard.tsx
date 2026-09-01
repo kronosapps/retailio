@@ -4,6 +4,7 @@ import {
   ArrowRight,
   ArrowUpRight,
 } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import {
   Card,
@@ -33,6 +34,7 @@ export function KpiCard({
   accent?: DashboardAccent
   icon?: LucideIcon
 }) {
+  const { t } = useTranslation()
   const tone = DASHBOARD_ACCENT[accent]
   const TrendIcon =
     kpi.direction === "up"
@@ -83,7 +85,7 @@ export function KpiCard({
           <TrendIcon className="size-3.5" aria-hidden />
           <span>{formatChange(kpi)}</span>
           <span className="font-normal text-muted-foreground">
-            vs prior period
+            {t("dashboard.vsPriorPeriod")}
           </span>
         </div>
         {hint ? (

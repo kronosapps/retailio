@@ -1,8 +1,9 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useNavigate, useLocation } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { LanguageSwitcher } from "@/i18n/LanguageSwitcher"
 import { InvalidLocalCredentialsError } from "@/data/local-users"
 import { MissingStoreProfileError } from "@/lib/user-profile"
 import { AppFirebaseError, getFirebaseErrorMessage } from "@/core/firebase"
@@ -21,16 +23,10 @@ import { homePathForRole } from "@/modules/staff"
 import { useAuth } from "@/providers/AuthProvider"
 import type { UserRole } from "@/types/user"
 
-const loginSchema = z.object({
-  username: z
-    .string()
-    .trim()
-    .min(2, "Username is required")
-    .max(32, "Username is too long"),
-  passcode: z.string().min(1, "Passcode is required"),
-})
-
-type LoginValues = z.infer<typeof loginSchema>
+type LoginValues = {
+  username: string
+  passcode: string
+}
 
 function authErrorMessage(error: unknown) {
   if (error instanceof InvalidLocalCredentialsError) {
@@ -46,10 +42,24 @@ function authErrorMessage(error: unknown) {
 }
 
 export function LoginPage() {
+  const { t } = useTranslation()
   const { signIn, usingFirebaseAuth } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [formError, setFormError] = useState<string | null>(null)
+
+  const loginSchema = useMemo(
+    () =>
+      z.object({
+        username: z
+          .string()
+          .trim()
+          .min(2, t("login.usernameRequired"))
+          .max(32, t("login.usernameTooLong")),
+        passcode: z.string().min(1, t("login.passcodeRequired")),
+      }),
+    [t]
+  )
 
   const {
     register,
@@ -81,15 +91,16 @@ export function LoginPage() {
     <div className="flex min-h-svh items-center justify-center bg-muted/40 px-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-xl">RetailOS</CardTitle>
-          <CardDescription>
-            Sign in with your staff username and passcode
-          </CardDescription>
+          <div className="flex items-start justify-between gap-2">
+            <CardTitle className="text-xl">{t("app.name")}</CardTitle>
+            <LanguageSwitcher compact />
+          </div>
+          <CardDescription>{t("login.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">{t("login.username")}</Label>
               <Input
                 id="username"
                 type="text"
@@ -107,7 +118,7 @@ export function LoginPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="passcode">Passcode</Label>
+              <Label htmlFor="passcode">{t("login.passcode")}</Label>
               <Input
                 id="passcode"
                 type="password"
@@ -127,7 +138,7 @@ export function LoginPage() {
             ) : null}
 
             <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? "Signing in…" : "Sign in"}
+              {isSubmitting ? t("common.signingIn") : t("common.signIn")}
             </Button>
 
             {!usingFirebaseAuth ? (

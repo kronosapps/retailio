@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { z } from "zod"
 import { FirebaseError } from "firebase/app"
+import { useTranslation } from "react-i18next"
 import { Pencil, Trash2, UserCog } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -96,6 +97,7 @@ function staffErrorMessage(error: unknown): string {
 }
 
 export function StaffPage() {
+  const { t } = useTranslation()
   const { profile, userId } = useAuth()
   const queryClient = useQueryClient()
   const [formError, setFormError] = useState<string | null>(null)
@@ -236,11 +238,10 @@ export function StaffPage() {
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
           <UserCog className="size-6" />
-          Staff management
+          {t("staff.title")}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Create, view, edit, and deactivate staff. Cashiers get POS only;
-          managers also get inventory and sales; admins get full access.
+          {t("staff.subtitle")}
         </p>
       </div>
 

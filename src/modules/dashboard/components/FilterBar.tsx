@@ -1,4 +1,5 @@
 import { RefreshCw } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,11 +30,13 @@ export function FilterBar({
   refreshing: boolean
   generatedAt?: string
 }) {
+  const { t, i18n } = useTranslation()
+
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-teal-200/60 bg-gradient-to-r from-teal-50/70 via-card to-sky-50/50 p-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between dark:border-teal-800/40 dark:from-teal-950/30 dark:to-sky-950/20">
       <div className="space-y-2">
         <p className="text-xs font-medium tracking-wide text-teal-800 uppercase dark:text-teal-200">
-          Period
+          {t("common.period")}
         </p>
         <div className="flex flex-wrap gap-1.5">
           {RANGE_PRESETS.map((item) => (
@@ -48,7 +51,7 @@ export function FilterBar({
                   : "border-border bg-background hover:bg-teal-50 dark:hover:bg-teal-950/40"
               )}
             >
-              {item.label}
+              {t(`dashboard.ranges.${item.id}`)}
             </button>
           ))}
         </div>
@@ -56,7 +59,7 @@ export function FilterBar({
           <div className="flex flex-wrap gap-3 pt-1">
             <div className="space-y-1">
               <Label htmlFor="dash-from" className="text-xs">
-                From
+                {t("common.from")}
               </Label>
               <Input
                 id="dash-from"
@@ -68,7 +71,7 @@ export function FilterBar({
             </div>
             <div className="space-y-1">
               <Label htmlFor="dash-to" className="text-xs">
-                To
+                {t("common.to")}
               </Label>
               <Input
                 id="dash-to"
@@ -85,7 +88,10 @@ export function FilterBar({
       <div className="flex items-center gap-3">
         {generatedAt ? (
           <p className="text-[11px] text-muted-foreground">
-            Updated {new Date(generatedAt).toLocaleTimeString("en-IN")}
+            {t("dashboard.updated")}{" "}
+            {new Date(generatedAt).toLocaleTimeString(
+              i18n.language === "te" ? "te-IN" : "en-IN"
+            )}
           </p>
         ) : null}
         <Button
@@ -99,7 +105,7 @@ export function FilterBar({
             data-icon="inline-start"
             className={cn(refreshing && "animate-spin")}
           />
-          Refresh
+          {t("common.refresh")}
         </Button>
       </div>
     </div>

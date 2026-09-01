@@ -14,6 +14,7 @@ export {
   isAdmin,
   isManagerOrAbove,
   navItemsForRole,
+  posNavItemsForRole,
   roleLabel,
   type StaffNavItem,
 } from "./permissions"
