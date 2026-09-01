@@ -13,6 +13,7 @@ import {
 import { env } from "@/core/config/env"
 import { EventPublisher } from "@/events/EventPublisher"
 import { EventTypes } from "@/events/EventTypes"
+import { posCacheInvalidateProducts } from "@/modules/cache"
 
 import { removeDocument, upsertDocument } from "./firestoreHelpers"
 
@@ -48,6 +49,7 @@ export class ProductRepository {
       toSheetsPayload(next),
       next.storeId
     )
+    posCacheInvalidateProducts(next.storeId)
     return next
   }
 
@@ -65,6 +67,7 @@ export class ProductRepository {
       },
       existing.storeId
     )
+    posCacheInvalidateProducts(existing.storeId)
     return existing
   }
 
@@ -101,6 +104,7 @@ export class ProductRepository {
     }
 
     markProductCatalogSeeded(PRODUCT_CATALOG_VERSION)
+    posCacheInvalidateProducts(storeId)
     return listLocalProducts()
   }
 }

@@ -16,7 +16,8 @@
     "db:wipe": "node scripts/wipe-firestore.mjs",
     "db:wipe:force": "node scripts/wipe-firestore.mjs --force",
     "functions:build": "npm --prefix backend/functions run build",
-    "functions:deploy": "firebase deploy --only functions"
+    "functions:deploy": "firebase deploy --only functions",
+    "worker:deploy": "npm --prefix workers/pos-cache run deploy"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

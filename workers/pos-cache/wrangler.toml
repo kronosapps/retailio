@@ -1,0 +1,12 @@
+name = "retailos-pos-cache"
+main = "src/index.ts"
+compatibility_date = "2025-03-01"
+
+# Set secrets via: wrangler secret put UPSTASH_REDIS_REST_URL
+# wrangler secret put UPSTASH_REDIS_REST_TOKEN
+# wrangler secret put FIREBASE_API_KEY
+# Optional dev bypass: wrangler secret put CACHE_API_KEY
+
+[vars]
+# Default store when validating single-store deployments
+DEFAULT_STORE_ID = "store-1"

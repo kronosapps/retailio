@@ -6,6 +6,7 @@ import {
 } from "@/data/inventoryLots"
 import { EventPublisher } from "@/events/EventPublisher"
 import { EventTypes } from "@/events/EventTypes"
+import { mergeStockFromCache, PosCacheClient } from "@/modules/cache"
 import { categoryRepository } from "@/repositories/CategoryRepository"
 import { inventoryRepository } from "@/repositories/InventoryRepository"
 import { inventoryLotRepository } from "@/repositories/InventoryLotRepository"
@@ -55,6 +56,18 @@ export class InventoryError extends Error {
 export class InventoryService {
   static list() {
     return inventoryRepository.list()
+  }
+
+  /** Merge on-hand stock from Redis (other POS terminals). */
+  static async hydrateStockFromCache(
+    storeId: string | null
+  ): Promise<boolean> {
+    const result = await PosCacheClient.fetchStock(storeId ?? "")
+    if (result?.stock && result.source === "redis") {
+      mergeStockFromCache(result.stock)
+      return true
+    }
+    return false
   }
 
   static getById(id: string) {

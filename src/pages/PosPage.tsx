@@ -60,6 +60,7 @@ import {
 import { PosCartPanel } from "@/modules/pos/components/PosCartPanel"
 import { ReceiptDialog } from "@/modules/receipt"
 import { ProductService } from "@/modules/products"
+import { InventoryService } from "@/modules/inventory"
 import { DayOpsService } from "@/modules/dayOps"
 import { getPosSettings } from "@/modules/settings"
 import {
@@ -227,6 +228,9 @@ export function PosPage() {
 
     async function loadCatalog() {
       try {
+        await ProductService.hydrateCatalogFromCache(profile?.storeId ?? null)
+        await InventoryService.hydrateStockFromCache(profile?.storeId ?? null)
+
         const products = await ProductService.ensureCatalogSeeded(
           profile?.storeId ?? null,
           userId
@@ -851,14 +855,14 @@ export function PosPage() {
             disabled={paymentOpen && !active}
             onClick={() => switchSession(id)}
             className={cn(
-              "inline-flex min-h-8 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-colors",
+              "inline-flex min-h-9 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors sm:text-sm",
               active
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-foreground hover:bg-muted/80",
               paymentOpen && !active && "cursor-not-allowed opacity-50"
             )}
           >
-            S{id}
+            Session {id}
             {count > 0 ? (
               <span
                 className={cn(

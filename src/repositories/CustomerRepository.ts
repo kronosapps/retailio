@@ -14,6 +14,10 @@ import {
 import { COLLECTIONS } from "@/core/firebase/collections"
 import { EventPublisher } from "@/events/EventPublisher"
 import { EventTypes } from "@/events/EventTypes"
+import {
+  posCacheInvalidateCustomer,
+  posCacheWarmCustomer,
+} from "@/modules/cache"
 import { createId } from "@/utils/id"
 
 import { listDocuments, removeDocument, upsertDocument } from "./firestoreHelpers"
@@ -102,6 +106,7 @@ export class CustomerRepository {
       },
       existing.storeId
     )
+    posCacheInvalidateCustomer(existing.storeId, existing.phone)
     return existing
   }
 
@@ -179,6 +184,7 @@ export class CustomerRepository {
       record,
       record.storeId
     )
+    posCacheWarmCustomer(record)
     return record
   }
 }

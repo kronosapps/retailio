@@ -184,6 +184,43 @@ export function PosCartPanel({
               <span className="tabular-nums">−{formatMoney(discounts)}</span>
             </div>
           ) : null}
+          {cart.length > 0 && totals.gstAmount > 0 ? (
+            <div className="space-y-0.5 text-[11px] leading-snug text-muted-foreground">
+              <div className="flex items-center justify-between">
+                <span>Taxable</span>
+                <span className="tabular-nums">
+                  {formatMoney(totals.taxableAmount)}
+                </span>
+              </div>
+              {(totals.igstAmount ?? 0) > 0 ? (
+                <div className="flex items-center justify-between">
+                  <span>IGST ({totals.igstPercent ?? totals.gstPercent}%)</span>
+                  <span className="tabular-nums">
+                    {formatMoney(totals.igstAmount ?? 0)}
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span>
+                      {totals.sgstLabel} ({totals.sgstPercent}%)
+                    </span>
+                    <span className="tabular-nums">
+                      {formatMoney(totals.sgstAmount)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>
+                      {totals.cgstLabel} ({totals.cgstPercent}%)
+                    </span>
+                    <span className="tabular-nums">
+                      {formatMoney(totals.cgstAmount)}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : null}
           <div className="flex items-center justify-between text-base font-semibold">
             <span>Total</span>
             <span className="tabular-nums">{formatMoney(totals.total)}</span>

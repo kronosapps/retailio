@@ -167,7 +167,7 @@ function PaymentDialogSession({
     setShowNameSuggestions(hits.length > 0)
   }
 
-  function onCustomerPhoneChange(value: string) {
+  async function onCustomerPhoneChange(value: string) {
     const cleaned = value.replace(/[^\d+\s-]/g, "").slice(0, 16)
     setCustomerPhone(cleaned)
     setMatchedCustomer(null)
@@ -182,8 +182,8 @@ function PaymentDialogSession({
     setPhoneSuggestions(hits)
     setShowPhoneSuggestions(hits.length > 0)
 
-    // Exact phone match → autofill name immediately
-    const exact = CustomerService.findByPhone(digits, storeId)
+    // Exact phone match → autofill name (Redis then local)
+    const exact = await CustomerService.findByPhoneFast(digits, storeId)
     if (exact && digits.length >= 10) {
       setCustomerName(exact.name)
       setCustomerPhone(exact.phone || cleaned)

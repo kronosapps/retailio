@@ -51,13 +51,13 @@ export function CustomerAttachField({
 
   const normalizedQueryPhone = normalizeCustomerPhone(query)
 
-  function startOnboard(phone: string) {
+  async function startOnboard(phone: string) {
     const digits = normalizeCustomerPhone(phone)
     if (!digits || digits.length < 10) {
       setError("Enter a 10-digit mobile number to register.")
       return
     }
-    const existing = CustomerService.findByPhone(digits, storeId)
+    const existing = await CustomerService.findByPhoneFast(digits, storeId)
     if (existing) {
       onPick(existing)
       setQuery("")
